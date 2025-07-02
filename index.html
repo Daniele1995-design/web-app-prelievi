@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>App Prelievi</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 400px; margin: auto; }
+    label, input, textarea, button { display: block; width: 100%; margin-bottom: 10px; font-size: 16px; }
+    #message.success { color: green; }
+    #message.error { color: red; }
+    #message.warning { color: orange; }
+  </style>
+</head>
+<body>
+  <h2>📦 App Prelievi</h2>
+  <div id="operatoreDisplay"></div>
+
+  <form id="prelievoForm">
+    <label for="seriale">📱 Serial:</label>
+    <input type="text" id="seriale" required autocomplete="off">
+
+    <label for="quantita">📊 Quantità:</label>
+    <input type="number" id="quantita" min="0.01" step="any" required>
+
+    <label for="note">📝 Note (opzionale):</label>
+    <textarea id="note" rows="2"></textarea>
+
+    <button type="submit">Invia</button>
+  </form>
+
+  <div id="message"></div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzCIE8AaP6pLHu7yxmcH1ZbKaOgUIXHzEe5xPHzChjSb4C_B-OyNMbyjCp2-gS6fGFCvQ/exec";
+
+    let operatore = '';
+
+    function mostraMessaggio(tipo, testo) {
+      const msg = document.getElementById('message');
+      msg.className = ''; // reset classi
+      msg.classList.add(tipo);
+      msg.textContent = testo;
+    }
+
+    function chiediOperatore() {
+      operatore = prompt("Inserisci il tuo nome o codice operatore:");
+      if (operatore && operatore.trim() !== '') {
+        operatore = operatore.trim();
+        document.getElementById('operatoreDisplay').textContent = "👤 Operatore: " + operatore;
+      } else {
+        mostraMessaggio('error', 'Operatore non impostato. Ricarica la pagina.');
+      }
+    }
+
+    chiediOperatore();
+
+    document.getElementById('prelievoForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (!operatore) return;
+
+      const dati = {
+        seriale: document.getElementById('seriale').value.trim(),
+        quantita: parseFloat(document.getElementById('quantita').value),
+        note: document.getElementById('note').value.trim(),
+        operatore: operatore
+      };
+
+      if (!dati.seriale) {
+        mostraMessaggio('error', 'Inserisci un codice seriale.');
+        return;
+      }
+
+      if (isNaN(dati.quantita) || dati.quantita <= 0) {
+        mostraMessaggio('error', 'Inserisci una quantità valida maggiore di zero.');
+        return;
+      }
+
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dati)
+      })
+      .then(res => res.json())
+      .then(response => {
+        mostraMessaggio(response.status, response.message);
+        if (response.status === 'success') {
+          document.getElementById('prelievoForm').reset();
+          document.getElementById('seriale').focus();
+        }
+      })
+      .catch(err => mostraMessaggio('error', 'Errore di rete: ' + err.message));
+    });
+  </script>
+</body>
+</html>
