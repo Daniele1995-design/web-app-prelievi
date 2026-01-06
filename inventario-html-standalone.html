@@ -1,590 +1,228 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario ATS</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <style>
-        @page {
-            size: 100mm 100mm;
-            margin: 0;
-        }
-        .print-only {
-            display: none;
-        }
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            .print-only {
-                display: block !important;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Inventario Scanner</title>
+
+  <!-- React CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    input {
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: #eee;
+    }
+
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+
+    .warning {
+      color: orange;
+      font-weight: bold;
+    }
+  </style>
 </head>
+
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+  <script type="text/babel">
 
-        // ============================================
-        // CONFIGURAZIONE
-        // ============================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-        const DEMO_MODE = false; // Cambia a false per produzione
+    const API_URL = "INCOLLA_QUI_LA_TUA_WEBAPP_APPS_SCRIPT_URL";
 
-        // ============================================
-        // DATI DEMO
-        // ============================================
-        const DEMO_GIACENZA = [
-            {
-                PoNr: 'NO PO',
-                Cdc: 'IWT-SPARE',
-                CodSap: '100000247',
-                Descrizione: '19363050,SMPS 48V,1900W',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: 'INWIT376877063I76602',
-                Stato: 'USATO',
-                Ubicazioni: 'CE71-STK-S41-C01-05-001',
-                WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1
-            },
-            {
-                PoNr: 'NO PO',
-                Cdc: 'IWT-SPARE',
-                CodSap: '100000247',
-                Descrizione: '19363050,SMPS 48V,1900W',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: 'INWIT252994454I76603',
-                Stato: 'USATO',
-                Ubicazioni: 'CE71-STK-S41-C01-05-002',
-                WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1
-            },
-            {
-                PoNr: '4700109762',
-                Cdc: 'IWT-PASSIVE',
-                CodSap: '301578429',
-                Descrizione: 'O-PALC e adattatore V1',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: '200310007',
-                Stato: 'NUOVO',
-                Ubicazioni: 'CE71-STK-S37-C09-02-001',
-                WMSCode: 'WMS0000749-IWT',
-                'Qtà': 1
+    function App() {
+      const [user, setUser] = React.useState(null);
+      const [username, setUsername] = React.useState("");
+
+      const [giacenza, setGiacenza] = React.useState([]);
+      const [loading, setLoading] = React.useState(false);
+
+      const [scanInput, setScanInput] = React.useState("");
+      const [scannedSet, setScannedSet] = React.useState(new Set());
+      const [scannedItems, setScannedItems] = React.useState([]);
+
+      const [message, setMessage] = React.useState(null);
+
+      /* LOGIN SEMPLICE */
+      const handleLogin = () => {
+        if (!username.trim()) return;
+        setUser({ username });
+        loadGiacenza();
+      };
+
+      /* CARICAMENTO GIACENZA REALE */
+      const loadGiacenza = () => {
+        setLoading(true);
+        fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "getGiacenza" })
+        })
+          .then(r => r.json())
+          .then(res => {
+            if (res.success) {
+              setGiacenza(res.data);
             }
-        ];
+          })
+          .finally(() => setLoading(false));
+      };
 
-        const DEMO_STATS = {
-            totaleGiacenza: 1250,
-            totaleInventariato: 847,
-            daInventariare: 403,
-            percentualeCompletamento: 68,
-            matchOk: 820,
-            matchKo: 27,
-            percentualeMatch: 97
-        };
+      /* SCANNER */
+      const handleScan = (e) => {
+        if (e.key !== "Enter") return;
 
-        // ============================================
-        // ICONE SVG
-        // ============================================
-        const Icons = {
-            Camera: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                </svg>
-            ),
-            Package: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                    <line x1="12" y1="22.08" x2="12" y2="12"/>
-                </svg>
-            ),
-            List: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="8" y1="6" x2="21" y2="6"/>
-                    <line x1="8" y1="12" x2="21" y2="12"/>
-                    <line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/>
-                    <line x1="3" y1="12" x2="3.01" y2="12"/>
-                    <line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
-            ),
-            BarChart: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="20" x2="12" y2="10"/>
-                    <line x1="18" y1="20" x2="18" y2="4"/>
-                    <line x1="6" y1="20" x2="6" y2="16"/>
-                </svg>
-            ),
-            Printer: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="6 9 6 2 18 2 18 9"/>
-                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                    <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-            ),
-            LogOut: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-            ),
-            CheckCircle: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-            ),
-            XCircle: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-            )
-        };
+        const seriale = scanInput.trim();
+        setScanInput("");
 
-        // ============================================
-        // APP PRINCIPALE
-        // ============================================
-        function App() {
-            const [user, setUser] = useState(null);
-            const [currentView, setCurrentView] = useState('login');
+        if (!seriale) return;
 
-            const handleLogout = () => {
-                setUser(null);
-                setCurrentView('login');
-                sessionStorage.clear();
-            };
-
-            if (!user || currentView === 'login') {
-                return <Login onLogin={(userData) => {
-                    setUser(userData);
-                    setCurrentView('dashboard');
-                }} />;
-            }
-
-            return (
-                <div className="min-h-screen bg-gray-100 no-print">
-                    {/* Header */}
-                    <header className="bg-blue-600 text-white p-4 shadow-lg">
-                        <div className="max-w-7xl mx-auto flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold">Inventario ATS</h1>
-                                <p className="text-sm opacity-90">Operatore: {user.nome}</p>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600"
-                            >
-                                <Icons.LogOut />
-                                Esci
-                            </button>
-                        </div>
-                    </header>
-
-                    {/* Navigation */}
-                    <nav className="bg-white shadow-md">
-                        <div className="max-w-7xl mx-auto flex overflow-x-auto">
-                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
-                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
-                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
-                            <NavButton icon={<Icons.Printer />} label="Stampa" active={currentView === 'stampa'} onClick={() => setCurrentView('stampa')} />
-                        </div>
-                    </nav>
-
-                    {/* Main Content */}
-                    <main className="max-w-7xl mx-auto p-4">
-                        {currentView === 'dashboard' && <Dashboard user={user} />}
-                        {currentView === 'scanner' && <ModeScanner user={user} />}
-                        {currentView === 'lista' && <ModeLista user={user} />}
-                        {currentView === 'storico' && <div className="text-center py-12 text-gray-600">Storico - In sviluppo</div>}
-                        {currentView === 'stampa' && <div className="text-center py-12 text-gray-600">Stampa - In sviluppo</div>}
-                    </main>
-                </div>
-            );
+        if (scannedSet.has(seriale)) {
+          setMessage({ type: "warning", text: "⚠️ Seriale già scannerizzato" });
+          return;
         }
 
-        // ============================================
-        // COMPONENTI
-        // ============================================
+        const found = giacenza.find(r =>
+          String(r["SerS/No"]).trim() === seriale
+        );
 
-        function NavButton({ icon, label, active, onClick }) {
-            return (
-                <button
-                    onClick={onClick}
-                    className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${
-                        active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    {icon}
-                    <span className="font-medium">{label}</span>
-                </button>
-            );
+        if (!found) {
+          setMessage({ type: "error", text: "❌ Seriale NON trovato" });
+          return;
         }
 
-        function Login({ onLogin }) {
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState('');
+        setScannedSet(prev => new Set(prev).add(seriale));
+        setScannedItems(prev => [...prev, {
+          ...found,
+          SERIALE_RISCONTRATO: seriale,
+          UTENTE: user.username,
+          DATA: new Date().toLocaleString()
+        }]);
 
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError('');
+        setMessage({ type: "success", text: "✅ Match OK" });
 
-                if (DEMO_MODE) {
-                    if (username === 'admin' && password === 'admin123') {
-                        onLogin({ username: 'admin', nome: 'Operatore Demo', ruolo: 'admin' });
-                    } else {
-                        setError('Demo: usa admin / admin123');
-                    }
-                    setLoading(false);
-                    return;
-                }
+        /* salva storico backend */
+        fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "saveScan",
+            seriale,
+            utente: user.username
+          })
+        });
+      };
 
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'login', username, password })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        onLogin(result.user);
-                    } else {
-                        setError(result.error || 'Errore di login');
-                    }
-                } catch (err) {
-                    setError('Errore di connessione');
-                } finally {
-                    setLoading(false);
-                }
-            };
+      /* UI LOGIN */
+      if (!user) {
+        return (
+          <div>
+            <h2>Login Operatore</h2>
+            <input
+              placeholder="Nome operatore"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+            <button onClick={handleLogin}>Entra</button>
+          </div>
+        );
+      }
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-                        <div className="text-center mb-8">
-                            <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
-                            <p className="text-gray-600 mt-2">Sistema di Inventario</p>
-                        </div>
+      /* UI PRINCIPALE */
+      return (
+        <div>
+          <h2>Scanner Inventario</h2>
+          <p>Operatore: <b>{user.username}</b></p>
 
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Inserisci username"
-                                    required
-                                />
-                            </div>
+          {loading && <p>Caricamento giacenza...</p>}
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Inserisci password"
-                                    required
-                                />
-                            </div>
+          <input
+            autoFocus
+            placeholder="Scansiona seriale"
+            value={scanInput}
+            onChange={e => setScanInput(e.target.value)}
+            onKeyDown={handleScan}
+          />
 
-                            {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                                    {error}
-                                </div>
-                            )}
+          {message && (
+            <p className={message.type}>{message.text}</p>
+          )}
 
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
-                            >
-                                {loading ? 'Accesso in corso...' : 'Accedi'}
-                            </button>
-                        </form>
+          <h3>Storico sessione</h3>
 
-                        <div className="mt-6 text-center text-sm text-gray-600">
-                            <p>Demo: admin / admin123</p>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
+          <table>
+            <thead>
+              <tr>
+                <th>PoNr</th>
+                <th>CDC</th>
+                <th>Articolo</th>
+                <th>Seriale</th>
+                <th>Utente</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scannedItems.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.PoNr}</td>
+                  <td>{r.Cdc}</td>
+                  <td>{r.Articolo}</td>
+                  <td>{r.SERIALE_RISCONTRATO}</td>
+                  <td>{r.UTENTE}</td>
+                  <td>{r.DATA}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
 
-        function Dashboard({ user }) {
-            const [stats, setStats] = useState(DEMO_STATS);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-
-                    {/* Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
-                        <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
-                        <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
-                        <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
-                    </div>
-
-                    {/* Progress */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-gray-700">Completamento Inventario</span>
-                            <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div
-                                className="bg-blue-600 h-4 rounded-full transition-all duration-500"
-                                style={{ width: `${stats.percentualeCompletamento}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Match Quality */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold mb-4">Qualità Riscontri</h3>
-                        <div className="flex gap-4">
-                            <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
-                                <div className="flex items-center gap-2 text-green-700 mb-2">
-                                    <Icons.CheckCircle />
-                                    <span className="font-medium">Match OK</span>
-                                </div>
-                                <p className="text-3xl font-bold text-green-600">{stats.matchOk}</p>
-                            </div>
-                            <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
-                                <div className="flex items-center gap-2 text-red-700 mb-2">
-                                    <Icons.XCircle />
-                                    <span className="font-medium">Match KO</span>
-                                </div>
-                                <p className="text-3xl font-bold text-red-600">{stats.matchKo}</p>
-                            </div>
-                        </div>
-                        <div className="mt-4 text-center">
-                            <span className="text-gray-600">Accuratezza: </span>
-                            <span className="text-xl font-bold text-blue-600">{stats.percentualeMatch}%</span>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        function StatCard({ title, value, icon, color }) {
-            return (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-600 text-sm font-medium">{title}</span>
-                        <span className="text-2xl">{icon}</span>
-                    </div>
-                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>
-                        {value.toLocaleString()}
-                    </p>
-                </div>
-            );
-        }
-
-        function ModeScanner({ user }) {
-            const [scanInput, setScanInput] = useState('');
-            const [giacenza, setGiacenza] = useState(DEMO_GIACENZA);
-            const [currentItem, setCurrentItem] = useState(null);
-            const [message, setMessage] = useState({ type: '', text: '' });
-            const inputRef = useRef(null);
-
-            useEffect(() => {
-                if (inputRef.current) {
-                    inputRef.current.focus();
-                }
-            }, []);
-
-            const handleScan = (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const scanned = scanInput.trim().toUpperCase();
-                    const found = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF).toUpperCase() === scanned
-                    );
-
-                    if (found) {
-                        setCurrentItem(found);
-                        setMessage({ type: 'success', text: '✅ MATCH OK!' });
-                        playBeep('success');
-                    } else {
-                        setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO' });
-                        playBeep('error');
-                    }
-
-                    setScanInput('');
-                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                }
-            };
-
-            const playBeep = (type) => {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-
-                oscillator.frequency.value = type === 'success' ? 800 : 400;
-                oscillator.type = 'square';
-
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-            };
-
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
-
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Icons.Camera /> Scansiona Seriale
-                        </label>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={scanInput}
-                            onChange={(e) => setScanInput(e.target.value)}
-                            onKeyPress={handleScan}
-                            className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Premi trigger scanner..."
-                            autoFocus
-                        />
-                        <p className="text-sm text-gray-500 mt-2">
-                            Premi il trigger dello scanner Zebra. Demo: prova INWIT376877063I76602
-                        </p>
-                    </div>
-
-                    {message.text && (
-                        <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${
-                            message.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-                        }`}>
-                            {message.text}
-                        </div>
-                    )}
-
-                    {currentItem && (
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="text-lg font-semibold mb-4">Dettagli Item</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <InfoRow label="Cod. SAP" value={currentItem.CodSap} />
-                                <InfoRow label="WMS Code" value={currentItem.WMSCode} />
-                                <InfoRow label="Descrizione" value={currentItem.Descrizione} className="col-span-2" />
-                                <InfoRow label="Ubicazione" value={currentItem.Ubicazioni} />
-                                <InfoRow label="CDC" value={currentItem.Cdc} />
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        function InfoRow({ label, value, className = '' }) {
-            return (
-                <div className={className}>
-                    <p className="text-sm text-gray-600 font-medium">{label}</p>
-                    <p className="text-lg font-semibold text-gray-800">{value || '-'}</p>
-                </div>
-            );
-        }
-
-        function ModeLista({ user }) {
-            const [giacenza] = useState(DEMO_GIACENZA);
-            const [selected, setSelected] = useState({});
-
-            const handleSelectAll = () => {
-                const newSelected = {};
-                giacenza.forEach((item, idx) => {
-                    newSelected[idx] = true;
-                });
-                setSelected(newSelected);
-            };
-
-            const handleSave = () => {
-                const count = Object.values(selected).filter(Boolean).length;
-                alert(`${count} articoli salvati!`);
-                setSelected({});
-            };
-
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Modalità Lista</h2>
-
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleSelectAll}
-                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
-                        >
-                            Seleziona Tutti
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={Object.values(selected).filter(Boolean).length === 0}
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                        >
-                            Salva ({Object.values(selected).filter(Boolean).length})
-                        </button>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-3 text-left">
-                                        <input type="checkbox" onChange={(e) => {
-                                            if (e.target.checked) handleSelectAll();
-                                            else setSelected({});
-                                        }} />
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold">Cod. SAP</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold">Descrizione</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold">Ubicazione</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {giacenza.map((item, idx) => (
-                                    <tr key={idx} className="border-t hover:bg-gray-50">
-                                        <td className="px-4 py-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={selected[idx] || false}
-                                                onChange={(e) => setSelected({...selected, [idx]: e.target.checked})}
-                                            />
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-medium">{item.CodSap}</td>
-                                        <td className="px-4 py-3 text-sm">{item.Descrizione}</td>
-                                        <td className="px-4 py-3 text-sm">{item.Ubicazioni}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            );
-        }
-
-        // Render App
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
+  </script>
 </body>
 </html>
