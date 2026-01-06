@@ -1,228 +1,534 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <title>Inventario Scanner</title>
-
-  <!-- React CDN -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h2 {
-      margin-top: 0;
-    }
-
-    input {
-      padding: 10px;
-      font-size: 16px;
-      width: 100%;
-      margin-bottom: 10px;
-    }
-
-    button {
-      padding: 10px 16px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-      background: white;
-    }
-
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      font-size: 14px;
-      text-align: left;
-    }
-
-    th {
-      background: #eee;
-    }
-
-    .success {
-      color: green;
-      font-weight: bold;
-    }
-
-    .error {
-      color: red;
-      font-weight: bold;
-    }
-
-    .warning {
-      color: orange;
-      font-weight: bold;
-    }
-  </style>
-</head>
-
-<body>
-  <div id="root"></div>
-
-  <script type="text/babel">
-
-    const API_URL = "INCOLLA_QUI_LA_TUA_WEBAPP_APPS_SCRIPT_URL";
-
-    function App() {
-      const [user, setUser] = React.useState(null);
-      const [username, setUsername] = React.useState("");
-
-      const [giacenza, setGiacenza] = React.useState([]);
-      const [loading, setLoading] = React.useState(false);
-
-      const [scanInput, setScanInput] = React.useState("");
-      const [scannedSet, setScannedSet] = React.useState(new Set());
-      const [scannedItems, setScannedItems] = React.useState([]);
-
-      const [message, setMessage] = React.useState(null);
-
-      /* LOGIN SEMPLICE */
-      const handleLogin = () => {
-        if (!username.trim()) return;
-        setUser({ username });
-        loadGiacenza();
-      };
-
-      /* CARICAMENTO GIACENZA REALE */
-      const loadGiacenza = () => {
-        setLoading(true);
-        fetch(API_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "getGiacenza" })
-        })
-          .then(r => r.json())
-          .then(res => {
-            if (res.success) {
-              setGiacenza(res.data);
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inventario ATS</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @page {
+            size: 100mm 100mm;
+            margin: 0;
+        }
+        .print-only {
+            display: none;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
             }
-          })
-          .finally(() => setLoading(false));
-      };
+            .print-only {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-      /* SCANNER */
-      const handleScan = (e) => {
-        if (e.key !== "Enter") return;
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        const seriale = scanInput.trim();
-        setScanInput("");
+        // CONFIGURAZIONE
+        const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
+        const DEMO_MODE = false; // Cambia a false per produzione
 
-        if (!seriale) return;
+        // DATI DEMO AGGIORNATI con campi extra
+        const DEMO_GIACENZA = [
+            {
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT376877063I76602',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-001',
+                WMSCode: 'WMS0000009-IWT',
+                'Qtà': 1
+            },
+            {
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT252994454I76603',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-002',
+                WMSCode: 'WMS0000009-IWT',
+                'Qtà': 1
+            },
+            {
+                PoNr: '4700109762',
+                Cdc: 'IWT-PASSIVE',
+                CodSap: '301578429',
+                Descrizione: 'O-PALC e adattatore V1',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: '200310007',
+                Stato: 'NUOVO',
+                Ubicazioni: 'CE71-STK-S37-C09-02-001',
+                WMSCode: 'WMS0000749-IWT',
+                'Qtà': 1
+            }
+        ];
 
-        if (scannedSet.has(seriale)) {
-          setMessage({ type: "warning", text: "⚠️ Seriale già scannerizzato" });
-          return;
+        const DEMO_STATS = {
+            totaleGiacenza: 1250,
+            totaleInventariato: 847,
+            daInventariare: 403,
+            percentualeCompletamento: 68,
+            matchOk: 820,
+            matchKo: 27,
+            percentualeMatch: 97
+        };
+
+        // ICONE SVG
+        const Icons = {
+            Camera: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+            ),
+            Package: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            ),
+            List: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+            ),
+            BarChart: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="20" x2="12" y2="10"/>
+                    <line x1="18" y1="20" x2="18" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="16"/>
+                </svg>
+            ),
+            Printer: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+            ),
+            LogOut: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            ),
+            CheckCircle: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            ),
+            XCircle: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+            )
+        };
+
+        // APP PRINCIPALE
+        function App() {
+            const [user, setUser] = useState(null);
+            const [currentView, setCurrentView] = useState('login');
+
+            const handleLogout = () => {
+                setUser(null);
+                setCurrentView('login');
+                sessionStorage.clear();
+            };
+
+            if (!user || currentView === 'login') {
+                return <Login onLogin={(userData) => {
+                    setUser(userData);
+                    setCurrentView('dashboard');
+                }} />;
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-100 no-print">
+                    {/* Header */}
+                    <header className="bg-blue-600 text-white p-4 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold">Inventario ATS</h1>
+                                <p className="text-sm opacity-90">Operatore: {user.nome}</p>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600"
+                            >
+                                <Icons.LogOut />
+                                Esci
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="bg-white shadow-md">
+                        <div className="max-w-7xl mx-auto flex overflow-x-auto">
+                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
+                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
+                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
+                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
+                            <NavButton icon={<Icons.Printer />} label="Stampa" active={currentView === 'stampa'} onClick={() => setCurrentView('stampa')} />
+                        </div>
+                    </nav>
+
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto p-4">
+                        {currentView === 'dashboard' && <Dashboard user={user} />}
+                        {currentView === 'scanner' && <ModeScanner user={user} />}
+                        {currentView === 'lista' && <ModeLista user={user} />}
+                        {currentView === 'storico' && <div className="text-center py-12 text-gray-600">Storico - In sviluppo</div>}
+                        {currentView === 'stampa' && <div className="text-center py-12 text-gray-600">Stampa - In sviluppo</div>}
+                    </main>
+                </div>
+            );
         }
 
-        const found = giacenza.find(r =>
-          String(r["SerS/No"]).trim() === seriale
-        );
-
-        if (!found) {
-          setMessage({ type: "error", text: "❌ Seriale NON trovato" });
-          return;
+        // COMPONENTI
+        function NavButton({ icon, label, active, onClick }) {
+            return (
+                <button
+                    onClick={onClick}
+                    className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${
+                        active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    {icon}
+                    <span className="font-medium">{label}</span>
+                </button>
+            );
         }
 
-        setScannedSet(prev => new Set(prev).add(seriale));
-        setScannedItems(prev => [...prev, {
-          ...found,
-          SERIALE_RISCONTRATO: seriale,
-          UTENTE: user.username,
-          DATA: new Date().toLocaleString()
-        }]);
+        function Login({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
 
-        setMessage({ type: "success", text: "✅ Match OK" });
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
 
-        /* salva storico backend */
-        fetch(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "saveScan",
-            seriale,
-            utente: user.username
-          })
-        });
-      };
+                if (DEMO_MODE) {
+                    if (username === 'admin' && password === 'admin123') {
+                        onLogin({ username: 'admin', nome: 'Operatore Demo', ruolo: 'admin' });
+                    } else {
+                        setError('Demo: usa admin / admin123');
+                    }
+                    setLoading(false);
+                    return;
+                }
 
-      /* UI LOGIN */
-      if (!user) {
-        return (
-          <div>
-            <h2>Login Operatore</h2>
-            <input
-              placeholder="Nome operatore"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-            <button onClick={handleLogin}>Entra</button>
-          </div>
-        );
-      }
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'login', username, password })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        onLogin(result.user);
+                    } else {
+                        setError(result.error || 'Errore di login');
+                    }
+                } catch (err) {
+                    setError('Errore di connessione');
+                } finally {
+                    setLoading(false);
+                }
+            };
 
-      /* UI PRINCIPALE */
-      return (
-        <div>
-          <h2>Scanner Inventario</h2>
-          <p>Operatore: <b>{user.username}</b></p>
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
+                            <p className="text-gray-600 mt-2">Sistema di Inventario</p>
+                        </div>
 
-          {loading && <p>Caricamento giacenza...</p>}
+                        <form onSubmit={handleLogin} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Inserisci username"
+                                    required
+                                />
+                            </div>
 
-          <input
-            autoFocus
-            placeholder="Scansiona seriale"
-            value={scanInput}
-            onChange={e => setScanInput(e.target.value)}
-            onKeyDown={handleScan}
-          />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Inserisci password"
+                                    required
+                                />
+                            </div>
 
-          {message && (
-            <p className={message.type}>{message.text}</p>
-          )}
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                                    {error}
+                                </div>
+                            )}
 
-          <h3>Storico sessione</h3>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                            >
+                                {loading ? 'Accesso in corso...' : 'Accedi'}
+                            </button>
+                        </form>
 
-          <table>
-            <thead>
-              <tr>
-                <th>PoNr</th>
-                <th>CDC</th>
-                <th>Articolo</th>
-                <th>Seriale</th>
-                <th>Utente</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scannedItems.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.PoNr}</td>
-                  <td>{r.Cdc}</td>
-                  <td>{r.Articolo}</td>
-                  <td>{r.SERIALE_RISCONTRATO}</td>
-                  <td>{r.UTENTE}</td>
-                  <td>{r.DATA}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
+                        <div className="mt-6 text-center text-sm text-gray-600">
+                            <p>Demo: admin / admin123</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+        function Dashboard({ user }) {
+            const [stats, setStats] = useState(DEMO_STATS);
 
-  </script>
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
+
+                    {/* Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
+                        <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
+                        <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
+                        <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
+                    </div>
+
+                    {/* Progress */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-medium text-gray-700">Completamento Inventario</span>
+                            <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-4">
+                            <div
+                                className="bg-blue-600 h-4 rounded-full transition-all duration-500"
+                                style={{ width: `${stats.percentualeCompletamento}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Match Quality */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold mb-4">Qualità Riscontri</h3>
+                        <div className="flex gap-4">
+                            <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 text-green-700 mb-2">
+                                    <Icons.CheckCircle />
+                                    <span className="font-medium">Match OK</span>
+                                </div>
+                                <p className="text-2xl font-bold">{stats.matchOk}</p>
+                            </div>
+                            <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 text-red-700 mb-2">
+                                    <Icons.XCircle />
+                                    <span className="font-medium">Match KO</span>
+                                </div>
+                                <p className="text-2xl font-bold">{stats.matchKo}</p>
+                            </div>
+                        </div>
+                        <p className="mt-4 font-semibold">Percentuale Match: {stats.percentualeMatch}%</p>
+                    </div>
+                </div>
+            );
+        }
+
+        function StatCard({ title, value, icon, color }) {
+            return (
+                <div className={`rounded-lg shadow p-6 text-white flex items-center gap-4 ${color}`}>
+                    <div className="text-4xl">{icon}</div>
+                    <div>
+                        <h4 className="font-semibold">{title}</h4>
+                        <p className="text-2xl font-bold">{value}</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // MODE SCANNER
+        function ModeScanner({ user }) {
+            const [scanInput, setScanInput] = useState('');
+            const [lastScan, setLastScan] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [dettaglioItem, setDettaglioItem] = useState(null);
+
+            // Simula una chiamata API con demo dati
+            const getItemFromScan = (code) => {
+                if (DEMO_MODE) {
+                    return DEMO_GIACENZA.find(item => item.RISCONTROSERIALEF === code) || null;
+                }
+                // Qui chiameresti la tua API reale
+                return null;
+            };
+
+            const handleScan = (e) => {
+                e.preventDefault();
+                setError('');
+                setLoading(true);
+
+                // Simula ricerca item
+                setTimeout(() => {
+                    const item = getItemFromScan(scanInput.trim());
+                    if (item) {
+                        setLastScan(item);
+                        setDettaglioItem(item);
+                    } else {
+                        setError('Elemento non trovato');
+                        setLastScan(null);
+                        setDettaglioItem(null);
+                    }
+                    setLoading(false);
+                    setScanInput('');
+                }, 500);
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Modalità Scanner</h2>
+
+                    <form onSubmit={handleScan} className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            value={scanInput}
+                            onChange={e => setScanInput(e.target.value)}
+                            placeholder="Inserisci codice o seriale"
+                            className="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading || !scanInput.trim()}
+                            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                        >
+                            {loading ? 'Caricamento...' : 'Cerca'}
+                        </button>
+                    </form>
+
+                    {error && <div className="text-red-600 mb-4">{error}</div>}
+
+                    {dettaglioItem && (
+                        <div className="bg-white rounded shadow p-4 max-w-xl">
+                            <h3 className="text-xl font-semibold mb-3">Dettaglio Item</h3>
+                            <ul className="space-y-1 text-gray-700">
+                                <li><strong>PoNr:</strong> {dettaglioItem.PoNr}</li>
+                                <li><strong>Cdc:</strong> {dettaglioItem.Cdc}</li>
+                                <li><strong>CodSap:</strong> {dettaglioItem.CodSap}</li>
+                                <li><strong>Descrizione:</strong> {dettaglioItem.Descrizione}</li>
+                                <li><strong>Seriale (SerS/No):</strong> {dettaglioItem['SerS/No']}</li>
+                                <li><strong>Seriale Riscontro:</strong> {dettaglioItem.RISCONTROSERIALEF}</li>
+                                <li><strong>Stato:</strong> {dettaglioItem.Stato}</li>
+                                <li><strong>Ubicazioni:</strong> {dettaglioItem.Ubicazioni}</li>
+                                <li><strong>WMSCode:</strong> {dettaglioItem.WMSCode}</li>
+                                <li><strong>Qtà:</strong> {dettaglioItem['Qtà']}</li>
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // MODE LISTA
+        function ModeLista({ user }) {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filteredItems, setFilteredItems] = useState(DEMO_GIACENZA);
+
+            useEffect(() => {
+                const filtered = DEMO_GIACENZA.filter(item =>
+                    item.RISCONTROSERIALEF.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.Descrizione.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.CodSap.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                setFilteredItems(filtered);
+            }, [searchTerm]);
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold mb-4">Lista Elementi</h2>
+                    <input
+                        type="text"
+                        placeholder="Cerca per seriale, descrizione o codice SAP"
+                        className="w-full mb-4 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                    <div className="overflow-auto max-h-[400px]">
+                        <table className="w-full table-auto border-collapse border border-gray-300">
+                            <thead className="bg-blue-100">
+                                <tr>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">PoNr</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Cdc</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">CodSap</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Descrizione</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">SerS/No</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Seriale Riscontro</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Stato</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Ubicazioni</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">WMSCode</th>
+                                    <th className="border border-gray-300 px-3 py-1 text-left">Qtà</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredItems.map((item, i) => (
+                                    <tr key={i} className="even:bg-gray-50 hover:bg-blue-50 cursor-pointer">
+                                        <td className="border border-gray-300 px-3 py-1">{item.PoNr}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.Cdc}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.CodSap}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.Descrizione}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item['SerS/No']}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.RISCONTROSERIALEF}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.Stato}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.Ubicazioni}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item.WMSCode}</td>
+                                        <td className="border border-gray-300 px-3 py-1">{item['Qtà']}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
