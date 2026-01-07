@@ -8,7 +8,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
+   
     <style>
         @page {
             size: 100mm 100mm;
@@ -37,95 +37,28 @@
         // CONFIGURAZIONE
         // ============================================
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-        const DEMO_MODE = false; // Cambia a false per produzione
+        const DEMO_MODE = false;
 
-       async function api(action, payload = {}) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    redirect: 'follow',  // importante per GAS
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'  // <--- QUESTO RISOLVE IL CORS
-    },
-    body: JSON.stringify({ action, ...payload })
-  });
+        async function api(action, payload = {}) {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify({ action, ...payload })
+            });
 
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || 'Errore API');
-  return data;
-}
-        // ============================================
-        // DATI DEMO
-        // ============================================
-        const DEMO_GIACENZA = [
-            {
-                PoNr: 'NO PO',
-                Cdc: 'IWT-SPARE',
-                CodSap: '100000247',
-                Descrizione: '19363050,SMPS 48V,1900W',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: 'INWIT376877063I76602',
-                Stato: 'USATO',
-                Ubicazioni: 'CE71-STK-S41-C01-05-001',
-                WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1,
-                inventariato: false
-            },
-            {
-                PoNr: 'NO PO',
-                Cdc: 'IWT-SPARE',
-                CodSap: '100000247',
-                Descrizione: '19363050,SMPS 48V,1900W',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: 'INWIT252994454I76603',
-                Stato: 'USATO',
-                Ubicazioni: 'CE71-STK-S41-C01-05-002',
-                WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1,
-                inventariato: false
-            },
-            {
-                PoNr: '4700109762',
-                Cdc: 'IWT-PASSIVE',
-                CodSap: '301578429',
-                Descrizione: 'O-PALC e adattatore V1',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: '200310007',
-                Stato: 'NUOVO',
-                Ubicazioni: 'CE71-STK-S37-C09-02-001',
-                WMSCode: 'WMS0000749-IWT',
-                'Qtà': 1,
-                inventariato: false
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
-        ];
 
-        const [] = [
-            {
-                ID: '1',
-                Timestamp: new Date('2026-01-07T10:30:00'),
-                Operatore: 'admin',
-                PoNr: 'NO PO',
-                Cdc: 'IWT-SPARE',
-                CodSap: '100000247',
-                Descrizione: '19363050,SMPS 48V,1900W',
-                'SerS/No': 'Sì',
-                RISCONTROSERIALEF: 'INWIT376877063I76602',
-                Stato: 'USATO',
-                Ubicazioni: 'CE71-STK-S41-C01-05-001',
-                'Qtà': 1,
-                Seriale_Riscontrato: 'INWIT376877063I76602',
-                Match: 'OK'
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Errore API');
             }
-        ];
-
-        const DEMO_STATS = {
-            totaleGiacenza: 1250,
-            totaleInventariato: 847,
-            daInventariare: 403,
-            percentualeCompletamento: 68,
-            matchOk: 820,
-            matchKo: 27,
-            percentualeMatch: 97
-        };
+            return data;
+        }
 
         // ============================================
         // ICONE SVG
@@ -212,24 +145,18 @@
 
             return (
                 <div className="min-h-screen bg-gray-100 no-print">
-                    {/* Header */}
                     <header className="bg-blue-600 text-white p-4 shadow-lg">
                         <div className="max-w-7xl mx-auto flex justify-between items-center">
                             <div>
                                 <h1 className="text-2xl font-bold">Inventario ATS</h1>
                                 <p className="text-sm opacity-90">Operatore: {user.nome}</p>
                             </div>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600"
-                            >
-                                <Icons.LogOut />
-                                Esci
+                            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600">
+                                <Icons.LogOut /> Esci
                             </button>
                         </div>
                     </header>
 
-                    {/* Navigation */}
                     <nav className="bg-white shadow-md">
                         <div className="max-w-7xl mx-auto flex overflow-x-auto">
                             <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
@@ -240,7 +167,6 @@
                         </div>
                     </nav>
 
-                    {/* Main Content */}
                     <main className="max-w-7xl mx-auto p-4">
                         {currentView === 'dashboard' && <Dashboard user={user} />}
                         {currentView === 'scanner' && <ModeScanner user={user} />}
@@ -255,7 +181,6 @@
         // ============================================
         // COMPONENTI
         // ============================================
-
         function NavButton({ icon, label, active, onClick }) {
             return (
                 <button
@@ -281,26 +206,11 @@
                 setLoading(true);
                 setError('');
 
-                const result = await api('login', {
-  username,
-  password
-});
-
-onLogin(result.user);
-
                 try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'login', username, password })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        onLogin(result.user);
-                    } else {
-                        setError(result.error || 'Errore di login');
-                    }
+                    const result = await api('login', { username, password });
+                    onLogin(result.user);
                 } catch (err) {
-                    setError('Errore di connessione');
+                    setError(err.message || 'Errore di login o connessione');
                 } finally {
                     setLoading(false);
                 }
@@ -313,47 +223,20 @@ onLogin(result.user);
                             <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
                             <p className="text-gray-600 mt-2">Sistema di Inventario</p>
                         </div>
-
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Inserisci username"
-                                    required
-                                />
+                                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Inserisci username" required />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Inserisci password"
-                                    required
-                                />
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Inserisci password" required />
                             </div>
-
-                            {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                                    {error}
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
-                            >
+                            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
                                 {loading ? 'Accesso in corso...' : 'Accedi'}
                             </button>
                         </form>
-
                         <div className="mt-6 text-center text-sm text-gray-600">
                             <p>Demo: admin / admin123</p>
                         </div>
@@ -363,49 +246,57 @@ onLogin(result.user);
         }
 
         function Dashboard({ user }) {
-            const [stats, setStats] = useState(DEMO_STATS);
+            const [stats, setStats] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                async function load() {
+                    try {
+                        const res = await api('getStats');
+                        setStats(res.stats);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Errore caricamento statistiche');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
+
+            if (loading) return <div className="text-center py-12">Caricamento statistiche...</div>;
+            if (!stats) return <div className="text-center py-12 text-red-600">Impossibile caricare le statistiche</div>;
 
             return (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-
-                    {/* Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
                         <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
                         <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
                         <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
                     </div>
-
-                    {/* Progress */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <div className="flex justify-between items-center mb-2">
                             <span className="font-medium text-gray-700">Completamento Inventario</span>
                             <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div
-                                className="bg-blue-600 h-4 rounded-full transition-all duration-500"
-                                style={{ width: `${stats.percentualeCompletamento}%` }}
-                            />
+                            <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.percentualeCompletamento}%` }} />
                         </div>
                     </div>
-
-                    {/* Match Quality */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h3 className="text-lg font-semibold mb-4">Qualità Riscontri</h3>
                         <div className="flex gap-4">
                             <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
                                 <div className="flex items-center gap-2 text-green-700 mb-2">
-                                    <Icons.CheckCircle />
-                                    <span className="font-medium">Match OK</span>
+                                    <Icons.CheckCircle /><span className="font-medium">Match OK</span>
                                 </div>
                                 <p className="text-3xl font-bold text-green-600">{stats.matchOk}</p>
                             </div>
                             <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
                                 <div className="flex items-center gap-2 text-red-700 mb-2">
-                                    <Icons.XCircle />
-                                    <span className="font-medium">Match KO</span>
+                                    <Icons.XCircle /><span className="font-medium">Match KO</span>
                                 </div>
                                 <p className="text-3xl font-bold text-red-600">{stats.matchKo}</p>
                             </div>
@@ -426,9 +317,7 @@ onLogin(result.user);
                         <span className="text-gray-600 text-sm font-medium">{title}</span>
                         <span className="text-2xl">{icon}</span>
                     </div>
-                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>
-                        {value.toLocaleString()}
-                    </p>
+                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>{value.toLocaleString()}</p>
                 </div>
             );
         }
@@ -439,79 +328,97 @@ onLogin(result.user);
             const [storico, setStorico] = useState([]);
             const [currentItem, setCurrentItem] = useState(null);
             const [message, setMessage] = useState({ type: '', text: '' });
+            const [loading, setLoading] = useState(true);
             const inputRef = useRef(null);
 
             useEffect(() => {
-                if (inputRef.current) {
-                    inputRef.current.focus();
+                async function loadData() {
+                    try {
+                        const [resGiac, resStor] = await Promise.all([
+                            api('getGiacenza', { filters: {} }),
+                            api('getStorico', { filters: {} })
+                        ]);
+                        setGiacenza(resGiac.data.map(item => ({ ...item, inventariato: false })));
+                        setStorico(resStor.data);
+                    } catch (err) {
+                        alert('Errore caricamento dati scanner');
+                    } finally {
+                        setLoading(false);
+                    }
                 }
+                loadData();
+                if (inputRef.current) inputRef.current.focus();
             }, []);
 
-            const handleScan = (e) => {
+            const playBeep = (type) => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = type === 'success' ? 800 : 400;
+                oscillator.type = 'square';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.1);
+            };
+
+            const handleScan = async (e) => {
                 if (e.key === 'Enter' && scanInput.trim()) {
                     const scanned = scanInput.trim().toUpperCase();
-                    
-                    // CONTROLLO 1: Verifica se già inventariato
-                    const alreadyScanned = storico.find(item => 
-                        String(item.Seriale_Riscontrato).toUpperCase() === scanned
-                    );
 
+                    const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato || '').toUpperCase() === scanned);
                     if (alreadyScanned) {
-                        setMessage({ 
-                            type: 'warning', 
-                            text: '⚠️ SERIALE GIÀ REGISTRATO IN PRECEDENZA' 
-                        });
+                        setMessage({ type: 'warning', text: '⚠️ SERIALE GIÀ REGISTRATO' });
                         playBeep('error');
                         setScanInput('');
                         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                         return;
                     }
 
-                    // CONTROLLO 2: Cerca nella giacenza
-                    const found = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF).toUpperCase() === scanned &&
-                        !item.inventariato
-                    );
-
+                    const found = giacenza.find(item => String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato);
                     if (found) {
                         const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-                        
                         setCurrentItem(found);
-                        setMessage({ 
-                            type: match ? 'success' : 'error', 
-                            text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' 
-                        });
-
-                        // Salva nello storico
-                        const newStorico = {
-                            ID: Date.now().toString(),
-                            Timestamp: new Date(),
-                            Operatore: user.nome,
-                            PoNr: found.PoNr,
-                            Cdc: found.Cdc,
-                            CodSap: found.CodSap,
-                            Descrizione: found.Descrizione,
-                            'SerS/No': found['SerS/No'],
-                            RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                            Stato: found.Stato,
-                            Ubicazioni: found.Ubicazioni,
-                            'Qtà': found['Qtà'],
-                            Seriale_Riscontrato: scanned,
-                            Match: match ? 'OK' : 'KO'
-                        };
-
-                        setStorico([newStorico, ...storico]);
-
-                        // Marca come inventariato
-                        setGiacenza(giacenza.map(item => 
-                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-                                ? {...item, inventariato: true} 
-                                : item
-                        ));
-
+                        setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
                         playBeep(match ? 'success' : 'error');
+
+                        // Salva sul server
+                        try {
+                            await api('saveRiscontro', {
+                                data: {
+                                    operatore: user.nome,
+                                    codSap: found.CodSap,
+                                    descrizione: found.Descrizione,
+                                    ubicazione: found.Ubicazioni,
+                                    serialeAtteso: found.RISCONTROSERIALEF,
+                                    serialeRiscontrato: scanned,
+                                    match: match,
+                                    qta: found['Qtà'] || 1,
+                                    wmsCode: found.WMSCode || '',
+                                    cdc: found.Cdc || '',
+                                    poNr: found.PoNr || ''
+                                }
+                            });
+
+                            // Aggiorna locale
+                            setGiacenza(prev => prev.map(item =>
+                                item.RISCONTROSERIALEF === found.RISCONTROSERIALEF ? { ...item, inventariato: true } : item
+                            ));
+                            const newEntry = {
+                                Timestamp: new Date(),
+                                Operatore: user.nome,
+                                Seriale_Riscontrato: scanned,
+                                Match: match ? 'OK' : 'KO',
+                                ...found
+                            };
+                            setStorico(prev => [newEntry, ...prev]);
+                        } catch (err) {
+                            setMessage({ type: 'error', text: 'Salvato in locale (errore server)' });
+                        }
                     } else {
-                        setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
+                        setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO' });
                         playBeep('error');
                     }
 
@@ -520,28 +427,11 @@ onLogin(result.user);
                 }
             };
 
-            const playBeep = (type) => {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-
-                oscillator.frequency.value = type === 'success' ? 800 : 400;
-                oscillator.type = 'square';
-
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-            };
+            if (loading) return <div className="text-center py-12">Caricamento dati scanner...</div>;
 
             return (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
-
                     <div className="bg-white rounded-lg shadow p-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Icons.Camera /> Scansiona Seriale
@@ -551,20 +441,16 @@ onLogin(result.user);
                             type="text"
                             value={scanInput}
                             onChange={(e) => setScanInput(e.target.value)}
-                            onKeyPress={handleScan}
+                            onKeyDown={handleScan}
                             className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             placeholder="Premi trigger scanner..."
                             autoFocus
                         />
-                        <p className="text-sm text-gray-500 mt-2">
-                            Premi il trigger dello scanner Zebra. Demo: prova INWIT252994454I76603
-                        </p>
                     </div>
 
                     {message.text && (
                         <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${
-                            message.type === 'success' ? 'bg-green-500' : 
-                            message.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                            message.type === 'success' ? 'bg-green-500' : message.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
                         }`}>
                             {message.text}
                         </div>
@@ -587,7 +473,6 @@ onLogin(result.user);
                         </div>
                     )}
 
-                    {/* Contatori */}
                     <div className="grid grid-cols-3 gap-4">
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                             <p className="text-sm text-blue-700 font-medium">Totale Giacenza</p>
@@ -595,15 +480,11 @@ onLogin(result.user);
                         </div>
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                             <p className="text-sm text-green-700 font-medium">Inventariati</p>
-                            <p className="text-2xl font-bold text-green-600">
-                                {giacenza.filter(i => i.inventariato).length}
-                            </p>
+                            <p className="text-2xl font-bold text-green-600">{giacenza.filter(i => i.inventariato).length}</p>
                         </div>
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
                             <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
-                            <p className="text-2xl font-bold text-yellow-600">
-                                {giacenza.filter(i => !i.inventariato).length}
-                            </p>
+                            <p className="text-2xl font-bold text-yellow-600">{giacenza.filter(i => !i.inventariato).length}</p>
                         </div>
                     </div>
                 </div>
@@ -620,54 +501,34 @@ onLogin(result.user);
         }
 
         function ModeLista({ user }) {
-            const [giacenza] = useState([]);
-            const [selected, setSelected] = useState({});
+            const [giacenza, setGiacenza] = useState([]);
+            const [loading, setLoading] = useState(true);
 
-            const handleSelectAll = () => {
-                const newSelected = {};
-                giacenza.forEach((item, idx) => {
-                    newSelected[idx] = true;
-                });
-                setSelected(newSelected);
-            };
+            useEffect(() => {
+                async function load() {
+                    try {
+                        const res = await api('getGiacenza', { filters: {} });
+                        setGiacenza(res.data);
+                    } catch (err) {
+                        alert('Errore caricamento lista');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
 
-            const handleSave = () => {
-                const count = Object.values(selected).filter(Boolean).length;
-                alert(`${count} articoli salvati!`);
-                setSelected({});
-            };
+            if (loading) return <div className="text-center py-12">Caricamento lista...</div>;
 
             return (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-800">Modalità Lista</h2>
-
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleSelectAll}
-                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
-                        >
-                            Seleziona Tutti
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={Object.values(selected).filter(Boolean).length === 0}
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                        >
-                            Salva ({Object.values(selected).filter(Boolean).length})
-                        </button>
-                    </div>
-
+                    <p className="text-gray-600">Totale articoli: {giacenza.length}</p>
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-3 py-2 text-left">
-                                            <input type="checkbox" onChange={(e) => {
-                                                if (e.target.checked) handleSelectAll();
-                                                else setSelected({});
-                                            }} />
-                                        </th>
                                         <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
                                         <th className="px-3 py-2 text-left font-semibold">CDC</th>
                                         <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
@@ -682,24 +543,13 @@ onLogin(result.user);
                                 <tbody>
                                     {giacenza.map((item, idx) => (
                                         <tr key={idx} className="border-t hover:bg-gray-50">
-                                            <td className="px-3 py-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selected[idx] || false}
-                                                    onChange={(e) => setSelected({...selected, [idx]: e.target.checked})}
-                                                />
-                                            </td>
                                             <td className="px-3 py-2 font-medium">{item.PoNr}</td>
                                             <td className="px-3 py-2">{item.Cdc}</td>
                                             <td className="px-3 py-2 font-medium">{item.CodSap}</td>
                                             <td className="px-3 py-2">{item.Descrizione}</td>
-                                            <td className="px-3 py-2 text-center">
-                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
-                                            </td>
+                                            <td className="px-3 py-2 text-center">{item['SerS/No'] === 'Sì' ? '✅' : '❌'}</td>
                                             <td className="px-3 py-2">
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                     {item.Stato}
                                                 </span>
                                             </td>
@@ -712,40 +562,44 @@ onLogin(result.user);
                             </table>
                         </div>
                     </div>
-
-                    <p className="text-gray-600">
-                        Totale articoli: {giacenza.length}
-                    </p>
                 </div>
             );
         }
 
         function Storico({ user }) {
-            const [storico] = useState([]);
-            const [filters, setFilters] = useState({});
+            const [storico, setStorico] = useState([]);
             const [filteredData, setFilteredData] = useState([]);
+            const [filters, setFilters] = useState({});
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                async function load() {
+                    try {
+                        const res = await api('getStorico', { filters: {} });
+                        const data = res.data || [];
+                        setStorico(data);
+                        setFilteredData(data);
+                    } catch (err) {
+                        alert('Errore caricamento storico');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
 
             const applyFilters = () => {
                 let filtered = [...storico];
 
                 if (filters.operatore) {
-                    filtered = filtered.filter(item =>
-                        item.Operatore.toLowerCase().includes(filters.operatore.toLowerCase())
-                    );
+                    filtered = filtered.filter(item => (item.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
                 }
-
                 if (filters.ubicazione) {
-                    filtered = filtered.filter(item =>
-                        item.Ubicazioni.toUpperCase().includes(filters.ubicazione.toUpperCase())
-                    );
+                    filtered = filtered.filter(item => (item.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
                 }
-
                 if (filters.cdc) {
-                    filtered = filtered.filter(item =>
-                        item.Cdc.toUpperCase().includes(filters.cdc.toUpperCase())
-                    );
+                    filtered = filtered.filter(item => (item.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
                 }
-
                 if (filters.match) {
                     filtered = filtered.filter(item => item.Match === filters.match);
                 }
@@ -753,56 +607,28 @@ onLogin(result.user);
                 setFilteredData(filtered);
             };
 
+            if (loading) return <div className="text-center py-12">Caricamento storico...</div>;
+
             return (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
-
-                    {/* Filtri */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h3 className="font-semibold mb-4">Filtri</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <input
-                                type="text"
-                                placeholder="Operatore"
-                                value={filters.operatore || ''}
-                                onChange={(e) => setFilters({...filters, operatore: e.target.value})}
-                                className="px-4 py-2 border rounded-lg"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Ubicazione"
-                                value={filters.ubicazione || ''}
-                                onChange={(e) => setFilters({...filters, ubicazione: e.target.value})}
-                                className="px-4 py-2 border rounded-lg"
-                            />
-                            <input
-                                type="text"
-                                placeholder="CDC"
-                                value={filters.cdc || ''}
-                                onChange={(e) => setFilters({...filters, cdc: e.target.value})}
-                                className="px-4 py-2 border rounded-lg"
-                            />
-                            <select
-                                value={filters.match || ''}
-                                onChange={(e) => setFilters({...filters, match: e.target.value})}
-                                className="px-4 py-2 border rounded-lg"
-                            >
+                            <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-4 py-2 border rounded-lg" />
+                            <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-4 py-2 border rounded-lg" />
+                            <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-4 py-2 border rounded-lg" />
+                            <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-4 py-2 border rounded-lg">
                                 <option value="">Tutti i match</option>
                                 <option value="OK">Solo OK</option>
                                 <option value="KO">Solo KO</option>
                             </select>
                         </div>
                         <div className="mt-4">
-                            <button
-                                onClick={applyFilters}
-                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
-                            >
-                                Applica Filtri
-                            </button>
+                            <button onClick={applyFilters} className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">Applica Filtri</button>
                         </div>
                     </div>
 
-                    {/* Tabella Storico */}
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -810,13 +636,8 @@ onLogin(result.user);
                                     <tr>
                                         <th className="px-3 py-2 text-left font-semibold">Data/Ora</th>
                                         <th className="px-3 py-2 text-left font-semibold">Operatore</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
-                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
                                         <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
                                         <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Qtà</th>
                                         <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
                                         <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
                                         <th className="px-3 py-2 text-left font-semibold">Seriale Riscontrato</th>
@@ -827,43 +648,22 @@ onLogin(result.user);
                                     {filteredData.map((item, idx) => (
                                         <tr key={idx} className="border-t hover:bg-gray-50">
                                             <td className="px-3 py-2 whitespace-nowrap">
-                                                {new Date(item.Timestamp).toLocaleString('it-IT', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {new Date(item.Timestamp).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                             </td>
-                                            <td className="px-3 py-2 font-medium">{item.Operatore}</td>
-                                            <td className="px-3 py-2">{item.PoNr}</td>
-                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2">{item.Operatore}</td>
                                             <td className="px-3 py-2 font-medium">{item.CodSap}</td>
                                             <td className="px-3 py-2">{item.Descrizione}</td>
-                                            <td className="px-3 py-2 text-center">
-                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                                }`}>
-                                                    {item.Stato}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2 text-center">{item['Qtà']}</td>
                                             <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
                                             <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
                                             <td className="px-3 py-2 font-mono text-xs font-bold">{item.Seriale_Riscontrato}</td>
                                             <td className="px-3 py-2">
                                                 {item.Match === 'OK' ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                                                        <Icons.CheckCircle />
-                                                        OK
+                                                        <Icons.CheckCircle /> OK
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
-                                                        <Icons.XCircle />
-                                                        KO
+                                                        <Icons.XCircle /> KO
                                                     </span>
                                                 )}
                                             </td>
@@ -873,28 +673,11 @@ onLogin(result.user);
                             </table>
                         </div>
                     </div>
-
-                    <div className="flex justify-between items-center">
-                        <p className="text-gray-600">
-                            Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri
-                        </p>
-                        <div className="flex gap-4">
-                            <div className="text-sm">
-                                <span className="text-green-600 font-bold">
-                                    {filteredData.filter(i => i.Match === 'OK').length} OK
-                                </span>
-                                {' / '}
-                                <span className="text-red-600 font-bold">
-                                    {filteredData.filter(i => i.Match === 'KO').length} KO
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <p className="text-gray-600">Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri</p>
                 </div>
             );
         }
 
-        // Render App
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
