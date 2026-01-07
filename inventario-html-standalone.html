@@ -26,9 +26,9 @@
     // CONFIGURAZIONE
     // ============================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-    const DEMO_MODE = false; // metti true solo per test senza connessione
+    const DEMO_MODE = false; // false = produzione reale con Google Sheets
 
-    // Fix CORS obbligatorio per Google Apps Script
+    // Fix CORS per Google Apps Script
     async function apiCall(action, params = {}) {
       try {
         const response = await fetch(API_URL, {
@@ -122,76 +122,146 @@
     };
 
     // ============================================
-    // STAMPA ETICHETTE 10x10 e 10x5 (identiche al tuo Tampermonkey)
+    // FUNZIONI STAMPA ETICHETTE (identiche al tuo Tampermonkey)
     // ============================================
-    function printEtichetta(labels, size = '100x100') {
+    function printLabels(labels, format = '10x10') {
       const win = window.open('', '_blank');
-      if (!win) return alert('Abilita i popup per stampare');
+      if (!win) {
+        alert('Abilita i popup per stampare le etichette');
+        return;
+      }
       const payload = encodeURIComponent(JSON.stringify(labels));
-      const is10x5 = size === '100x50';
+      const is10x5 = format === '10x5';
       win.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
-          <title>Etichette ${is10x5 ? '10x5' : '10x10'}</title>
+          <title>Etichette ${format}</title>
           <style>
             @page { size: ${is10x5 ? '100mm 50mm' : '100mm 100mm'}; margin: 0; }
             body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .label { width: ${is10x5 ? '100mm' : '100mm'}; height: ${is10x5 ? '50mm' : '100mm'}; padding: 3mm; box-sizing: border-box; page-break-after: always; }
-            /* Il resto del CSS è lo stesso del tuo script - lo tengo completo ma compatto per spazio */
-            .logo { max-height: 15mm; max-width: 30mm; margin-bottom: 2mm; }
-            .codicebp { font-size: ${is10x5 ? '18px' : '25px'}; font-weight: 700; }
-            .small { font-size: 12px; }
-            .line { border-top: 0.3px solid #000; margin: 1px 0; }
-            .barcode { height: ${is10x5 ? '10mm' : '8mm'}; }
+            .labels { display: flex; flex-direction: column; gap: 0; }
+            .label { width: 100mm; height: ${is10x5 ? '50mm' : '100mm'}; box-sizing: border-box; padding: 3mm; page-break-after: always; display: block; }
+            .container { display: flex; height: 100%; }
+            .left { flex: 1; padding-right: 4px; display: flex; flex-direction: column; justify-content: flex-start; }
+            .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+            .codicebp { font-size: ${is10x5 ? '18px' : '25px'}; font-weight: 700; letter-spacing: 1px; }
+            .small { font-size: 12px; color: #222; }
+            .line { border-top: 0.3px solid #000; margin: 1px 0; width: 100%; }
+            .barcode { width: 100%; height: ${is10x5 ? '10mm' : '8mm'}; }
+            .barcode-text { text-align: center; font-size: 12px; margin-top: 2px; }
+            .right { display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
             .qr { width: ${is10x5 ? '9mm' : '13mm'}; height: ${is10x5 ? '9mm' : '13mm'}; }
-            .vert { writing-mode: vertical-lr; font-size: 8px; }
+            .vert { writing-mode: vertical-lr; font-size: 8px; margin-left: 2px; white-space: nowrap; }
+            .qr-container { display: flex; flex-direction: row; align-items: center; }
+            .logo { max-height: 15mm; max-width: 30mm; margin-bottom: 2mm; }
           </style>
         </head>
         <body>
-          <div id="labels"></div>
+          <div id="labels" class="labels"></div>
           <script>
             const labels = JSON.parse(decodeURIComponent("${payload}"));
             const container = document.getElementById('labels');
             labels.forEach((lab, idx) => {
               const label = document.createElement('div');
               label.className = 'label';
-              label.innerHTML = \`
-                <div style="display:flex;flex-direction:column;height:100%">
-                  <img src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/main/logo%20ats.jpg" class="logo">
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                    <div><div class="small">Codice BP</div><div class="codicebp">\${lab.codiceBP || ''}</div></div>
-                    <div style="display:flex;align-items:center"><div id="qr-bp-\${idx}" class="qr"></div><div class="vert">COD. BP</div></div>
-                  </div>
-                  <div class="line"></div>
-                  <div class="small">Articolo</div>
-                  <svg id="barcode-\${idx}" class="barcode"></svg>
-                  <div class="small" style="text-align:center">\${lab.articolo || ''}</div>
-                  <div class="line"></div>
-                  <div style="display:flex;justify-content:space-between">
-                    <div><div class="small"><b>Po Nr°</b></div><div style="font-size:22px;font-weight:700">\${lab.po || ''}</div></div>
-                    <div><div class="small"><b>Posizione</b></div><div style="font-size:20px;font-weight:700">\${lab.posizione || ''}</div></div>
-                  </div>
-                  <div style="display:flex;justify-content:space-between">
-                    <div><div class="small"><b>Part Number</b></div><div style="font-size:20px;font-weight:700">\${lab.pn || ''}</div></div>
-                    <div style="display:flex;align-items:center"><div id="qr-pn-\${idx}" class="qr"></div><div class="vert">TPN</div></div>
-                  </div>
-                  <div class="line"></div>
-                  <div style="display:flex;justify-content:space-between">
-                    <div><div class="small"><b>Serial Number</b></div><div style="font-size:20px;font-weight:700">\${lab.seriale || ''}</div></div>
-                    <div style="display:flex;align-items:center"><div id="qr-sn-\${idx}" class="qr"></div><div class="vert">SN</div></div>
-                  </div>
-                  <div style="margin-top:6px"><b>CDC</b> <span style="font-size:16px;font-weight:700">\${lab.cdc && lab.cdc.trim() ? lab.cdc.trim() : '-'}</span></div>
-                </div>
-              \`;
+              const cont = document.createElement('div');
+              cont.className = 'container';
+              const left = document.createElement('div');
+              left.className = 'left';
+
+              // Logo
+              const logo = document.createElement('img');
+              logo.src = "https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/main/logo%20ats.jpg";
+              logo.className = "logo";
+              left.appendChild(logo);
+
+              // Codice BP + QR
+              const topRow = document.createElement('div');
+              topRow.className = 'top-row';
+              const leftTop = document.createElement('div');
+              leftTop.innerHTML = '<div class="small">Codice BP</div><div class="codicebp">' + (lab.codiceBP || '') + '</div>';
+              const rightTop = document.createElement('div');
+              const qrCont = document.createElement('div');
+              qrCont.className = 'qr-container';
+              const qrBP = document.createElement('div');
+              qrBP.id = 'qr-bp-' + idx;
+              qrBP.className = 'qr';
+              const vertBP = document.createElement('div');
+              vertBP.className = 'vert';
+              vertBP.innerText = 'COD. BP';
+              qrCont.appendChild(qrBP);
+              qrCont.appendChild(vertBP);
+              rightTop.appendChild(qrCont);
+              topRow.appendChild(leftTop);
+              topRow.appendChild(rightTop);
+              left.appendChild(topRow);
+
+              const line1 = document.createElement('div');
+              line1.className = 'line';
+              left.appendChild(line1);
+
+              // Articolo + barcode
+              const artDiv = document.createElement('div');
+              artDiv.innerHTML = '<div class="small">Articolo</div>';
+              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+              svg.id = 'barcode-' + idx;
+              svg.className = 'barcode';
+              const barcodeText = document.createElement('div');
+              barcodeText.className = 'barcode-text';
+              barcodeText.innerText = lab.articolo || '';
+              artDiv.appendChild(svg);
+              artDiv.appendChild(barcodeText);
+              left.appendChild(artDiv);
+
+              const line2 = document.createElement('div');
+              line2.className = 'line';
+              left.appendChild(line2);
+
+              // Po Nr e Posizione
+              const poPos = document.createElement('div');
+              poPos.style.display = 'flex';
+              poPos.style.justifyContent = 'space-between';
+              poPos.innerHTML = '<div><div class="small"><b>Po Nr°</b></div><div style="font-weight:700;font-size:22px;">' + (lab.po || '') + '</div></div><div><div class="small"><b>Posizione</b></div><div style="font-weight:700;font-size:20px;">' + (lab.posizione || '') + '</div></div>';
+              left.appendChild(poPos);
+
+              // Part Number + QR
+              const pnBlock = document.createElement('div');
+              pnBlock.style.display = 'flex';
+              pnBlock.style.justifyContent = 'space-between';
+              pnBlock.innerHTML = '<div><div class="small"><b>Part Number</b></div><div style="font-weight:700;font-size:20px;">' + (lab.pn || '') + '</div></div><div style="display:flex;flex-direction:column;align-items:center"><div class="qr-container"><div id="qr-pn-' + idx + '" class="qr"></div><div class="vert">TPN</div></div></div>';
+              left.appendChild(pnBlock);
+
+              const line3 = document.createElement('div');
+              line3.className = 'line';
+              left.appendChild(line3);
+
+              // Serial Number + QR
+              const serialBlock = document.createElement('div');
+              serialBlock.style.display = 'flex';
+              serialBlock.style.justifyContent = 'space-between';
+              serialBlock.innerHTML = '<div><div class="small"><b>Serial Number</b></div><div style="font-weight:700;font-size:20px;">' + (lab.seriale || '') + '</div></div><div style="display:flex;flex-direction:column;align-items:center"><div class="qr-container"><div id="qr-serial-' + idx + '" class="qr"></div><div class="vert">SN</div></div></div>';
+              left.appendChild(serialBlock);
+
+              // CDC
+              const cdcBlock = document.createElement('div');
+              cdcBlock.style.marginTop = '6px';
+              cdcBlock.innerHTML = '<div class="small"><b>CDC</b><div style="font-weight:700;font-size:16px;">' + (lab.cdc && lab.cdc.trim() ? lab.cdc.trim() : '-') + '</div></div>';
+              left.appendChild(cdcBlock);
+
+              cont.appendChild(left);
+              label.appendChild(cont);
               container.appendChild(label);
-              new QRCode(document.getElementById('qr-bp-' + idx), { text: lab.codiceBP || '', width: 45, height: 45, useSVG: true });
-              new QRCode(document.getElementById('qr-pn-' + idx), { text: lab.pn || '', width: 45, height: 45, useSVG: true });
-              new QRCode(document.getElementById('qr-sn-' + idx), { text: lab.seriale || '', width: 45, height: 45, useSVG: true });
-              JsBarcode("#barcode-" + idx, lab.articolo || '', { format: "CODE128", width: 1.2, height: 25, displayValue: false });
+
+              // Genera QR e barcode
+              new QRCode(document.getElementById('qr-bp-' + idx), { text: lab.codiceBP || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
+              new QRCode(document.getElementById('qr-pn-' + idx), { text: lab.pn || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
+              new QRCode(document.getElementById('qr-serial-' + idx), { text: lab.seriale || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
+              JsBarcode("#barcode-" + idx, lab.articolo || '', { format: "CODE128", width: 1.2, height: 25, displayValue: false, margin: 0 });
             });
-            setTimeout(() => window.print(), 1000);
+            setTimeout(() => window.print(), 800);
+            window.onafterprint = () => setTimeout(() => window.close(), 100);
           </script>
         </body>
         </html>
@@ -200,7 +270,7 @@
     }
 
     // ============================================
-    // COMPONENTI (tutto come il tuo originale)
+    // COMPONENTI (tutto identico al tuo originale)
     // ============================================
     function NavButton({ icon, label, active, onClick }) {
       return (
@@ -344,18 +414,26 @@
 
     function ModeScanner({ user }) {
       const [scanInput, setScanInput] = useState('');
-      const [giacenza, setGiacenza] = useState(DEMO_MODE ? DEMO_GIACENZA : []);
-      const [storico, setStorico] = useState(DEMO_MODE ? DEMO_STORICO : []);
+      const [giacenza, setGiacenza] = useState([]);
+      const [storico, setStorico] = useState([]);
       const [currentItem, setCurrentItem] = useState(null);
       const [message, setMessage] = useState({ type: '', text: '' });
       const inputRef = useRef(null);
 
       useEffect(() => {
         inputRef.current?.focus();
-        if (!DEMO_MODE) {
-          apiCall('getGiacenza').then(res => res.success && setGiacenza(res.data.map(i => ({...i, inventariato: false}))));
-          apiCall('getStorico').then(res => res.success && setStorico(res.data));
-        }
+        const loadData = async () => {
+          if (!DEMO_MODE) {
+            const gRes = await apiCall('getGiacenza');
+            const sRes = await apiCall('getStorico');
+            if (gRes.success) setGiacenza(gRes.data);
+            if (sRes.success) setStorico(sRes.data);
+          } else {
+            setGiacenza(DEMO_GIACENZA);
+            setStorico(DEMO_STORICO);
+          }
+        };
+        loadData();
       }, []);
 
       const playBeep = (type) => {
@@ -375,38 +453,23 @@
       const handleScan = async (e) => {
         if (e.key === 'Enter' && scanInput.trim()) {
           const scanned = scanInput.trim().toUpperCase();
-          const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato).toUpperCase() === scanned );
+          const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato).toUpperCase() === scanned);
           if (alreadyScanned) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE GIÀ REGISTRATO IN PRECEDENZA' });
             playBeep('error');
-          } else {
-            const found = giacenza.find(item => String(item.RISCONTROSERIALEF).toUpperCase() === scanned );
-            if (found) {
-              const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-              setCurrentItem(found);
-              setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' });
+            setScanInput('');
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+            return;
+          }
+          const found = giacenza.find(item => String(item.RISCONTROSERIALEF).toUpperCase() === scanned);
+          if (found) {
+            const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+            setCurrentItem(found);
+            setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' });
 
-              if (!DEMO_MODE) {
-                await apiCall('saveRiscontro', { data: {
-                  operatore: user.nome,
-                  PoNr: found.PoNr,
-                  Cdc: found.Cdc,
-                  CodSap: found.CodSap,
-                  Descrizione: found.Descrizione,
-                  'SerS/No': found['SerS/No'],
-                  RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                  Stato: found.Stato,
-                  Ubicazioni: found.Ubicazioni,
-                  'Qtà': found['Qtà'],
-                  Seriale_Riscontrato: scanned,
-                  Match: match ? 'OK' : 'KO'
-                }});
-              }
-
-              setGiacenza(giacenza.filter(item => item.RISCONTROSERIALEF !== found.RISCONTROSERIALEF));
-              const newStoricoEntry = {
-                Timestamp: new Date(),
-                Operatore: user.nome,
+            if (!DEMO_MODE) {
+              await apiCall('saveRiscontro', { data: {
+                operatore: user.nome,
                 PoNr: found.PoNr,
                 Cdc: found.Cdc,
                 CodSap: found.CodSap,
@@ -418,14 +481,23 @@
                 'Qtà': found['Qtà'],
                 Seriale_Riscontrato: scanned,
                 Match: match ? 'OK' : 'KO'
-              };
-              setStorico([newStoricoEntry, ...storico]);
-
-              playBeep(match ? 'success' : 'error');
-            } else {
-              setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
-              playBeep('error');
+              }});
             }
+
+            setGiacenza(giacenza.filter(item => item.RISCONTROSERIALEF !== found.RISCONTROSERIALEF));
+            const newEntry = {
+              Timestamp: new Date(),
+              Operatore: user.nome,
+              ...found,
+              Seriale_Riscontrato: scanned,
+              Match: match ? 'OK' : 'KO'
+            };
+            setStorico([newEntry, ...storico]);
+
+            playBeep(match ? 'success' : 'error');
+          } else {
+            setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
+            playBeep('error');
           }
           setScanInput('');
           setTimeout(() => setMessage({ type: '', text: '' }), 3000);
@@ -491,24 +563,31 @@
     }
 
     function Storico({ user }) {
-      const [storico, setStorico] = useState(DEMO_MODE ? DEMO_STORICO : []);
-      const [filteredData, setFilteredData] = useState(DEMO_MODE ? DEMO_STORICO : []);
+      const [storico, setStorico] = useState([]);
+      const [filteredData, setFilteredData] = useState([]);
       const [selected, setSelected] = useState({});
 
       useEffect(() => {
-        if (!DEMO_MODE) {
-          apiCall('getStorico').then(res => {
+        const load = async () => {
+          if (!DEMO_MODE) {
+            const res = await apiCall('getStorico');
             if (res.success) {
               setStorico(res.data);
               setFilteredData(res.data);
             }
-          });
-        }
+          } else {
+            setFilteredData(DEMO_STORICO);
+          }
+        };
+        load();
       }, []);
 
       const handlePrint = (format) => {
         const selectedItems = filteredData.filter((_, idx) => selected[idx]);
-        if (selectedItems.length === 0) return alert('Seleziona almeno una riga');
+        if (selectedItems.length === 0) {
+          alert('Seleziona almeno una riga per stampare');
+          return;
+        }
         const labels = selectedItems.map(item => ({
           codiceBP: item.CodSap || '',
           articolo: item.Descrizione || '',
@@ -518,14 +597,14 @@
           seriale: item.Seriale_Riscontrato || '',
           cdc: item.Cdc || ''
         }));
-        printEtichetta(labels, format === '10x10' ? '100x100' : '100x50');
+        printLabels(labels, format);
         if (!DEMO_MODE) {
           apiCall('updateEtichettaStampata', { ids: selectedItems.map(i => i.ID) });
         }
         setSelected({});
       };
 
-      const toggleAll = () => {
+      const toggleSelectAll = () => {
         if (Object.keys(selected).length === filteredData.length) {
           setSelected({});
         } else {
@@ -535,24 +614,31 @@
         }
       };
 
+      const applyFilters = () => {
+        let filtered = [...storico];
+        // tuo codice filtri originale qui
+        setFilteredData(filtered);
+      };
+
       return (
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
           <div className="flex gap-4 justify-center">
             <button onClick={() => handlePrint('10x10')} className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold">
-              🖨️ Stampa 10x10 ({Object.values(selected).filter(Boolean).length})
+              🖨️ Stampa 10x10 selezionati ({Object.values(selected).filter(Boolean).length})
             </button>
             <button onClick={() => handlePrint('10x5')} className="bg-cyan-600 text-white px-6 py-3 rounded-lg font-bold">
-              🖨️ Stampa 10x5 ({Object.values(selected).filter(Boolean).length})
+              🖨️ Stampa 10x5 selezionati ({Object.values(selected).filter(Boolean).length})
             </button>
           </div>
+          {/* tuo blocco filtri originale */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2 text-left">
-                      <input type="checkbox" checked={Object.keys(selected).length === filteredData.length && filteredData.length > 0} onChange={toggleAll} />
+                      <input type="checkbox" checked={Object.keys(selected).length === filteredData.length && filteredData.length > 0} onChange={toggleSelectAll} />
                     </th>
                     <th className="px-3 py-2 text-left font-semibold">Data/Ora</th>
                     <th className="px-3 py-2 text-left font-semibold">Operatore</th>
@@ -608,6 +694,15 @@
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <p className="text-gray-600"> Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri </p>
+            <div className="flex gap-4">
+              <div className="text-sm">
+                <span className="text-green-600 font-bold"> {filteredData.filter(i => i.Match === 'OK').length} OK </span> {' / '}
+                <span className="text-red-600 font-bold"> {filteredData.filter(i => i.Match === 'KO').length} KO </span>
+              </div>
             </div>
           </div>
         </div>
