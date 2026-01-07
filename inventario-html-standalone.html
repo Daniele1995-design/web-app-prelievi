@@ -39,10 +39,13 @@
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
         const DEMO_MODE = false; // Cambia a false per produzione
 
-        async function api(action, payload = {}) {
-  const res = await fetch(API_URL, {
+       async function api(action, payload = {}) {
+  const res = await fetch(API_URL + '?' + new URLSearchParams({ action }), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    redirect: 'follow',  // importante per GAS
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'  // <--- CAMBIA QUI
+    },
     body: JSON.stringify({ action, ...payload })
   });
 
