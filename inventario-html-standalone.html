@@ -1,758 +1,890 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventario ATS</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <style>
-    @page { size: 100mm 100mm; margin: 0; }
-    .print-only { display: none; }
-    @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario ATS</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @page {
+            size: 100mm 100mm;
+            margin: 0;
+        }
+        .print-only {
+            display: none;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div id="root"></div>
+    <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-    // ============================================
-    // CONFIGURAZIONE
-    // ============================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-    const DEMO_MODE = false; // false = produzione reale con Google Sheets
+        // ============================================
+        // CONFIGURAZIONE
+        // ============================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
+        const DEMO_MODE = false; // Cambia a false per produzione
 
-    // Fix CORS per Google Apps Script
-    async function apiCall(action, params = {}) {
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action, ...params })
-        });
-        return await response.json();
-      } catch (err) {
-        console.error('Errore API:', err);
-        return { success: false, error: 'Errore di connessione' };
-      }
-    }
-
-    // ============================================
-    // DATI DEMO (uguali ai tuoi)
-    // ============================================
-    const DEMO_GIACENZA = [
-      { PoNr: 'NO PO', Cdc: 'IWT-SPARE', CodSap: '100000247', Descrizione: '19363050,SMPS 48V,1900W', 'SerS/No': 'Sì', RISCONTROSERIALEF: 'INWIT376877063I76602', Stato: 'USATO', Ubicazioni: 'CE71-STK-S41-C01-05-001', WMSCode: 'WMS0000009-IWT', 'Qtà': 1, inventariato: false },
-      { PoNr: 'NO PO', Cdc: 'IWT-SPARE', CodSap: '100000247', Descrizione: '19363050,SMPS 48V,1900W', 'SerS/No': 'Sì', RISCONTROSERIALEF: 'INWIT252994454I76603', Stato: 'USATO', Ubicazioni: 'CE71-STK-S41-C01-05-002', WMSCode: 'WMS0000009-IWT', 'Qtà': 1, inventariato: false },
-      { PoNr: '4700109762', Cdc: 'IWT-PASSIVE', CodSap: '301578429', Descrizione: 'O-PALC e adattatore V1', 'SerS/No': 'Sì', RISCONTROSERIALEF: '200310007', Stato: 'NUOVO', Ubicazioni: 'CE71-STK-S37-C09-02-001', WMSCode: 'WMS0000749-IWT', 'Qtà': 1, inventariato: false }
-    ];
-
-    const DEMO_STORICO = [
-      { ID: '1', Timestamp: new Date('2026-01-07T10:30:00'), Operatore: 'admin', PoNr: 'NO PO', Cdc: 'IWT-SPARE', CodSap: '100000247', Descrizione: '19363050,SMPS 48V,1900W', 'SerS/No': 'Sì', RISCONTROSERIALEF: 'INWIT376877063I76602', Stato: 'USATO', Ubicazioni: 'CE71-STK-S41-C01-05-001', 'Qtà': 1, Seriale_Riscontrato: 'INWIT376877063I76602', Match: 'OK' }
-    ];
-
-    const DEMO_STATS = { totaleGiacenza: 1250, totaleInventariato: 847, daInventariare: 403, percentualeCompletamento: 68, matchOk: 820, matchKo: 27, percentualeMatch: 97 };
-
-    // ============================================
-    // ICONE SVG (identiche alle tue)
-    // ============================================
-    const Icons = {
-      Camera: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-      ),
-      Package: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-          <line x1="12" y1="22.08" x2="12" y2="12"/>
-        </svg>
-      ),
-      List: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="8" y1="6" x2="21" y2="6"/>
-          <line x1="8" y1="12" x2="21" y2="12"/>
-          <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/>
-          <line x1="3" y1="12" x2="3.01" y2="12"/>
-          <line x1="3" y1="18" x2="3.01" y2="18"/>
-        </svg>
-      ),
-      BarChart: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="12" y1="20" x2="12" y2="10"/>
-          <line x1="18" y1="20" x2="18" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="16"/>
-        </svg>
-      ),
-      Printer: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="6 9 6 2 18 2 18 9"/>
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-          <rect x="6" y="14" width="12" height="8"/>
-        </svg>
-      ),
-      LogOut: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      ),
-      CheckCircle: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-      ),
-      XCircle: () => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-      )
-    };
-
-    // ============================================
-    // FUNZIONI STAMPA ETICHETTE (identiche al tuo Tampermonkey)
-    // ============================================
-    function printLabels(labels, format = '10x10') {
-      const win = window.open('', '_blank');
-      if (!win) {
-        alert('Abilita i popup per stampare le etichette');
-        return;
-      }
-      const payload = encodeURIComponent(JSON.stringify(labels));
-      const is10x5 = format === '10x5';
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Etichette ${format}</title>
-          <style>
-            @page { size: ${is10x5 ? '100mm 50mm' : '100mm 100mm'}; margin: 0; }
-            body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .labels { display: flex; flex-direction: column; gap: 0; }
-            .label { width: 100mm; height: ${is10x5 ? '50mm' : '100mm'}; box-sizing: border-box; padding: 3mm; page-break-after: always; display: block; }
-            .container { display: flex; height: 100%; }
-            .left { flex: 1; padding-right: 4px; display: flex; flex-direction: column; justify-content: flex-start; }
-            .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
-            .codicebp { font-size: ${is10x5 ? '18px' : '25px'}; font-weight: 700; letter-spacing: 1px; }
-            .small { font-size: 12px; color: #222; }
-            .line { border-top: 0.3px solid #000; margin: 1px 0; width: 100%; }
-            .barcode { width: 100%; height: ${is10x5 ? '10mm' : '8mm'}; }
-            .barcode-text { text-align: center; font-size: 12px; margin-top: 2px; }
-            .right { display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
-            .qr { width: ${is10x5 ? '9mm' : '13mm'}; height: ${is10x5 ? '9mm' : '13mm'}; }
-            .vert { writing-mode: vertical-lr; font-size: 8px; margin-left: 2px; white-space: nowrap; }
-            .qr-container { display: flex; flex-direction: row; align-items: center; }
-            .logo { max-height: 15mm; max-width: 30mm; margin-bottom: 2mm; }
-          </style>
-        </head>
-        <body>
-          <div id="labels" class="labels"></div>
-          <script>
-            const labels = JSON.parse(decodeURIComponent("${payload}"));
-            const container = document.getElementById('labels');
-            labels.forEach((lab, idx) => {
-              const label = document.createElement('div');
-              label.className = 'label';
-              const cont = document.createElement('div');
-              cont.className = 'container';
-              const left = document.createElement('div');
-              left.className = 'left';
-
-              // Logo
-              const logo = document.createElement('img');
-              logo.src = "https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/main/logo%20ats.jpg";
-              logo.className = "logo";
-              left.appendChild(logo);
-
-              // Codice BP + QR
-              const topRow = document.createElement('div');
-              topRow.className = 'top-row';
-              const leftTop = document.createElement('div');
-              leftTop.innerHTML = '<div class="small">Codice BP</div><div class="codicebp">' + (lab.codiceBP || '') + '</div>';
-              const rightTop = document.createElement('div');
-              const qrCont = document.createElement('div');
-              qrCont.className = 'qr-container';
-              const qrBP = document.createElement('div');
-              qrBP.id = 'qr-bp-' + idx;
-              qrBP.className = 'qr';
-              const vertBP = document.createElement('div');
-              vertBP.className = 'vert';
-              vertBP.innerText = 'COD. BP';
-              qrCont.appendChild(qrBP);
-              qrCont.appendChild(vertBP);
-              rightTop.appendChild(qrCont);
-              topRow.appendChild(leftTop);
-              topRow.appendChild(rightTop);
-              left.appendChild(topRow);
-
-              const line1 = document.createElement('div');
-              line1.className = 'line';
-              left.appendChild(line1);
-
-              // Articolo + barcode
-              const artDiv = document.createElement('div');
-              artDiv.innerHTML = '<div class="small">Articolo</div>';
-              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-              svg.id = 'barcode-' + idx;
-              svg.className = 'barcode';
-              const barcodeText = document.createElement('div');
-              barcodeText.className = 'barcode-text';
-              barcodeText.innerText = lab.articolo || '';
-              artDiv.appendChild(svg);
-              artDiv.appendChild(barcodeText);
-              left.appendChild(artDiv);
-
-              const line2 = document.createElement('div');
-              line2.className = 'line';
-              left.appendChild(line2);
-
-              // Po Nr e Posizione
-              const poPos = document.createElement('div');
-              poPos.style.display = 'flex';
-              poPos.style.justifyContent = 'space-between';
-              poPos.innerHTML = '<div><div class="small"><b>Po Nr°</b></div><div style="font-weight:700;font-size:22px;">' + (lab.po || '') + '</div></div><div><div class="small"><b>Posizione</b></div><div style="font-weight:700;font-size:20px;">' + (lab.posizione || '') + '</div></div>';
-              left.appendChild(poPos);
-
-              // Part Number + QR
-              const pnBlock = document.createElement('div');
-              pnBlock.style.display = 'flex';
-              pnBlock.style.justifyContent = 'space-between';
-              pnBlock.innerHTML = '<div><div class="small"><b>Part Number</b></div><div style="font-weight:700;font-size:20px;">' + (lab.pn || '') + '</div></div><div style="display:flex;flex-direction:column;align-items:center"><div class="qr-container"><div id="qr-pn-' + idx + '" class="qr"></div><div class="vert">TPN</div></div></div>';
-              left.appendChild(pnBlock);
-
-              const line3 = document.createElement('div');
-              line3.className = 'line';
-              left.appendChild(line3);
-
-              // Serial Number + QR
-              const serialBlock = document.createElement('div');
-              serialBlock.style.display = 'flex';
-              serialBlock.style.justifyContent = 'space-between';
-              serialBlock.innerHTML = '<div><div class="small"><b>Serial Number</b></div><div style="font-weight:700;font-size:20px;">' + (lab.seriale || '') + '</div></div><div style="display:flex;flex-direction:column;align-items:center"><div class="qr-container"><div id="qr-serial-' + idx + '" class="qr"></div><div class="vert">SN</div></div></div>';
-              left.appendChild(serialBlock);
-
-              // CDC
-              const cdcBlock = document.createElement('div');
-              cdcBlock.style.marginTop = '6px';
-              cdcBlock.innerHTML = '<div class="small"><b>CDC</b><div style="font-weight:700;font-size:16px;">' + (lab.cdc && lab.cdc.trim() ? lab.cdc.trim() : '-') + '</div></div>';
-              left.appendChild(cdcBlock);
-
-              cont.appendChild(left);
-              label.appendChild(cont);
-              container.appendChild(label);
-
-              // Genera QR e barcode
-              new QRCode(document.getElementById('qr-bp-' + idx), { text: lab.codiceBP || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
-              new QRCode(document.getElementById('qr-pn-' + idx), { text: lab.pn || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
-              new QRCode(document.getElementById('qr-serial-' + idx), { text: lab.seriale || '', width: 45, height: 45, colorDark: "#000000", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.H, useSVG: true });
-              JsBarcode("#barcode-" + idx, lab.articolo || '', { format: "CODE128", width: 1.2, height: 25, displayValue: false, margin: 0 });
-            });
-            setTimeout(() => window.print(), 800);
-            window.onafterprint = () => setTimeout(() => window.close(), 100);
-          </script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-    }
-
-    // ============================================
-    // COMPONENTI (tutto identico al tuo originale)
-    // ============================================
-    function NavButton({ icon, label, active, onClick }) {
-      return (
-        <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${ active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50' }`} >
-          {icon}
-          <span className="font-medium">{label}</span>
-        </button>
-      );
-    }
-
-    function Login({ onLogin }) {
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [loading, setLoading] = useState(false);
-      const [error, setError] = useState('');
-
-      const handleLogin = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        if (DEMO_MODE) {
-          if (username === 'admin' && password === 'admin123') {
-            onLogin({ username: 'admin', nome: 'Operatore Demo', ruolo: 'admin' });
-          } else {
-            setError('Demo: usa admin / admin123');
-          }
-          setLoading(false);
-          return;
-        }
-        const result = await apiCall('login', { username, password });
-        if (result.success) {
-          onLogin(result.user);
-        } else {
-          setError(result.error || 'Errore di login');
-        }
-        setLoading(false);
-      };
-
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
-              <p className="text-gray-600 mt-2">Sistema di Inventario</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Inserisci username" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Inserisci password" required />
-              </div>
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                  {error}
-                </div>
-              )}
-              <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition" >
-                {loading ? 'Accesso in corso...' : 'Accedi'}
-              </button>
-            </form>
-            <div className="mt-6 text-center text-sm text-gray-600">
-              <p>Demo: admin / admin123</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function Dashboard({ user }) {
-      const [stats, setStats] = useState(DEMO_STATS);
-
-      useEffect(() => {
-        if (!DEMO_MODE) {
-          apiCall('getStats').then(res => {
-            if (res.success) setStats(res.stats);
-          });
-        }
-      }, []);
-
-      return (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
-            <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
-            <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
-            <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="font-medium text-gray-700">Completamento Inventario</span>
-              <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div className="bg-blue-600 h-4 rounded-full transition-all duration-500" style={{ width: `${stats.percentualeCompletamento}%` }} />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Qualità Riscontri</h3>
-            <div className="flex gap-4">
-              <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-green-700 mb-2">
-                  <Icons.CheckCircle />
-                  <span className="font-medium">Match OK</span>
-                </div>
-                <p className="text-3xl font-bold text-green-600">{stats.matchOk}</p>
-              </div>
-              <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-red-700 mb-2">
-                  <Icons.XCircle />
-                  <span className="font-medium">Match KO</span>
-                </div>
-                <p className="text-3xl font-bold text-red-600">{stats.matchKo}</p>
-              </div>
-            </div>
-            <div className="mt-4 text-center">
-              <span className="text-gray-600">Accuratezza: </span>
-              <span className="text-xl font-bold text-blue-600">{stats.percentualeMatch}%</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function StatCard({ title, value, icon, color }) {
-      return (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600 text-sm font-medium">{title}</span>
-            <span className="text-2xl">{icon}</span>
-          </div>
-          <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>
-            {value.toLocaleString()}
-          </p>
-        </div>
-      );
-    }
-
-    function ModeScanner({ user }) {
-      const [scanInput, setScanInput] = useState('');
-      const [giacenza, setGiacenza] = useState([]);
-      const [storico, setStorico] = useState([]);
-      const [currentItem, setCurrentItem] = useState(null);
-      const [message, setMessage] = useState({ type: '', text: '' });
-      const inputRef = useRef(null);
-
-      useEffect(() => {
-        inputRef.current?.focus();
-        const loadData = async () => {
-          if (!DEMO_MODE) {
-            const gRes = await apiCall('getGiacenza');
-            const sRes = await apiCall('getStorico');
-            if (gRes.success) setGiacenza(gRes.data);
-            if (sRes.success) setStorico(sRes.data);
-          } else {
-            setGiacenza(DEMO_GIACENZA);
-            setStorico(DEMO_STORICO);
-          }
-        };
-        loadData();
-      }, []);
-
-      const playBeep = (type) => {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = type === 'success' ? 800 : 400;
-        oscillator.type = 'square';
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.1);
-      };
-
-      const handleScan = async (e) => {
-        if (e.key === 'Enter' && scanInput.trim()) {
-          const scanned = scanInput.trim().toUpperCase();
-          const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato).toUpperCase() === scanned);
-          if (alreadyScanned) {
-            setMessage({ type: 'warning', text: '⚠️ SERIALE GIÀ REGISTRATO IN PRECEDENZA' });
-            playBeep('error');
-            setScanInput('');
-            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            return;
-          }
-          const found = giacenza.find(item => String(item.RISCONTROSERIALEF).toUpperCase() === scanned);
-          if (found) {
-            const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-            setCurrentItem(found);
-            setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' });
-
-            if (!DEMO_MODE) {
-              await apiCall('saveRiscontro', { data: {
-                operatore: user.nome,
-                PoNr: found.PoNr,
-                Cdc: found.Cdc,
-                CodSap: found.CodSap,
-                Descrizione: found.Descrizione,
-                'SerS/No': found['SerS/No'],
-                RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                Stato: found.Stato,
-                Ubicazioni: found.Ubicazioni,
-                'Qtà': found['Qtà'],
-                Seriale_Riscontrato: scanned,
-                Match: match ? 'OK' : 'KO'
-              }});
+        // ============================================
+        // DATI DEMO
+        // ============================================
+        const DEMO_GIACENZA = [
+            {
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT376877063I76602',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-001',
+                WMSCode: 'WMS0000009-IWT',
+                'Qtà': 1,
+                inventariato: false
+            },
+            {
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT252994454I76603',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-002',
+                WMSCode: 'WMS0000009-IWT',
+                'Qtà': 1,
+                inventariato: false
+            },
+            {
+                PoNr: '4700109762',
+                Cdc: 'IWT-PASSIVE',
+                CodSap: '301578429',
+                Descrizione: 'O-PALC e adattatore V1',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: '200310007',
+                Stato: 'NUOVO',
+                Ubicazioni: 'CE71-STK-S37-C09-02-001',
+                WMSCode: 'WMS0000749-IWT',
+                'Qtà': 1,
+                inventariato: false
             }
+        ];
 
-            setGiacenza(giacenza.filter(item => item.RISCONTROSERIALEF !== found.RISCONTROSERIALEF));
-            const newEntry = {
-              Timestamp: new Date(),
-              Operatore: user.nome,
-              ...found,
-              Seriale_Riscontrato: scanned,
-              Match: match ? 'OK' : 'KO'
+        const DEMO_STORICO = [
+            {
+                ID: '1',
+                Timestamp: new Date('2026-01-07T10:30:00'),
+                Operatore: 'admin',
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT376877063I76602',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-001',
+                'Qtà': 1,
+                Seriale_Riscontrato: 'INWIT376877063I76602',
+                Match: 'OK'
+            }
+        ];
+
+        const DEMO_STATS = {
+            totaleGiacenza: 1250,
+            totaleInventariato: 847,
+            daInventariare: 403,
+            percentualeCompletamento: 68,
+            matchOk: 820,
+            matchKo: 27,
+            percentualeMatch: 97
+        };
+
+        // ============================================
+        // ICONE SVG
+        // ============================================
+        const Icons = {
+            Camera: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+            ),
+            Package: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            ),
+            List: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+            ),
+            BarChart: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="20" x2="12" y2="10"/>
+                    <line x1="18" y1="20" x2="18" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="16"/>
+                </svg>
+            ),
+            Printer: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+            ),
+            LogOut: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            ),
+            CheckCircle: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            ),
+            XCircle: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+            )
+        };
+
+        // ============================================
+        // APP PRINCIPALE
+        // ============================================
+        function App() {
+            const [user, setUser] = useState(null);
+            const [currentView, setCurrentView] = useState('login');
+
+            const handleLogout = () => {
+                setUser(null);
+                setCurrentView('login');
+                sessionStorage.clear();
             };
-            setStorico([newEntry, ...storico]);
 
-            playBeep(match ? 'success' : 'error');
-          } else {
-            setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
-            playBeep('error');
-          }
-          setScanInput('');
-          setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-        }
-      };
-
-      return (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
-          <div className="bg-white rounded-lg shadow p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Icons.Camera /> Scansiona Seriale
-            </label>
-            <input ref={inputRef} type="text" value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyPress={handleScan} className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Premi trigger scanner..." autoFocus />
-            <p className="text-sm text-gray-500 mt-2">Premi il trigger dello scanner Zebra. Demo: prova INWIT252994454I76603</p>
-          </div>
-          {message.text && (
-            <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${ message.type === 'success' ? 'bg-green-500' : message.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500' }`}>
-              {message.text}
-            </div>
-          )}
-          {currentItem && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Dettagli Item</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <InfoRow label="Po Nr" value={currentItem.PoNr} />
-                <InfoRow label="CDC" value={currentItem.Cdc} />
-                <InfoRow label="Cod. SAP" value={currentItem.CodSap} />
-                <InfoRow label="Stato" value={currentItem.Stato} />
-                <InfoRow label="Descrizione" value={currentItem.Descrizione} className="col-span-2" />
-                <InfoRow label="Ubicazione" value={currentItem.Ubicazioni} />
-                <InfoRow label="Qtà" value={currentItem['Qtà']} />
-                <InfoRow label="Serializzato" value={currentItem['SerS/No']} />
-                <InfoRow label="Seriale Atteso" value={currentItem.RISCONTROSERIALEF} className="col-span-2" />
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-blue-700 font-medium">Totale Giacenza</p>
-              <p className="text-2xl font-bold text-blue-600">{giacenza.length}</p>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-green-700 font-medium">Inventariati</p>
-              <p className="text-2xl font-bold text-green-600">{storico.length}</p>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
-              <p className="text-2xl font-bold text-yellow-600">{giacenza.length}</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function InfoRow({ label, value, className = '' }) {
-      return (
-        <div className={className}>
-          <p className="text-sm text-gray-600 font-medium">{label}</p>
-          <p className="text-lg font-semibold text-gray-800">{value || '-'}</p>
-        </div>
-      );
-    }
-
-    function Storico({ user }) {
-      const [storico, setStorico] = useState([]);
-      const [filteredData, setFilteredData] = useState([]);
-      const [selected, setSelected] = useState({});
-
-      useEffect(() => {
-        const load = async () => {
-          if (!DEMO_MODE) {
-            const res = await apiCall('getStorico');
-            if (res.success) {
-              setStorico(res.data);
-              setFilteredData(res.data);
+            if (!user || currentView === 'login') {
+                return <Login onLogin={(userData) => {
+                    setUser(userData);
+                    setCurrentView('dashboard');
+                }} />;
             }
-          } else {
-            setFilteredData(DEMO_STORICO);
-          }
-        };
-        load();
-      }, []);
 
-      const handlePrint = (format) => {
-        const selectedItems = filteredData.filter((_, idx) => selected[idx]);
-        if (selectedItems.length === 0) {
-          alert('Seleziona almeno una riga per stampare');
-          return;
+            return (
+                <div className="min-h-screen bg-gray-100 no-print">
+                    {/* Header */}
+                    <header className="bg-blue-600 text-white p-4 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold">Inventario ATS</h1>
+                                <p className="text-sm opacity-90">Operatore: {user.nome}</p>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600"
+                            >
+                                <Icons.LogOut />
+                                Esci
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="bg-white shadow-md">
+                        <div className="max-w-7xl mx-auto flex overflow-x-auto">
+                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
+                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
+                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
+                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
+                            <NavButton icon={<Icons.Printer />} label="Stampa" active={currentView === 'stampa'} onClick={() => setCurrentView('stampa')} />
+                        </div>
+                    </nav>
+
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto p-4">
+                        {currentView === 'dashboard' && <Dashboard user={user} />}
+                        {currentView === 'scanner' && <ModeScanner user={user} />}
+                        {currentView === 'lista' && <ModeLista user={user} />}
+                        {currentView === 'storico' && <Storico user={user} />}
+                        {currentView === 'stampa' && <div className="text-center py-12 text-gray-600">Stampa - In sviluppo</div>}
+                    </main>
+                </div>
+            );
         }
-        const labels = selectedItems.map(item => ({
-          codiceBP: item.CodSap || '',
-          articolo: item.Descrizione || '',
-          po: item.PoNr || '',
-          pn: item.CodSap || '',
-          posizione: item.Ubicazioni || '',
-          seriale: item.Seriale_Riscontrato || '',
-          cdc: item.Cdc || ''
-        }));
-        printLabels(labels, format);
-        if (!DEMO_MODE) {
-          apiCall('updateEtichettaStampata', { ids: selectedItems.map(i => i.ID) });
+
+        // ============================================
+        // COMPONENTI
+        // ============================================
+
+        function NavButton({ icon, label, active, onClick }) {
+            return (
+                <button
+                    onClick={onClick}
+                    className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${
+                        active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    {icon}
+                    <span className="font-medium">{label}</span>
+                </button>
+            );
         }
-        setSelected({});
-      };
 
-      const toggleSelectAll = () => {
-        if (Object.keys(selected).length === filteredData.length) {
-          setSelected({});
-        } else {
-          const newSel = {};
-          filteredData.forEach((_, i) => newSel[i] = true);
-          setSelected(newSel);
+        function Login({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                if (DEMO_MODE) {
+                    if (username === 'admin' && password === 'admin123') {
+                        onLogin({ username: 'admin', nome: 'Operatore Demo', ruolo: 'admin' });
+                    } else {
+                        setError('Demo: usa admin / admin123');
+                    }
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'login', username, password })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        onLogin(result.user);
+                    } else {
+                        setError(result.error || 'Errore di login');
+                    }
+                } catch (err) {
+                    setError('Errore di connessione');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
+                            <p className="text-gray-600 mt-2">Sistema di Inventario</p>
+                        </div>
+
+                        <form onSubmit={handleLogin} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Inserisci username"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Inserisci password"
+                                    required
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                            >
+                                {loading ? 'Accesso in corso...' : 'Accedi'}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 text-center text-sm text-gray-600">
+                            <p>Demo: admin / admin123</p>
+                        </div>
+                    </div>
+                </div>
+            );
         }
-      };
 
-      const applyFilters = () => {
-        let filtered = [...storico];
-        // tuo codice filtri originale qui
-        setFilteredData(filtered);
-      };
+        function Dashboard({ user }) {
+            const [stats, setStats] = useState(DEMO_STATS);
 
-      return (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
-          <div className="flex gap-4 justify-center">
-            <button onClick={() => handlePrint('10x10')} className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold">
-              🖨️ Stampa 10x10 selezionati ({Object.values(selected).filter(Boolean).length})
-            </button>
-            <button onClick={() => handlePrint('10x5')} className="bg-cyan-600 text-white px-6 py-3 rounded-lg font-bold">
-              🖨️ Stampa 10x5 selezionati ({Object.values(selected).filter(Boolean).length})
-            </button>
-          </div>
-          {/* tuo blocco filtri originale */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">
-                      <input type="checkbox" checked={Object.keys(selected).length === filteredData.length && filteredData.length > 0} onChange={toggleSelectAll} />
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">Data/Ora</th>
-                    <th className="px-3 py-2 text-left font-semibold">Operatore</th>
-                    <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
-                    <th className="px-3 py-2 text-left font-semibold">CDC</th>
-                    <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
-                    <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
-                    <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
-                    <th className="px-3 py-2 text-left font-semibold">Stato</th>
-                    <th className="px-3 py-2 text-left font-semibold">Qtà</th>
-                    <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
-                    <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
-                    <th className="px-3 py-2 text-left font-semibold">Seriale Riscontrato</th>
-                    <th className="px-3 py-2 text-left font-semibold">Match</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredData.map((item, idx) => (
-                    <tr key={idx} className="border-t hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <input type="checkbox" checked={!!selected[idx]} onChange={(e) => setSelected({...selected, [idx]: e.target.checked})} />
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {new Date(item.Timestamp).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="px-3 py-2 font-medium">{item.Operatore}</td>
-                      <td className="px-3 py-2">{item.PoNr}</td>
-                      <td className="px-3 py-2">{item.Cdc}</td>
-                      <td className="px-3 py-2 font-medium">{item.CodSap}</td>
-                      <td className="px-3 py-2">{item.Descrizione}</td>
-                      <td className="px-3 py-2 text-center">{item['SerS/No'] === 'Sì' ? '✅' : '❌'}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${ item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700' }`}>
-                          {item.Stato}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">{item['Qtà']}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
-                      <td className="px-3 py-2 font-mono text-xs font-bold">{item.Seriale_Riscontrato}</td>
-                      <td className="px-3 py-2">
-                        {item.Match === 'OK' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                            <Icons.CheckCircle /> OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
-                            <Icons.XCircle /> KO
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="flex justify-between items-center">
-            <p className="text-gray-600"> Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri </p>
-            <div className="flex gap-4">
-              <div className="text-sm">
-                <span className="text-green-600 font-bold"> {filteredData.filter(i => i.Match === 'OK').length} OK </span> {' / '}
-                <span className="text-red-600 font-bold"> {filteredData.filter(i => i.Match === 'KO').length} KO </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
 
-    function App() {
-      const [user, setUser] = useState(null);
-      const [currentView, setCurrentView] = useState('login');
+                    {/* Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
+                        <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
+                        <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
+                        <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
+                    </div>
 
-      const handleLogout = () => {
-        setUser(null);
-        setCurrentView('login');
-        sessionStorage.clear();
-      };
+                    {/* Progress */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-medium text-gray-700">Completamento Inventario</span>
+                            <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-4">
+                            <div
+                                className="bg-blue-600 h-4 rounded-full transition-all duration-500"
+                                style={{ width: `${stats.percentualeCompletamento}%` }}
+                            />
+                        </div>
+                    </div>
 
-      if (!user || currentView === 'login') {
-        return <Login onLogin={(userData) => { setUser(userData); setCurrentView('dashboard'); }} />;
-      }
+                    {/* Match Quality */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold mb-4">Qualità Riscontri</h3>
+                        <div className="flex gap-4">
+                            <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 text-green-700 mb-2">
+                                    <Icons.CheckCircle />
+                                    <span className="font-medium">Match OK</span>
+                                </div>
+                                <p className="text-3xl font-bold text-green-600">{stats.matchOk}</p>
+                            </div>
+                            <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 text-red-700 mb-2">
+                                    <Icons.XCircle />
+                                    <span className="font-medium">Match KO</span>
+                                </div>
+                                <p className="text-3xl font-bold text-red-600">{stats.matchKo}</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 text-center">
+                            <span className="text-gray-600">Accuratezza: </span>
+                            <span className="text-xl font-bold text-blue-600">{stats.percentualeMatch}%</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
-      return (
-        <div className="min-h-screen bg-gray-100 no-print">
-          <header className="bg-blue-600 text-white p-4 shadow-lg">
-            <div className="max-w-7xl mx-auto flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold">Inventario ATS</h1>
-                <p className="text-sm opacity-90">Operatore: {user.nome}</p>
-              </div>
-              <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600" >
-                <Icons.LogOut /> Esci
-              </button>
-            </div>
-          </header>
-          <nav className="bg-white shadow-md">
-            <div className="max-w-7xl mx-auto flex overflow-x-auto">
-              <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-              <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
-              <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
-            </div>
-          </nav>
-          <main className="max-w-7xl mx-auto p-4">
-            {currentView === 'dashboard' && <Dashboard user={user} />}
-            {currentView === 'scanner' && <ModeScanner user={user} />}
-            {currentView === 'storico' && <Storico user={user} />}
-          </main>
-        </div>
-      );
-    }
+        function StatCard({ title, value, icon, color }) {
+            return (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-600 text-sm font-medium">{title}</span>
+                        <span className="text-2xl">{icon}</span>
+                    </div>
+                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>
+                        {value.toLocaleString()}
+                    </p>
+                </div>
+            );
+        }
 
-    ReactDOM.render(<App />, document.getElementById('root'));
-  </script>
+        function ModeScanner({ user }) {
+            const [scanInput, setScanInput] = useState('');
+            const [giacenza, setGiacenza] = useState(DEMO_GIACENZA);
+            const [storico, setStorico] = useState(DEMO_STORICO);
+            const [currentItem, setCurrentItem] = useState(null);
+            const [message, setMessage] = useState({ type: '', text: '' });
+            const inputRef = useRef(null);
+
+            useEffect(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, []);
+
+            const handleScan = (e) => {
+                if (e.key === 'Enter' && scanInput.trim()) {
+                    const scanned = scanInput.trim().toUpperCase();
+                    
+                    // CONTROLLO 1: Verifica se già inventariato
+                    const alreadyScanned = storico.find(item => 
+                        String(item.Seriale_Riscontrato).toUpperCase() === scanned
+                    );
+
+                    if (alreadyScanned) {
+                        setMessage({ 
+                            type: 'warning', 
+                            text: '⚠️ SERIALE GIÀ REGISTRATO IN PRECEDENZA' 
+                        });
+                        playBeep('error');
+                        setScanInput('');
+                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                        return;
+                    }
+
+                    // CONTROLLO 2: Cerca nella giacenza
+                    const found = giacenza.find(item => 
+                        String(item.RISCONTROSERIALEF).toUpperCase() === scanned &&
+                        !item.inventariato
+                    );
+
+                    if (found) {
+                        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+                        
+                        setCurrentItem(found);
+                        setMessage({ 
+                            type: match ? 'success' : 'error', 
+                            text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' 
+                        });
+
+                        // Salva nello storico
+                        const newStorico = {
+                            ID: Date.now().toString(),
+                            Timestamp: new Date(),
+                            Operatore: user.nome,
+                            PoNr: found.PoNr,
+                            Cdc: found.Cdc,
+                            CodSap: found.CodSap,
+                            Descrizione: found.Descrizione,
+                            'SerS/No': found['SerS/No'],
+                            RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+                            Stato: found.Stato,
+                            Ubicazioni: found.Ubicazioni,
+                            'Qtà': found['Qtà'],
+                            Seriale_Riscontrato: scanned,
+                            Match: match ? 'OK' : 'KO'
+                        };
+
+                        setStorico([newStorico, ...storico]);
+
+                        // Marca come inventariato
+                        setGiacenza(giacenza.map(item => 
+                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                                ? {...item, inventariato: true} 
+                                : item
+                        ));
+
+                        playBeep(match ? 'success' : 'error');
+                    } else {
+                        setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
+                        playBeep('error');
+                    }
+
+                    setScanInput('');
+                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                }
+            };
+
+            const playBeep = (type) => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = type === 'success' ? 800 : 400;
+                oscillator.type = 'square';
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Icons.Camera /> Scansiona Seriale
+                        </label>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={scanInput}
+                            onChange={(e) => setScanInput(e.target.value)}
+                            onKeyPress={handleScan}
+                            className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Premi trigger scanner..."
+                            autoFocus
+                        />
+                        <p className="text-sm text-gray-500 mt-2">
+                            Premi il trigger dello scanner Zebra. Demo: prova INWIT252994454I76603
+                        </p>
+                    </div>
+
+                    {message.text && (
+                        <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${
+                            message.type === 'success' ? 'bg-green-500' : 
+                            message.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}>
+                            {message.text}
+                        </div>
+                    )}
+
+                    {currentItem && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold mb-4">Dettagli Item</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <InfoRow label="Po Nr" value={currentItem.PoNr} />
+                                <InfoRow label="CDC" value={currentItem.Cdc} />
+                                <InfoRow label="Cod. SAP" value={currentItem.CodSap} />
+                                <InfoRow label="Stato" value={currentItem.Stato} />
+                                <InfoRow label="Descrizione" value={currentItem.Descrizione} className="col-span-2" />
+                                <InfoRow label="Ubicazione" value={currentItem.Ubicazioni} />
+                                <InfoRow label="Qtà" value={currentItem['Qtà']} />
+                                <InfoRow label="Serializzato" value={currentItem['SerS/No']} />
+                                <InfoRow label="Seriale Atteso" value={currentItem.RISCONTROSERIALEF} className="col-span-2" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Contatori */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-blue-700 font-medium">Totale Giacenza</p>
+                            <p className="text-2xl font-bold text-blue-600">{giacenza.length}</p>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-green-700 font-medium">Inventariati</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                {giacenza.filter(i => i.inventariato).length}
+                            </p>
+                        </div>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
+                            <p className="text-2xl font-bold text-yellow-600">
+                                {giacenza.filter(i => !i.inventariato).length}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function InfoRow({ label, value, className = '' }) {
+            return (
+                <div className={className}>
+                    <p className="text-sm text-gray-600 font-medium">{label}</p>
+                    <p className="text-lg font-semibold text-gray-800">{value || '-'}</p>
+                </div>
+            );
+        }
+
+        function ModeLista({ user }) {
+            const [giacenza] = useState(DEMO_GIACENZA);
+            const [selected, setSelected] = useState({});
+
+            const handleSelectAll = () => {
+                const newSelected = {};
+                giacenza.forEach((item, idx) => {
+                    newSelected[idx] = true;
+                });
+                setSelected(newSelected);
+            };
+
+            const handleSave = () => {
+                const count = Object.values(selected).filter(Boolean).length;
+                alert(`${count} articoli salvati!`);
+                setSelected({});
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Modalità Lista</h2>
+
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleSelectAll}
+                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
+                        >
+                            Seleziona Tutti
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={Object.values(selected).filter(Boolean).length === 0}
+                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                        >
+                            Salva ({Object.values(selected).filter(Boolean).length})
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left">
+                                            <input type="checkbox" onChange={(e) => {
+                                                if (e.target.checked) handleSelectAll();
+                                                else setSelected({});
+                                            }} />
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
+                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Qtà</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {giacenza.map((item, idx) => (
+                                        <tr key={idx} className="border-t hover:bg-gray-50">
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected[idx] || false}
+                                                    onChange={(e) => setSelected({...selected, [idx]: e.target.checked})}
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 font-medium">{item.PoNr}</td>
+                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2 font-medium">{item.CodSap}</td>
+                                            <td className="px-3 py-2">{item.Descrizione}</td>
+                                            <td className="px-3 py-2 text-center">
+                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {item.Stato}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-center">{item['Qtà']}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <p className="text-gray-600">
+                        Totale articoli: {giacenza.length}
+                    </p>
+                </div>
+            );
+        }
+
+        function Storico({ user }) {
+            const [storico] = useState(DEMO_STORICO);
+            const [filters, setFilters] = useState({});
+            const [filteredData, setFilteredData] = useState(DEMO_STORICO);
+
+            const applyFilters = () => {
+                let filtered = [...storico];
+
+                if (filters.operatore) {
+                    filtered = filtered.filter(item =>
+                        item.Operatore.toLowerCase().includes(filters.operatore.toLowerCase())
+                    );
+                }
+
+                if (filters.ubicazione) {
+                    filtered = filtered.filter(item =>
+                        item.Ubicazioni.toUpperCase().includes(filters.ubicazione.toUpperCase())
+                    );
+                }
+
+                if (filters.cdc) {
+                    filtered = filtered.filter(item =>
+                        item.Cdc.toUpperCase().includes(filters.cdc.toUpperCase())
+                    );
+                }
+
+                if (filters.match) {
+                    filtered = filtered.filter(item => item.Match === filters.match);
+                }
+
+                setFilteredData(filtered);
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
+
+                    {/* Filtri */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="font-semibold mb-4">Filtri</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input
+                                type="text"
+                                placeholder="Operatore"
+                                value={filters.operatore || ''}
+                                onChange={(e) => setFilters({...filters, operatore: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Ubicazione"
+                                value={filters.ubicazione || ''}
+                                onChange={(e) => setFilters({...filters, ubicazione: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <input
+                                type="text"
+                                placeholder="CDC"
+                                value={filters.cdc || ''}
+                                onChange={(e) => setFilters({...filters, cdc: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <select
+                                value={filters.match || ''}
+                                onChange={(e) => setFilters({...filters, match: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            >
+                                <option value="">Tutti i match</option>
+                                <option value="OK">Solo OK</option>
+                                <option value="KO">Solo KO</option>
+                            </select>
+                        </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={applyFilters}
+                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+                            >
+                                Applica Filtri
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tabella Storico */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold">Data/Ora</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Operatore</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
+                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Qtà</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Riscontrato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Match</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredData.map((item, idx) => (
+                                        <tr key={idx} className="border-t hover:bg-gray-50">
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                {new Date(item.Timestamp).toLocaleString('it-IT', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </td>
+                                            <td className="px-3 py-2 font-medium">{item.Operatore}</td>
+                                            <td className="px-3 py-2">{item.PoNr}</td>
+                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2 font-medium">{item.CodSap}</td>
+                                            <td className="px-3 py-2">{item.Descrizione}</td>
+                                            <td className="px-3 py-2 text-center">
+                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {item.Stato}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-center">{item['Qtà']}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
+                                            <td className="px-3 py-2 font-mono text-xs font-bold">{item.Seriale_Riscontrato}</td>
+                                            <td className="px-3 py-2">
+                                                {item.Match === 'OK' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                                        <Icons.CheckCircle />
+                                                        OK
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                                        <Icons.XCircle />
+                                                        KO
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                        <p className="text-gray-600">
+                            Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri
+                        </p>
+                        <div className="flex gap-4">
+                            <div className="text-sm">
+                                <span className="text-green-600 font-bold">
+                                    {filteredData.filter(i => i.Match === 'OK').length} OK
+                                </span>
+                                {' / '}
+                                <span className="text-red-600 font-bold">
+                                    {filteredData.filter(i => i.Match === 'KO').length} KO
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
 </body>
 </html>
