@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario ATS</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
         @page {
             size: 100mm 100mm;
@@ -32,11 +33,15 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        // ============================================
         // CONFIGURAZIONE
+        // ============================================
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-        const DEMO_MODE = false; // Cambia a false per produzione
+        const DEMO_MODE = true; // Cambia a false per produzione
 
-        // DATI DEMO AGGIORNATI con campi extra
+        // ============================================
+        // DATI DEMO
+        // ============================================
         const DEMO_GIACENZA = [
             {
                 PoNr: 'NO PO',
@@ -48,7 +53,8 @@
                 Stato: 'USATO',
                 Ubicazioni: 'CE71-STK-S41-C01-05-001',
                 WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1
+                'Qtà': 1,
+                inventariato: false
             },
             {
                 PoNr: 'NO PO',
@@ -60,7 +66,8 @@
                 Stato: 'USATO',
                 Ubicazioni: 'CE71-STK-S41-C01-05-002',
                 WMSCode: 'WMS0000009-IWT',
-                'Qtà': 1
+                'Qtà': 1,
+                inventariato: false
             },
             {
                 PoNr: '4700109762',
@@ -72,7 +79,27 @@
                 Stato: 'NUOVO',
                 Ubicazioni: 'CE71-STK-S37-C09-02-001',
                 WMSCode: 'WMS0000749-IWT',
-                'Qtà': 1
+                'Qtà': 1,
+                inventariato: false
+            }
+        ];
+
+        const DEMO_STORICO = [
+            {
+                ID: '1',
+                Timestamp: new Date('2026-01-07T10:30:00'),
+                Operatore: 'admin',
+                PoNr: 'NO PO',
+                Cdc: 'IWT-SPARE',
+                CodSap: '100000247',
+                Descrizione: '19363050,SMPS 48V,1900W',
+                'SerS/No': 'Sì',
+                RISCONTROSERIALEF: 'INWIT376877063I76602',
+                Stato: 'USATO',
+                Ubicazioni: 'CE71-STK-S41-C01-05-001',
+                'Qtà': 1,
+                Seriale_Riscontrato: 'INWIT376877063I76602',
+                Match: 'OK'
             }
         ];
 
@@ -86,7 +113,9 @@
             percentualeMatch: 97
         };
 
+        // ============================================
         // ICONE SVG
+        // ============================================
         const Icons = {
             Camera: () => (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -147,7 +176,9 @@
             )
         };
 
+        // ============================================
         // APP PRINCIPALE
+        // ============================================
         function App() {
             const [user, setUser] = useState(null);
             const [currentView, setCurrentView] = useState('login');
@@ -200,14 +231,17 @@
                         {currentView === 'dashboard' && <Dashboard user={user} />}
                         {currentView === 'scanner' && <ModeScanner user={user} />}
                         {currentView === 'lista' && <ModeLista user={user} />}
-                        {currentView === 'storico' && <div className="text-center py-12 text-gray-600">Storico - In sviluppo</div>}
+                        {currentView === 'storico' && <Storico user={user} />}
                         {currentView === 'stampa' && <div className="text-center py-12 text-gray-600">Stampa - In sviluppo</div>}
                     </main>
                 </div>
             );
         }
 
+        // ============================================
         // COMPONENTI
+        // ============================================
+
         function NavButton({ icon, label, active, onClick }) {
             return (
                 <button
@@ -355,17 +389,20 @@
                                     <Icons.CheckCircle />
                                     <span className="font-medium">Match OK</span>
                                 </div>
-                                <p className="text-2xl font-bold">{stats.matchOk}</p>
+                                <p className="text-3xl font-bold text-green-600">{stats.matchOk}</p>
                             </div>
                             <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-4">
                                 <div className="flex items-center gap-2 text-red-700 mb-2">
                                     <Icons.XCircle />
                                     <span className="font-medium">Match KO</span>
                                 </div>
-                                <p className="text-2xl font-bold">{stats.matchKo}</p>
+                                <p className="text-3xl font-bold text-red-600">{stats.matchKo}</p>
                             </div>
                         </div>
-                        <p className="mt-4 font-semibold">Percentuale Match: {stats.percentualeMatch}%</p>
+                        <div className="mt-4 text-center">
+                            <span className="text-gray-600">Accuratezza: </span>
+                            <span className="text-xl font-bold text-blue-600">{stats.percentualeMatch}%</span>
+                        </div>
                     </div>
                 </div>
             );
@@ -373,162 +410,481 @@
 
         function StatCard({ title, value, icon, color }) {
             return (
-                <div className={`rounded-lg shadow p-6 text-white flex items-center gap-4 ${color}`}>
-                    <div className="text-4xl">{icon}</div>
-                    <div>
-                        <h4 className="font-semibold">{title}</h4>
-                        <p className="text-2xl font-bold">{value}</p>
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-600 text-sm font-medium">{title}</span>
+                        <span className="text-2xl">{icon}</span>
                     </div>
+                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>
+                        {value.toLocaleString()}
+                    </p>
                 </div>
             );
         }
 
-        // MODE SCANNER
         function ModeScanner({ user }) {
             const [scanInput, setScanInput] = useState('');
-            const [lastScan, setLastScan] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState('');
-            const [dettaglioItem, setDettaglioItem] = useState(null);
-
-            // Simula una chiamata API con demo dati
-            const getItemFromScan = (code) => {
-                if (DEMO_MODE) {
-                    return DEMO_GIACENZA.find(item => item.RISCONTROSERIALEF === code) || null;
-                }
-                // Qui chiameresti la tua API reale
-                return null;
-            };
-
-            const handleScan = (e) => {
-                e.preventDefault();
-                setError('');
-                setLoading(true);
-
-                // Simula ricerca item
-                setTimeout(() => {
-                    const item = getItemFromScan(scanInput.trim());
-                    if (item) {
-                        setLastScan(item);
-                        setDettaglioItem(item);
-                    } else {
-                        setError('Elemento non trovato');
-                        setLastScan(null);
-                        setDettaglioItem(null);
-                    }
-                    setLoading(false);
-                    setScanInput('');
-                }, 500);
-            };
-
-            return (
-                <div>
-                    <h2 className="text-2xl font-bold mb-4">Modalità Scanner</h2>
-
-                    <form onSubmit={handleScan} className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={scanInput}
-                            onChange={e => setScanInput(e.target.value)}
-                            placeholder="Inserisci codice o seriale"
-                            className="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                        />
-                        <button
-                            type="submit"
-                            disabled={loading || !scanInput.trim()}
-                            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                        >
-                            {loading ? 'Caricamento...' : 'Cerca'}
-                        </button>
-                    </form>
-
-                    {error && <div className="text-red-600 mb-4">{error}</div>}
-
-                    {dettaglioItem && (
-                        <div className="bg-white rounded shadow p-4 max-w-xl">
-                            <h3 className="text-xl font-semibold mb-3">Dettaglio Item</h3>
-                            <ul className="space-y-1 text-gray-700">
-                                <li><strong>PoNr:</strong> {dettaglioItem.PoNr}</li>
-                                <li><strong>Cdc:</strong> {dettaglioItem.Cdc}</li>
-                                <li><strong>CodSap:</strong> {dettaglioItem.CodSap}</li>
-                                <li><strong>Descrizione:</strong> {dettaglioItem.Descrizione}</li>
-                                <li><strong>Seriale (SerS/No):</strong> {dettaglioItem['SerS/No']}</li>
-                                <li><strong>Seriale Riscontro:</strong> {dettaglioItem.RISCONTROSERIALEF}</li>
-                                <li><strong>Stato:</strong> {dettaglioItem.Stato}</li>
-                                <li><strong>Ubicazioni:</strong> {dettaglioItem.Ubicazioni}</li>
-                                <li><strong>WMSCode:</strong> {dettaglioItem.WMSCode}</li>
-                                <li><strong>Qtà:</strong> {dettaglioItem['Qtà']}</li>
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        // MODE LISTA
-        function ModeLista({ user }) {
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filteredItems, setFilteredItems] = useState(DEMO_GIACENZA);
+            const [giacenza, setGiacenza] = useState(DEMO_GIACENZA);
+            const [storico, setStorico] = useState(DEMO_STORICO);
+            const [currentItem, setCurrentItem] = useState(null);
+            const [message, setMessage] = useState({ type: '', text: '' });
+            const inputRef = useRef(null);
 
             useEffect(() => {
-                const filtered = DEMO_GIACENZA.filter(item =>
-                    item.RISCONTROSERIALEF.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    item.Descrizione.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    item.CodSap.toLowerCase().includes(searchTerm.toLowerCase())
-                );
-                setFilteredItems(filtered);
-            }, [searchTerm]);
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, []);
+
+            const handleScan = (e) => {
+                if (e.key === 'Enter' && scanInput.trim()) {
+                    const scanned = scanInput.trim().toUpperCase();
+                    
+                    // CONTROLLO 1: Verifica se già inventariato
+                    const alreadyScanned = storico.find(item => 
+                        String(item.Seriale_Riscontrato).toUpperCase() === scanned
+                    );
+
+                    if (alreadyScanned) {
+                        setMessage({ 
+                            type: 'warning', 
+                            text: '⚠️ SERIALE GIÀ REGISTRATO IN PRECEDENZA' 
+                        });
+                        playBeep('error');
+                        setScanInput('');
+                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                        return;
+                    }
+
+                    // CONTROLLO 2: Cerca nella giacenza
+                    const found = giacenza.find(item => 
+                        String(item.RISCONTROSERIALEF).toUpperCase() === scanned &&
+                        !item.inventariato
+                    );
+
+                    if (found) {
+                        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+                        
+                        setCurrentItem(found);
+                        setMessage({ 
+                            type: match ? 'success' : 'error', 
+                            text: match ? '✅ MATCH OK - SERIALE CONFERMATO!' : '❌ SERIALE NON CORRISPONDENTE' 
+                        });
+
+                        // Salva nello storico
+                        const newStorico = {
+                            ID: Date.now().toString(),
+                            Timestamp: new Date(),
+                            Operatore: user.nome,
+                            PoNr: found.PoNr,
+                            Cdc: found.Cdc,
+                            CodSap: found.CodSap,
+                            Descrizione: found.Descrizione,
+                            'SerS/No': found['SerS/No'],
+                            RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+                            Stato: found.Stato,
+                            Ubicazioni: found.Ubicazioni,
+                            'Qtà': found['Qtà'],
+                            Seriale_Riscontrato: scanned,
+                            Match: match ? 'OK' : 'KO'
+                        };
+
+                        setStorico([newStorico, ...storico]);
+
+                        // Marca come inventariato
+                        setGiacenza(giacenza.map(item => 
+                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                                ? {...item, inventariato: true} 
+                                : item
+                        ));
+
+                        playBeep(match ? 'success' : 'error');
+                    } else {
+                        setMessage({ type: 'error', text: '❌ SERIALE NON TROVATO IN GIACENZA' });
+                        playBeep('error');
+                    }
+
+                    setScanInput('');
+                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                }
+            };
+
+            const playBeep = (type) => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = type === 'success' ? 800 : 400;
+                oscillator.type = 'square';
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            };
 
             return (
-                <div>
-                    <h2 className="text-2xl font-bold mb-4">Lista Elementi</h2>
-                    <input
-                        type="text"
-                        placeholder="Cerca per seriale, descrizione o codice SAP"
-                        className="w-full mb-4 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                    <div className="overflow-auto max-h-[400px]">
-                        <table className="w-full table-auto border-collapse border border-gray-300">
-                            <thead className="bg-blue-100">
-                                <tr>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">PoNr</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Cdc</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">CodSap</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Descrizione</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">SerS/No</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Seriale Riscontro</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Stato</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Ubicazioni</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">WMSCode</th>
-                                    <th className="border border-gray-300 px-3 py-1 text-left">Qtà</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredItems.map((item, i) => (
-                                    <tr key={i} className="even:bg-gray-50 hover:bg-blue-50 cursor-pointer">
-                                        <td className="border border-gray-300 px-3 py-1">{item.PoNr}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.Cdc}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.CodSap}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.Descrizione}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item['SerS/No']}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.RISCONTROSERIALEF}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.Stato}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.Ubicazioni}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item.WMSCode}</td>
-                                        <td className="border border-gray-300 px-3 py-1">{item['Qtà']}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Icons.Camera /> Scansiona Seriale
+                        </label>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={scanInput}
+                            onChange={(e) => setScanInput(e.target.value)}
+                            onKeyPress={handleScan}
+                            className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Premi trigger scanner..."
+                            autoFocus
+                        />
+                        <p className="text-sm text-gray-500 mt-2">
+                            Premi il trigger dello scanner Zebra. Demo: prova INWIT252994454I76603
+                        </p>
+                    </div>
+
+                    {message.text && (
+                        <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${
+                            message.type === 'success' ? 'bg-green-500' : 
+                            message.type === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}>
+                            {message.text}
+                        </div>
+                    )}
+
+                    {currentItem && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold mb-4">Dettagli Item</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <InfoRow label="Po Nr" value={currentItem.PoNr} />
+                                <InfoRow label="CDC" value={currentItem.Cdc} />
+                                <InfoRow label="Cod. SAP" value={currentItem.CodSap} />
+                                <InfoRow label="Stato" value={currentItem.Stato} />
+                                <InfoRow label="Descrizione" value={currentItem.Descrizione} className="col-span-2" />
+                                <InfoRow label="Ubicazione" value={currentItem.Ubicazioni} />
+                                <InfoRow label="Qtà" value={currentItem['Qtà']} />
+                                <InfoRow label="Serializzato" value={currentItem['SerS/No']} />
+                                <InfoRow label="Seriale Atteso" value={currentItem.RISCONTROSERIALEF} className="col-span-2" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Contatori */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-blue-700 font-medium">Totale Giacenza</p>
+                            <p className="text-2xl font-bold text-blue-600">{giacenza.length}</p>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-green-700 font-medium">Inventariati</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                {giacenza.filter(i => i.inventariato).length}
+                            </p>
+                        </div>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
+                            <p className="text-2xl font-bold text-yellow-600">
+                                {giacenza.filter(i => !i.inventariato).length}
+                            </p>
+                        </div>
                     </div>
                 </div>
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        function InfoRow({ label, value, className = '' }) {
+            return (
+                <div className={className}>
+                    <p className="text-sm text-gray-600 font-medium">{label}</p>
+                    <p className="text-lg font-semibold text-gray-800">{value || '-'}</p>
+                </div>
+            );
+        }
+
+        function ModeLista({ user }) {
+            const [giacenza] = useState(DEMO_GIACENZA);
+            const [selected, setSelected] = useState({});
+
+            const handleSelectAll = () => {
+                const newSelected = {};
+                giacenza.forEach((item, idx) => {
+                    newSelected[idx] = true;
+                });
+                setSelected(newSelected);
+            };
+
+            const handleSave = () => {
+                const count = Object.values(selected).filter(Boolean).length;
+                alert(`${count} articoli salvati!`);
+                setSelected({});
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Modalità Lista</h2>
+
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleSelectAll}
+                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
+                        >
+                            Seleziona Tutti
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={Object.values(selected).filter(Boolean).length === 0}
+                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                        >
+                            Salva ({Object.values(selected).filter(Boolean).length})
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left">
+                                            <input type="checkbox" onChange={(e) => {
+                                                if (e.target.checked) handleSelectAll();
+                                                else setSelected({});
+                                            }} />
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
+                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Qtà</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {giacenza.map((item, idx) => (
+                                        <tr key={idx} className="border-t hover:bg-gray-50">
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected[idx] || false}
+                                                    onChange={(e) => setSelected({...selected, [idx]: e.target.checked})}
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 font-medium">{item.PoNr}</td>
+                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2 font-medium">{item.CodSap}</td>
+                                            <td className="px-3 py-2">{item.Descrizione}</td>
+                                            <td className="px-3 py-2 text-center">
+                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {item.Stato}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-center">{item['Qtà']}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <p className="text-gray-600">
+                        Totale articoli: {giacenza.length}
+                    </p>
+                </div>
+            );
+        }
+
+        function Storico({ user }) {
+            const [storico] = useState(DEMO_STORICO);
+            const [filters, setFilters] = useState({});
+            const [filteredData, setFilteredData] = useState(DEMO_STORICO);
+
+            const applyFilters = () => {
+                let filtered = [...storico];
+
+                if (filters.operatore) {
+                    filtered = filtered.filter(item =>
+                        item.Operatore.toLowerCase().includes(filters.operatore.toLowerCase())
+                    );
+                }
+
+                if (filters.ubicazione) {
+                    filtered = filtered.filter(item =>
+                        item.Ubicazioni.toUpperCase().includes(filters.ubicazione.toUpperCase())
+                    );
+                }
+
+                if (filters.cdc) {
+                    filtered = filtered.filter(item =>
+                        item.Cdc.toUpperCase().includes(filters.cdc.toUpperCase())
+                    );
+                }
+
+                if (filters.match) {
+                    filtered = filtered.filter(item => item.Match === filters.match);
+                }
+
+                setFilteredData(filtered);
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
+
+                    {/* Filtri */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="font-semibold mb-4">Filtri</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input
+                                type="text"
+                                placeholder="Operatore"
+                                value={filters.operatore || ''}
+                                onChange={(e) => setFilters({...filters, operatore: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Ubicazione"
+                                value={filters.ubicazione || ''}
+                                onChange={(e) => setFilters({...filters, ubicazione: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <input
+                                type="text"
+                                placeholder="CDC"
+                                value={filters.cdc || ''}
+                                onChange={(e) => setFilters({...filters, cdc: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            />
+                            <select
+                                value={filters.match || ''}
+                                onChange={(e) => setFilters({...filters, match: e.target.value})}
+                                className="px-4 py-2 border rounded-lg"
+                            >
+                                <option value="">Tutti i match</option>
+                                <option value="OK">Solo OK</option>
+                                <option value="KO">Solo KO</option>
+                            </select>
+                        </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={applyFilters}
+                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+                            >
+                                Applica Filtri
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tabella Storico */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold">Data/Ora</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Operatore</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
+                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Qtà</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Atteso</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale Riscontrato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Match</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredData.map((item, idx) => (
+                                        <tr key={idx} className="border-t hover:bg-gray-50">
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                {new Date(item.Timestamp).toLocaleString('it-IT', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </td>
+                                            <td className="px-3 py-2 font-medium">{item.Operatore}</td>
+                                            <td className="px-3 py-2">{item.PoNr}</td>
+                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2 font-medium">{item.CodSap}</td>
+                                            <td className="px-3 py-2">{item.Descrizione}</td>
+                                            <td className="px-3 py-2 text-center">
+                                                {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {item.Stato}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-center">{item['Qtà']}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
+                                            <td className="px-3 py-2 font-mono text-xs font-bold">{item.Seriale_Riscontrato}</td>
+                                            <td className="px-3 py-2">
+                                                {item.Match === 'OK' ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                                        <Icons.CheckCircle />
+                                                        OK
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+                                                        <Icons.XCircle />
+                                                        KO
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                        <p className="text-gray-600">
+                            Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri
+                        </p>
+                        <div className="flex gap-4">
+                            <div className="text-sm">
+                                <span className="text-green-600 font-bold">
+                                    {filteredData.filter(i => i.Match === 'OK').length} OK
+                                </span>
+                                {' / '}
+                                <span className="text-red-600 font-bold">
+                                    {filteredData.filter(i => i.Match === 'KO').length} KO
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
