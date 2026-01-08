@@ -20,13 +20,13 @@ body {
   font-family: Arial, sans-serif;
 }
 
-.no-print { margin-bottom: 20px; }
+.no-print { margin-bottom: 0px; }
 
 @media print {
   .no-print { display: none; }
 
   @page {
-    size: 10cm auto;
+    size: 10cm 10cm;
     margin: 0;
   }
 
@@ -49,7 +49,7 @@ body {
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
-  margin-bottom: 10mm;
+  margin-bottom: 0mm;
 }
 
 .logo-container {
