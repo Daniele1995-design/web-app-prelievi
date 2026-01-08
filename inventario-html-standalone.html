@@ -23,17 +23,28 @@ body {
 .no-print { margin-bottom: 20px; }
 
 @media print {
-  .no-print { display: none; }
+  body {
+    margin: 0;
+    padding: 0;
+  }
 
   @page {
-    size: 100mm auto;
+    size: 100mm 50mm; /* default 10x5 */
     margin: 0;
   }
 
-  html, body {
+  .etichetta-10x5 {
     width: 100mm;
-    margin: 0;
-    padding: 0;
+    height: 50mm;
+    box-sizing: border-box;
+    page-break-after: always;
+  }
+
+  .etichetta-10x10 {
+    width: 100mm;
+    height: 100mm;
+    box-sizing: border-box;
+    page-break-after: always;
   }
 }
 
@@ -486,6 +497,18 @@ function isCacheValid(key) {
             Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
+        function setPageSize(formato) {
+  const style = document.getElementById('print-style');
+  style.innerHTML = `
+    @media print {
+      @page {
+        size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'};
+        margin: 0;
+      }
+    }
+  `;
+}
+
         function App() {
     const [user, setUser] = useState(() => {
         const saved = sessionStorage.getItem('ats_user');
@@ -632,20 +655,22 @@ function isCacheValid(key) {
                 if (giacenzaLocal.length > 0) {
                     // Calcola statistiche locali
                     const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                    const inventariati = storicoLocal.length;
                     const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                    const matchOk = storicoLocal.filter(i => i.Match === 'OK').length;
                     const percentuale = totaleGiacenza > 0 
                         ? Math.round((inventariati / totaleGiacenza) * 100) 
                         : 0;
 
                     const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
+  totaleGiacenza: giacenzaLocal.length,
+  totaleInventariato: storicoLocal.length,
+  daInventariare: giacenzaLocal.length - storicoLocal.length,
+  matchOk,
+  percentualeCompletamento: Math.round(
+    (storicoLocal.length / giacenzaLocal.length) * 100
+  )
+};
 
                     setStats(localStats);
                     appCache.stats = localStats;
@@ -908,6 +933,8 @@ function isCacheValid(key) {
             setGiacenza(updated);
             appCache.giacenza = updated;
             await dbCache.set('giacenza', updated);
+            appCache.stats = null;
+            window.dispatchEvent(new Event('ats-data-updated'));
             
             setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
             setEditingUbicazione(false);
@@ -1003,7 +1030,7 @@ function isCacheValid(key) {
             }
 
             setTimeout(() => {
-                window.print();
+                setPageSize(formato); setTimeout(() => window.print(), 800);
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
             }, 500);
@@ -1218,6 +1245,8 @@ function isCacheValid(key) {
             setGiacenza(updatedGiacenza);
             appCache.giacenza = updatedGiacenza;
             await dbCache.set('giacenza', updatedGiacenza);
+            appCache.stats = null;
+            window.dispatchEvent(new Event('ats-data-updated'));
             
             setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
             setSelected([]);
@@ -1324,7 +1353,7 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-                window.print();
+                setPageSize(formato); setTimeout(() => window.print(), 800);
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
             }, 500);
@@ -1644,7 +1673,7 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-                window.print();
+                setPageSize(formato); setTimeout(() => window.print(), 800);
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
             }, 500);
