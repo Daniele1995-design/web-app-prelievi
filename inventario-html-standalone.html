@@ -1271,50 +1271,124 @@ const stampaSelezionati = () => {
             };
 
             const stampaSelezionati = () => {
-                if (selected.length === 0) return alert('Seleziona almeno un articolo');
-                const printArea = document.getElementById('print-area');
-                let html = '';
-                selected.forEach((item, idx) => {
-                    const bcId = 'bc-storico-'+idx;
-                    if (formatoStampa === '10x10') {
-                        html += `<div class="etichetta-10x10"><div class="logo-container"><img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg"><div class="label-cod-bp">COD BP</div></div><div class="bp-section"><div class="bp-label">Codice BP</div><div class="bp-value">${item.CodSap||''}</div></div><img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap||'')}"><hr><div class="art-label">Articolo</div><svg class="barcode-svg" id="${bcId}"></svg><div class="wms">${item.WMSCode||''}</div><hr><div class="po-row"><div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr||''}</span></div><div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato||''}</span></div></div><div class="label-tpn">TPN</div><hr class="thin"><div class="part-section"><span class="part-label">Part Number</span><span class="part-value">${item.CodSap||''}</span><img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap||'')}"></div><hr class="thin"><div class="sn-section"><span class="sn-label">SerialNumber/Lotto</span><span class="sn-value">${item.Seriale_Riscontrato||''}</span><img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.Seriale_Riscontrato||'')}"><div class="label-sn">SN</div></div><div class="ubicazione-under-sn"><span class="pos-label">Ubicazione</span><div class="pos-value">${item.Ubicazioni||''}</div></div></div>`;
-                    } else {
-                        html += `<div class="etichetta-10x5"><img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg"><div class="et5-codbp">Codice BP<br>${item.CodSap||''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap||'')}"></div><svg class="et5-barcode" id="${bcId}"></svg><div class="et5-wms">${item.WMSCode||''}</div><div class="et5-info"><div>PO Nr°: ${item.PoNr||''} / Pos: ${item.Stato||''}<br>Part Number: ${item.CodSap||''}<br>Seriale: ${item.Seriale_Riscontrato||''}</div><img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.Seriale_Riscontrato||'')}"></div></div>`;
-                    }
-                });
-                  printArea.innerHTML = html;
-                printArea.style.display = 'block';
-                
-                // PRECARICA TUTTE LE IMMAGINI
-                const images = Array.from(printArea.querySelectorAll('img'));
-                const imagePromises = images.map(img => {
-                    return new Promise((resolve) => {
-                        if (img.complete && img.naturalHeight !== 0) {
-                            resolve();
-                        } else {
-                            img.onload = () => resolve();
-                            img.onerror = () => resolve();
-                            setTimeout(() => resolve(), 3000);
-                        }
-                    });
-                });
-                
-                Promise.all(imagePromises).then(() => {
-                    selected.forEach((item, idx) => {
-                        const bcId = 'bc-storico-'+idx;
-                        if (item.WMSCode) {
-                            try {
-                                JsBarcode('#'+bcId, item.WMSCode, {format:"CODE128", height:formatoStampa==='10x10'?26:20, width:1.8, displayValue:false, margin:0});
-                            } catch(e) { console.error('Barcode error:', e); }
-                        }
-                    });
-                    setTimeout(() => {
-                        window.print();
-                        printArea.style.display = 'none';
-                    }, 500);
-                });
-            };
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
+    const printArea = document.getElementById('print-area');
+    const is10x5 = formatoStampa === '10x5';
+
+    // === IMPORTANTE: attiva/disattiva la regola @page per 10x5 ===
+    if (is10x5) {
+        document.body.classList.add('formato-10x5');
+    } else {
+        document.body.classList.remove('formato-10x5');
+    }
+
+    let html = '';
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${Date.now()}`; // id unico
+
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.CodSap || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else {
+            // formato 10x5
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        }
+    });
+
+    printArea.innerHTML = html;
+    printArea.style.display = 'block';
+
+    // Precarica tutte le immagini
+    const images = Array.from(printArea.querySelectorAll('img'));
+    const imagePromises = images.map(img => {
+        return new Promise(resolve => {
+            if (img.complete && img.naturalHeight !== 0) {
+                resolve();
+            } else {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000);
+            }
+        });
+    });
+
+    Promise.all(imagePromises).then(() => {
+        // Genera tutti i barcode
+        selected.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${Date.now()}`; // deve corrispondere all'id sopra
+            const element = document.getElementById(bcId);
+            if (item.WMSCode && element) {
+                try {
+                    JsBarcode(element, item.WMSCode, {
+                        format: "CODE128",
+                        height: formatoStampa === '10x10' ? 20 : 18,
+                        width: formatoStampa === '10x10' ? 1.5 : 1.5,
+                        displayValue: false,
+                        margin: 0
+                    });
+                } catch (e) {
+                    console.error('Errore barcode multi:', e);
+                }
+            }
+        });
+
+        setTimeout(() => {
+            window.print();
+            // === IMPORTANTE: rimuovi la classe dopo la stampa ===
+            document.body.classList.remove('formato-10x5');
+            printArea.style.display = 'none';
+            printArea.innerHTML = '';
+        }, 500);
+    });
+};
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
 
             return (
