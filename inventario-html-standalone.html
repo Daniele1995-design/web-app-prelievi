@@ -23,28 +23,31 @@ body {
 .no-print { margin-bottom: 20px; }
 
 @media print {
+  .etichetta-10x10 {
+    width: 10cm;
+    height: 10cm;
+    page-break-inside: avoid;
+  }
+
+  .etichetta-10x5 {
+    width: 10cm;
+    height: 5cm;
+    page-break-inside: avoid;
+  }
+
   body {
     margin: 0;
     padding: 0;
   }
 
-  @page {
-    size: 100mm 50mm; /* default 10x5 */
-    margin: 0;
+  /* Evita di stampare altri elementi */
+  #root > *:not(#print-area) {
+    display: none !important;
   }
 
-  .etichetta-10x5 {
-    width: 100mm;
-    height: 50mm;
-    box-sizing: border-box;
-    page-break-after: always;
-  }
-
-  .etichetta-10x10 {
-    width: 100mm;
-    height: 100mm;
-    box-sizing: border-box;
-    page-break-after: always;
+  /* Forza visibilità del contenuto di print-area */
+  #print-area {
+    display: block !important;
   }
 }
 
@@ -1037,10 +1040,39 @@ function isCacheValid(key) {
             }
 
             setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <html>
+            <head>
+                <title>Stampa Etichette</title>
+                <style>
+                    body { margin:0; padding:0; }
+                    ${document.getElementById('page-style').innerHTML}
+                </style>
+            </head>
+            <body>${printArea.innerHTML}</body>
+        </html>
+    `);
+    doc.close();
+
+    printFrame.contentWindow.focus();
+    printFrame.contentWindow.print();
+
+    // Rimuovi iframe dopo stampa
+    setTimeout(() => document.body.removeChild(printFrame), 500);
+
+    // Pulisci printArea
+    printArea.style.display = 'none';
+    printArea.innerHTML = '';
+}, 600);
         });
     };
 
@@ -1363,10 +1395,39 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <html>
+            <head>
+                <title>Stampa Etichette</title>
+                <style>
+                    body { margin:0; padding:0; }
+                    ${document.getElementById('page-style').innerHTML}
+                </style>
+            </head>
+            <body>${printArea.innerHTML}</body>
+        </html>
+    `);
+    doc.close();
+
+    printFrame.contentWindow.focus();
+    printFrame.contentWindow.print();
+
+    // Rimuovi iframe dopo stampa
+    setTimeout(() => document.body.removeChild(printFrame), 500);
+
+    // Pulisci printArea
+    printArea.style.display = 'none';
+    printArea.innerHTML = '';
+}, 600);;
         });
     };
 
@@ -1683,10 +1744,39 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <html>
+            <head>
+                <title>Stampa Etichette</title>
+                <style>
+                    body { margin:0; padding:0; }
+                    ${document.getElementById('page-style').innerHTML}
+                </style>
+            </head>
+            <body>${printArea.innerHTML}</body>
+        </html>
+    `);
+    doc.close();
+
+    printFrame.contentWindow.focus();
+    printFrame.contentWindow.print();
+
+    // Rimuovi iframe dopo stampa
+    setTimeout(() => document.body.removeChild(printFrame), 500);
+
+    // Pulisci printArea
+    printArea.style.display = 'none';
+    printArea.innerHTML = '';
+}, 600);
         });
     };
 
