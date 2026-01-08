@@ -1363,10 +1363,11 @@ function isCacheValid(key) {
 }
 
         function Storico({ user }) {
-    const [storico, setStorico] = useState(appCache.storico || []);
+    const [storico, setStorico] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
     const [filters, setFilters] = useState({});
-    const [loading, setLoading] = useState(!appCache.storico);
+    const [loading, setLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [editingItems, setEditingItems] = useState({});
     const [selected, setSelected] = useState([]);
@@ -1374,26 +1375,55 @@ function isCacheValid(key) {
     const [formatoStampa, setFormatoStampa] = useState('10x10');
 
     useEffect(() => {
-        async function load() {
-            if (appCache.storico) {
-                setStorico(appCache.storico);
-                setFilteredData(appCache.storico);
-                setLoading(false);
-                return;
-            }
+        async function loadData() {
             try {
+                await dbCache.init();
+                
+                const lastSync = await dbCache.getMetadata('lastSync');
+                const now = Date.now();
+                const ONE_DAY = 24 * 60 * 60 * 1000;
+                
+                if (lastSync && (now - lastSync < ONE_DAY)) {
+                    setLoadingProgress('Caricamento da cache...');
+                    const cachedStor = await dbCache.get('storico');
+                    
+                    if (cachedStor.length > 0) {
+                        setStorico(cachedStor);
+                        setFilteredData(cachedStor);
+                        appCache.storico = cachedStor;
+                        setLoading(false);
+                        setLoadingProgress('');
+                        return;
+                    }
+                }
+                
+                setLoadingProgress('Download dal server...');
                 const res = await api('getStorico', { filters: {} });
-                const data = res.data || [];
-                setStorico(data);
-                setFilteredData(data);
-                appCache.storico = data;
+                
+                setLoadingProgress('Salvataggio cache...');
+                const storicoData = res.data.map((item, idx) => ({
+                    ...item,
+                    id: item.id || idx
+                }));
+                
+                await Promise.all([
+                    dbCache.set('storico', storicoData),
+                    dbCache.setMetadata('lastSync', now)
+                ]);
+                
+                setStorico(storicoData);
+                setFilteredData(storicoData);
+                appCache.storico = storicoData;
             } catch (err) {
-                alert('Errore caricamento');
+                console.error(err);
+                alert('Errore caricamento: ' + err.message);
             } finally {
                 setLoading(false);
+                setLoadingProgress('');
             }
         }
-        load();
+        
+        loadData();
     }, []);
 
     const applyFilters = () => {
@@ -1411,8 +1441,9 @@ function isCacheValid(key) {
             await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: newUbic });
             const updated = storico.map(i => i.Seriale_Riscontrato === item.Seriale_Riscontrato ? { ...i, Ubicazioni: newUbic } : i);
             setStorico(updated);
-            appCache.storico = updated;
             setFilteredData(updated);
+            appCache.storico = updated;
+            await dbCache.set('storico', updated);
             setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
             alert('Ubicazione aggiornata');
         } catch (err) {
@@ -1430,8 +1461,9 @@ function isCacheValid(key) {
             }
             const updated = storico.map(i => selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) ? { ...i, Ubicazioni: bulkUbicazione } : i);
             setStorico(updated);
-            appCache.storico = updated;
             setFilteredData(updated);
+            appCache.storico = updated;
+            await dbCache.set('storico', updated);
             setSelected([]);
             setBulkUbicazione('');
             alert('Ubicazioni aggiornate');
@@ -1543,7 +1575,12 @@ function isCacheValid(key) {
         });
     };
 
-    if (loading) return <div className="text-center py-12">Caricamento...</div>;
+    if (loading) return (
+        <div className="text-center py-12">
+            <div className="text-xl font-bold mb-2">Caricamento...</div>
+            {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
+        </div>
+    );
 
     return (
         <div className="space-y-6">
@@ -1697,7 +1734,6 @@ function isCacheValid(key) {
         </div>
     );
 }
-
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
