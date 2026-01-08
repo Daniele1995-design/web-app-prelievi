@@ -1451,6 +1451,7 @@ function isCacheValid(key) {
         if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
         if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
         if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())); // NUOVO
         if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
         setFilteredData(filtered);
         setShowFilters(false);
@@ -1619,6 +1620,7 @@ function isCacheValid(key) {
                             <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+                            <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" /> {/* NUOVO */}
                             <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
                                 <option value="">Tutti i match</option>
                                 <option value="OK">Solo OK</option>
