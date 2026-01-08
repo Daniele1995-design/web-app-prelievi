@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
- <style>
+<style>
     @page {
         size: 100mm auto;
         margin: 0;
@@ -63,13 +63,13 @@
         }
     }
 
-    /* ========== ETICHETTA 10x10 ========== */
+    /* ========== ETICHETTA 10x10 - VERSIONE BILANCIATA E PIÙ GRANDE ========== */
     .etichetta-10x10 {
         width: 100mm;
         height: 100mm;
         border: 2px solid #000;
         background: white;
-        padding: 3mm 4mm;               /* aumentato per più spazio interno */
+        padding: 2.5mm 3.8mm;           /* padding bilanciato */
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
@@ -78,20 +78,20 @@
     }
 
     .logo-container {
-        height: 9mm;                    /* logo più grande */
-        margin-bottom: 1mm;
+        height: 8mm;
+        margin-bottom: 0.8mm;
         position: relative;
     }
 
     .logo-img {
-        height: 8mm;                    /* logo più visibile */
+        height: 7mm;
         width: auto;
     }
 
     .label-cod-bp {
         right: 0;
         top: 1mm;
-        font-size: 6.5pt;               /* più leggibile */
+        font-size: 6pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
@@ -99,18 +99,18 @@
     }
 
     .bp-section {
-        margin-bottom: 1mm;
+        margin-bottom: 0.8mm;
         position: relative;
-        padding-right: 12mm;            /* più spazio per QR */
+        padding-right: 11mm;
     }
 
     .bp-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .bp-value {
-        font-size: 19pt;                /* Codice BP bello grande */
+        font-size: 17pt;                /* grande ma non troppo */
         font-weight: bold;
         line-height: 1.1;
     }
@@ -118,143 +118,143 @@
     .qr-bp {
         top: -1mm;
         right: 0;
-        width: 11mm;                    /* QR più grande */
-        height: 11mm;
+        width: 10mm;
+        height: 10mm;
     }
 
     .etichetta-10x10 hr {
-        border-top: 2px solid black;    /* linee più spesse */
-        margin: 1mm 0;
+        border-top: 1.8px solid black;
+        margin: 0.9mm 0;
     }
 
     .etichetta-10x10 hr.thin {
         border-top: 1.2px solid black;
-        margin: 0.8mm 0;
+        margin: 0.7mm 0;
     }
 
     .art-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
-        margin: 0 0 1mm;
+        margin: 0 0 0.8mm;
     }
 
     .barcode-svg {
-        width: 80mm;                    /* barcode più largo e pieno */
-        height: 26px;                   /* più alto e leggibile */
-        margin: 0 auto 1mm;
+        width: 78mm;                    /* più largo ma sta dentro */
+        height: 24px;
+        margin: 0 auto 0.8mm;
         display: block;
     }
 
     .wms {
         text-align: center;
-        font-size: 10.5pt;              /* WMS più evidente */
+        font-size: 9.5pt;
         font-weight: bold;
-        margin: 0 0 1mm;
+        margin: 0 0 0.8mm;
     }
 
     .po-row {
-        margin: 1.5mm 0;
+        margin: 1mm 0;
         display: flex;
         justify-content: space-between;
     }
 
     .po-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .po-value {
-        font-size: 16pt;                /* PO e Posizione più grandi */
+        font-size: 15pt;
         font-weight: bold;
     }
 
     .label-tpn {
         right: 2mm;
-        top: 48mm;
-        font-size: 6.5pt;
+        top: 50mm;                      /* spostato un po' più in alto per far spazio */
+        font-size: 6pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
 
     .part-section {
-        margin: 1.5mm 0;
+        margin: 1mm 0;
         position: relative;
-        padding-right: 12mm;
+        padding-right: 11mm;
     }
 
     .part-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .part-value {
-        font-size: 13pt;                /* Part Number più grande */
+        font-size: 12pt;
         font-weight: bold;
     }
 
     .qr-part {
         top: 0;
         right: 0;
-        width: 11mm;
-        height: 11mm;
+        width: 10mm;
+        height: 10mm;
     }
 
     .sn-section {
         position: relative;
-        margin: 1.5mm 0;
-        padding-right: 12mm;
+        margin: 1mm 0;
+        padding-right: 11mm;
     }
 
     .sn-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .sn-value {
-        font-size: 12pt;                /* Seriale più leggibile */
+        font-size: 11pt;
         font-weight: bold;
     }
 
     .qr-sn {
         top: 0;
         right: 0;
-        width: 11mm;
-        height: 11mm;
+        width: 10mm;
+        height: 10mm;
     }
 
     .label-sn {
         right: 2mm;
         bottom: 10mm;
-        font-size: 6.5pt;
+        font-size: 6pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
 
     .ubicazione-under-sn {
-        margin-top: 1mm;
+        margin-top: 0.8mm;
     }
 
     .ubicazione-under-sn .pos-label {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .ubicazione-under-sn .pos-value {
-        font-size: 11pt;
+        font-size: 10pt;
         font-weight: bold;
         line-height: 1.2;
         word-break: break-all;
     }
 
-    /* ========== ETICHETTA 10x5 ========== */
+    /* ========== ETICHETTA 10x5 - BILANCIATA ========== */
     .etichetta-10x5 {
         width: 100mm;
         height: 50mm;
         border: 2px solid #000;
         background: white;
-        padding: 2.5mm 3mm;             /* più spazio interno */
+        padding: 2.2mm 3mm;
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
@@ -262,7 +262,7 @@
     }
 
     .et5-logo {
-        height: 8mm;                    /* logo più grande */
+        height: 7mm;
         width: auto;
         display: inline-block;
         vertical-align: top;
@@ -272,36 +272,36 @@
         float: right;
         text-align: right;
         font-weight: bold;
-        font-size: 13pt;                /* Codice BP più grande */
+        font-size: 12pt;
         line-height: 1.2;
     }
 
     .et5-qr-bp {
-        width: 10mm;                    /* QR più visibile */
-        height: 10mm;
+        width: 9mm;
+        height: 9mm;
         vertical-align: middle;
         margin-left: 2mm;
     }
 
     .et5-barcode {
-        width: 70mm;                    /* barcode più largo */
-        height: 22px;                   /* più alto */
-        margin: 2mm auto 1.5mm;
+        width: 68mm;
+        height: 20px;
+        margin: 1.8mm auto 1.2mm;
         display: block;
     }
 
     .et5-wms {
         text-align: center;
         font-weight: bold;
-        font-size: 10pt;                /* WMS più evidente */
-        margin: 0 0 1.5mm;
+        font-size: 9.5pt;
+        margin: 0 0 1.2mm;
     }
 
     .et5-info {
-        font-size: 9pt;                 /* testi più grandi */
+        font-size: 8.5pt;
         display: flex;
         justify-content: space-between;
-        margin-top: 2mm;
+        margin-top: 1.5mm;
         align-items: flex-start;
     }
 
@@ -311,8 +311,8 @@
     }
 
     .et5-qr-sn {
-        width: 10mm;
-        height: 10mm;
+        width: 9mm;
+        height: 9mm;
         margin-left: 3mm;
         flex-shrink: 0;
     }
