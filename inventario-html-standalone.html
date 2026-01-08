@@ -638,68 +638,67 @@ function isCacheValid(key) {
             );
         }
 
-        function Dashboard({ user }) {
+       function Dashboard({ user }) {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function load() {
-            try {
-                // Calcola stats dai dati locali in cache
-                await dbCache.init();
-                const [giacenzaLocal, storicoLocal] = await Promise.all([
-                    dbCache.get('giacenza'),
-                    dbCache.get('storico')
-                ]);
+    // ✅ load DEVE STARE QUI, NON dentro useEffect
+    async function load() {
+        try {
+            setLoading(true);
+            await dbCache.init();
 
-                if (giacenzaLocal.length > 0) {
-                    // Calcola statistiche locali
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = storicoLocal.length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = storicoLocal.filter(i => i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
+            const [giacenzaLocal, storicoLocal] = await Promise.all([
+                dbCache.get('giacenza') || [],
+                dbCache.get('storico') || []
+            ]);
 
-                    const localStats = {
-  totaleGiacenza: giacenzaLocal.length,
-  totaleInventariato: storicoLocal.length,
-  daInventariare: giacenzaLocal.length - storicoLocal.length,
-  matchOk,
-  percentualeCompletamento: Math.round(
-    (storicoLocal.length / giacenzaLocal.length) * 100
-  )
-};
+            if (giacenzaLocal.length > 0) {
+                const matchOk = storicoLocal.filter(i => i.Match === 'OK').length;
 
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                }
+                const localStats = {
+                    totaleGiacenza: giacenzaLocal.length,
+                    totaleInventariato: storicoLocal.length,
+                    daInventariare: giacenzaLocal.length - storicoLocal.length,
+                    matchOk,
+                    percentualeCompletamento: giacenzaLocal.length
+                        ? Math.round((storicoLocal.length / giacenzaLocal.length) * 100)
+                        : 0
+                };
 
-                // Opzionale: ricarica dal server ogni 2 minuti
-                setLoading(false);
-            } catch (err) {
-                console.error(err);
-                // Fallback: prova a caricare dal server
-                try {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                } catch (serverErr) {
-                    console.error('Errore caricamento stats:', serverErr);
-                }
-                setLoading(false);
+                setStats(localStats);
+                appCache.stats = localStats;
             }
+
+            setLoading(false);
+        } catch (err) {
+            console.error(err);
+            try {
+                const res = await api('getStats');
+                setStats(res.stats);
+                appCache.stats = res.stats;
+            } catch (serverErr) {
+                console.error('Errore caricamento stats:', serverErr);
+            }
+            setLoading(false);
         }
-        
+    }
+
+    // 🔹 load iniziale + refresh periodico
+    useEffect(() => {
         load();
-        
-        // Auto-refresh ogni 30 secondi per aggiornare le stats
-        const interval = setInterval(() => {
-            load();
-        }, 30000);
-        
+        const interval = setInterval(load, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    // 🔹 EVENTO GLOBALE (QUESTO È LO STEP 3.2)
+    useEffect(() => {
+        const refresh = () => {
+            console.log('📊 Dashboard aggiornata');
+            load();
+        };
+        window.addEventListener('ats-data-updated', refresh);
+        return () => window.removeEventListener('ats-data-updated', refresh);
     }, []);
 
     if (loading) return <div className="text-center py-12">Caricamento...</div>;
@@ -708,19 +707,26 @@ function isCacheValid(key) {
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
                 <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
                 <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
                 <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
             </div>
+
             <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-2">
                     <span className="font-medium text-gray-700">Completamento</span>
-                    <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                        {stats.percentualeCompletamento}%
+                    </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.percentualeCompletamento}%` }} />
+                    <div
+                        className="bg-blue-600 h-4 rounded-full transition-all"
+                        style={{ width: `${stats.percentualeCompletamento}%` }}
+                    />
                 </div>
             </div>
         </div>
