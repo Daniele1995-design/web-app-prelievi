@@ -82,6 +82,19 @@
             break-after: page;
             overflow: hidden;
         }
+        /* === INGRANDISCI IL CONTENUTO DELLE ETICHETTE (solo in stampa) === */
+        .etichetta-10x10,
+        .etichetta-10x5 {
+            transform: scale(1.15);           /* ← regola questo numero per ingrandire di più o di meno */
+            transform-origin: top left;
+            width: calc(100% / 1.15) !important;  /* compensa la scala per mantenere 100mm esterni */
+        }
+
+        /* Opzionale: valore leggermente diverso per 10x5 se serve */
+        .etichetta-10x5 {
+            transform: scale(1.18);
+            width: calc(100% / 1.18) !important;
+        }
     }
 
     /* ========== ETICHETTA 10x10 ========== */
