@@ -707,7 +707,7 @@ useEffect(() => {
 
     window.addEventListener('ats-data-updated', handleUpdate);
     return () => window.removeEventListener('ats-data-updated', handleUpdate);
-}, []);
+}, []); []);
 
     if (loading) return <div className="text-center py-12">Caricamento...</div>;
     if (!stats) return <div className="text-center py-12 text-red-600">Errore caricamento statistiche</div>;
