@@ -316,41 +316,25 @@
 
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
 
-        // Cache persistente con localStorage
-const CACHE_VERSION = '1.0';
-const CACHE_TIME = 5 * 60 * 1000; // 5 minuti
-
-const appCache = {
-    get: (key) => {
-        try {
-            const cached = localStorage.getItem(`ats_cache_${key}`);
-            if (!cached) return null;
-            const { data, timestamp, version } = JSON.parse(cached);
-            if (version !== CACHE_VERSION) return null;
-            if (Date.now() - timestamp > CACHE_TIME) return null;
-            return data;
-        } catch (e) {
-            return null;
-        }
-    },
-    set: (key, data) => {
-        try {
-            localStorage.setItem(`ats_cache_${key}`, JSON.stringify({
-                data,
-                timestamp: Date.now(),
-                version: CACHE_VERSION
-            }));
-        } catch (e) {
-            console.warn('Cache storage failed:', e);
-        }
-    },
-    invalidate: (key) => {
-        localStorage.removeItem(`ats_cache_${key}`);
-    },
-    clear: () => {
-        ['giacenza', 'storico', 'stats'].forEach(k => appCache.invalidate(k));
+        const appCache = { 
+    giacenza: null, 
+    storico: null, 
+    stats: null, 
+    lastUpdate: {
+        giacenza: null,
+        storico: null,
+        stats: null
     }
 };
+
+// Durata cache in millisecondi
+const CACHE_TIME = 3 * 60 * 1000; // 3 minuti
+
+// Controlla se cache è valida
+function isCacheValid(key) {
+    if (!appCache[key] || !appCache.lastUpdate[key]) return false;
+    return (Date.now() - appCache.lastUpdate[key]) < CACHE_TIME;
+}
 
         async function api(action, payload = {}) {
             const res = await fetch(API_URL, {
@@ -397,11 +381,11 @@ useEffect(() => {
 }, [user, currentView]);
 
     const handleLogout = () => {
-    setUser(null);
-    setCurrentView('login');
-    sessionStorage.clear();
-    appCache.clear();
-};
+        setUser(null);
+        setCurrentView('login');
+        sessionStorage.clear();
+        Object.keys(appCache).forEach(k => appCache[k] = null);
+    };
 
     if (!user || currentView === 'login') {
         return <Login onLogin={(userData) => { setUser(userData); setCurrentView('dashboard'); }} />;
@@ -486,33 +470,27 @@ useEffect(() => {
         }
 
         function Dashboard({ user }) {
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [fromCache, setFromCache] = useState(false);
+            const [stats, setStats] = useState(appCache.stats);
+            const [loading, setLoading] = useState(!appCache.stats);
 
-    useEffect(() => {
-        async function load() {
-            const cached = appCache.get('stats');
-            if (cached) {
-                setStats(cached);
-                setFromCache(true);
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const res = await api('getStats');
-                setStats(res.stats);
-                appCache.set('stats', res.stats);
-                setFromCache(false);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        load();
-    }, []);
+            useEffect(() => {
+                async function load() {
+                    try {
+                        const res = await api('getStats');
+                        setStats(res.stats);
+                        appCache.stats = res.stats;
+                        appCache.lastUpdate = Date.now();
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                
+                if (!appCache.stats || (appCache.lastUpdate && Date.now() - appCache.lastUpdate > 60000)) load();
+                const interval = setInterval(() => { if (Date.now() - appCache.lastUpdate > 60000) load(); }, 60000);
+                return () => clearInterval(interval);
+            }, []);
 
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
             if (!stats) return <div className="text-center py-12 text-red-600">Errore</div>;
@@ -552,48 +530,46 @@ useEffect(() => {
         }
 
         function ModeScanner({ user }) {
-    const [scanInput, setScanInput] = useState('');
-    const [giacenza, setGiacenza] = useState([]);
-    const [storico, setStorico] = useState([]);
-    const [currentItem, setCurrentItem] = useState(null);
-    const [message, setMessage] = useState({ type: '', text: '' });
-    const [loading, setLoading] = useState(true);
+            const [scanInput, setScanInput] = useState('');
+            const [giacenza, setGiacenza] = useState(appCache.giacenza || []);
+            const [storico, setStorico] = useState(appCache.storico || []);
+            const [currentItem, setCurrentItem] = useState(null);
+            const [message, setMessage] = useState({ type: '', text: '' });
+            const [loading, setLoading] = useState(!appCache.giacenza);
             const [editingUbicazione, setEditingUbicazione] = useState(false);
             const [newUbicazione, setNewUbicazione] = useState('');
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const inputRef = useRef(null);
 
             useEffect(() => {
-    async function loadData() {
-        const cachedGiac = appCache.get('giacenza');
-        const cachedStor = appCache.get('storico');
-        
-        if (cachedGiac && cachedStor) {
-            setGiacenza(cachedGiac);
-            setStorico(cachedStor);
-            setLoading(false);
-            return;
-        }
-        
-        try {
-            const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza', { filters: {} }),
-                api('getStorico', { filters: {} })
-            ]);
-            const giacenzaData = resGiac.data.map(item => ({ ...item, inventariato: false }));
-            setGiacenza(giacenzaData);
-            setStorico(resStor.data);
-            appCache.set('giacenza', giacenzaData);
-            appCache.set('storico', resStor.data);
-        } catch (err) {
-            alert('Errore caricamento');
-        } finally {
-            setLoading(false);
-        }
-    }
-    loadData();
-    if (inputRef.current) inputRef.current.focus();
-}, []);
+                async function loadData() {
+                    if (appCache.giacenza && appCache.storico) {
+                        setGiacenza(appCache.giacenza);
+                        setStorico(appCache.storico);
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    try {
+                        const [resGiac, resStor] = await Promise.all([
+                            api('getGiacenza', { filters: {} }),
+                            api('getStorico', { filters: {} })
+                        ]);
+                        const giacenzaData = resGiac.data.map(item => ({ ...item, inventariato: false }));
+                        setGiacenza(giacenzaData);
+                        setStorico(resStor.data);
+                        appCache.giacenza = giacenzaData;
+                        appCache.storico = resStor.data;
+                    } catch (err) {
+                        alert('Errore caricamento');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                loadData();
+                if (inputRef.current) inputRef.current.focus();
+            }, []);
+
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -646,20 +622,20 @@ useEffect(() => {
                                     idRigaGiacenza: found.ID_Riga || ''  // NUOVO!
                                 }
                             });
-appCache.invalidate('giacenza');
-appCache.invalidate('storico');
-appCache.invalidate('stats');
-
-const updatedGiacenza = giacenza.map(item =>
-    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } : item
-);
-setGiacenza(updatedGiacenza);
-appCache.set('giacenza', updatedGiacenza);
-
-const newEntry = { Timestamp: new Date(), Operatore: user.nome, Seriale_Riscontrato: scanned, Match: match ? 'OK' : 'KO', ...found };
-const updatedStorico = [newEntry, ...storico];
-setStorico(updatedStorico);
-appCache.set('storico', updatedStorico);
+// INVALIDA CACHE
+appCache.lastUpdate.giacenza = null;
+appCache.lastUpdate.storico = null;
+appCache.lastUpdate.stats = null;
+                            const updatedGiacenza = giacenza.map(item =>
+                                item.RISCONTROSERIALEF === found.RISCONTROSERIALEF ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } : item
+                            );
+                            setGiacenza(updatedGiacenza);
+                            appCache.giacenza = updatedGiacenza;
+                            
+                            const newEntry = { Timestamp: new Date(), Operatore: user.nome, Seriale_Riscontrato: scanned, Match: match ? 'OK' : 'KO', ...found };
+                            const updatedStorico = [newEntry, ...storico];
+                            setStorico(updatedStorico);
+                            appCache.storico = updatedStorico;
                         } catch (err) {
                             setMessage({ type: 'error', text: 'Salvato locale' });
                         }
@@ -673,17 +649,17 @@ appCache.set('storico', updatedStorico);
                 }
             };
 
-           const handleUpdateUbicazione = async () => {
-    if (!currentItem || !newUbicazione.trim()) return;
-    try {
-        await api('updateUbicazione', { seriale: currentItem.RISCONTROSERIALEF, ubicazione: newUbicazione });
-        
-        appCache.invalidate('giacenza');
-        appCache.invalidate('storico');
-        
-        const updated = giacenza.map(i => i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF ? { ...i, Ubicazioni: newUbicazione } : i);
-        setGiacenza(updated);
-        appCache.set('giacenza', updated);
+            const handleUpdateUbicazione = async () => {
+                if (!currentItem || !newUbicazione.trim()) return;
+                try {
+                    await api('updateUbicazione', { seriale: currentItem.RISCONTROSERIALEF, ubicazione: newUbicazione });
+                    
+                    // INVALIDA CACHE
+        appCache.lastUpdate.giacenza = null;
+        appCache.lastUpdate.storico = null;   
+                    
+                    const updated = giacenza.map(i => i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF ? { ...i, Ubicazioni: newUbicazione } : i);
+                    setGiacenza(updated);
                     appCache.giacenza = updated;
                     setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
                     setEditingUbicazione(false);
@@ -791,14 +767,9 @@ appCache.set('storico', updatedStorico);
 
             const giacenzaDaMostrare = giacenza.filter(i => !i.inventariato);
 
-           return (
-    <div className="space-y-6">
-        <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-            {fromCache && (
-                <span className="text-sm text-gray-500 italic">📦 Dati dalla cache</span>
-            )}
-        </div>
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
                     <div className="bg-white rounded-lg shadow p-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2"><Icons.Camera /> Scansiona Seriale</label>
                         <input ref={inputRef} type="text" value={scanInput} onChange={(e) => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Trigger scanner..." autoFocus />
@@ -873,44 +844,37 @@ appCache.set('storico', updatedStorico);
         }
 
         function ModeLista({ user }) {
-    const [giacenza, setGiacenza] = useState([]);
-    const [filteredData, setFilteredData] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({});
-    const [selected, setSelected] = useState([]);
-    const [bulkUbicazione, setBulkUbicazione] = useState('');
-    const [formatoStampa, setFormatoStampa] = useState('10x10');
-    
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 100;
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+            const [giacenza, setGiacenza] = useState(appCache.giacenza || []);
+            const [filteredData, setFilteredData] = useState([]);
+            const [loading, setLoading] = useState(!appCache.giacenza);
+            const [showFilters, setShowFilters] = useState(false);
+            const [filters, setFilters] = useState({});
+            const [selected, setSelected] = useState([]);
+            const [bulkUbicazione, setBulkUbicazione] = useState('');
+            const [formatoStampa, setFormatoStampa] = useState('10x10');
 
             useEffect(() => {
-    async function load() {
-        const cached = appCache.get('giacenza');
-        if (cached) {
-            setGiacenza(cached);
-            setFilteredData(cached.filter(i => !i.inventariato));
-            setLoading(false);
-            return;
-        }
-        try {
-            const res = await api('getGiacenza', { filters: {} });
-            const data = res.data.map(i => ({ ...i, inventariato: false }));
-            setGiacenza(data);
-            setFilteredData(data);
-            appCache.set('giacenza', data);
-        } catch (err) {
-            alert('Errore caricamento');
-        } finally {
-            setLoading(false);
-        }
-    }
-    load();
-}, []);
+                async function load() {
+                    if (appCache.giacenza) {
+                        setGiacenza(appCache.giacenza);
+                        setFilteredData(appCache.giacenza.filter(i => !i.inventariato));
+                        setLoading(false);
+                        return;
+                    }
+                    try {
+                        const res = await api('getGiacenza', { filters: {} });
+                        const data = res.data.map(i => ({ ...i, inventariato: false }));
+                        setGiacenza(data);
+                        setFilteredData(data);
+                        appCache.giacenza = data;
+                    } catch (err) {
+                        alert('Errore caricamento');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
 
             const applyFilters = () => {
                 let filtered = giacenza.filter(i => !i.inventariato);
@@ -921,8 +885,7 @@ appCache.set('storico', updatedStorico);
                 if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
                 if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase().includes(filters.poNr.toUpperCase()));
                 setFilteredData(filtered);
-setCurrentPage(1); // Reset alla prima pagina
-setShowFilters(false);;
+                setShowFilters(false);
             };
 
             const toggleSelect = (item) => {
@@ -954,13 +917,13 @@ setShowFilters(false);;
                         });
                     }
 
-appCache.invalidate('giacenza');
-appCache.invalidate('storico');
-appCache.invalidate('stats');
-
-const updatedGiacenza = giacenza.map(i => selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } : i);
-setGiacenza(updatedGiacenza);
-appCache.set('giacenza', updatedGiacenza);
+                    // INVALIDA CACHE
+appCache.lastUpdate.giacenza = null;
+appCache.lastUpdate.storico = null;
+appCache.lastUpdate.stats = null;
+                    
+                    const updatedGiacenza = giacenza.map(i => selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } : i);
+                    setGiacenza(updatedGiacenza);
                     appCache.giacenza = updatedGiacenza;
                     setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
                     setSelected([]);
@@ -1123,32 +1086,9 @@ const stampaSelezionati = () => {
                         </div>
                     )}
 
-<p className="text-gray-600">Visualizzati: <strong>{filteredData.length}</strong> di <strong>{giacenza.filter(i => !i.inventariato).length}</strong></p>
+                    <p className="text-gray-600">Visualizzati: <strong>{filteredData.length}</strong> di <strong>{giacenza.filter(i => !i.inventariato).length}</strong></p>
 
-{/* Pagination Controls */}
-{totalPages > 1 && (
-    <div className="flex justify-center items-center gap-2 my-4">
-        <button 
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-            disabled={currentPage === 1}
-            className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            ← Prec
-        </button>
-        <span className="px-4 py-1">
-            Pagina <strong>{currentPage}</strong> di <strong>{totalPages}</strong>
-        </span>
-        <button 
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            Succ →
-        </button>
-    </div>
-)}
-
-<div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50">
@@ -1165,7 +1105,7 @@ const stampaSelezionati = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-    {paginatedData.map((item, idx) => (
+                                    {filteredData.map((item, idx) => (
                                         <tr key={idx} className="border-t hover:bg-gray-50">
                                             <td className="px-3 py-2"><input type="checkbox" checked={selected.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) !== undefined} onChange={() => toggleSelect(item)} /></td>
                                             <td className="px-3 py-2 font-medium">{item.PoNr}</td>
@@ -1187,45 +1127,38 @@ const stampaSelezionati = () => {
         }
 
         function Storico({ user }) {
-    const [storico, setStorico] = useState([]);
-    const [filteredData, setFilteredData] = useState([]);
-    const [filters, setFilters] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [showFilters, setShowFilters] = useState(false);
-    const [editingItems, setEditingItems] = useState({});
-    const [selected, setSelected] = useState([]);
-    const [bulkUbicazione, setBulkUbicazione] = useState('');
-    const [formatoStampa, setFormatoStampa] = useState('10x10');
-    
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 100;
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+            const [storico, setStorico] = useState(appCache.storico || []);
+            const [filteredData, setFilteredData] = useState([]);
+            const [filters, setFilters] = useState({});
+            const [loading, setLoading] = useState(!appCache.storico);
+            const [showFilters, setShowFilters] = useState(false);
+            const [editingItems, setEditingItems] = useState({});
+            const [selected, setSelected] = useState([]);
+            const [bulkUbicazione, setBulkUbicazione] = useState('');
+            const [formatoStampa, setFormatoStampa] = useState('10x10');
 
             useEffect(() => {
-    async function load() {
-        const cached = appCache.get('storico');
-        if (cached) {
-            setStorico(cached);
-            setFilteredData(cached);
-            setLoading(false);
-            return;
-        }
-        try {
-            const res = await api('getStorico', { filters: {} });
-            const data = res.data || [];
-            setStorico(data);
-            setFilteredData(data);
-            appCache.set('storico', data);
-        } catch (err) {
-            alert('Errore caricamento');
-        } finally {
-            setLoading(false);
-        }
-    }
-    load();
-}, []);
+                async function load() {
+                    if (appCache.storico) {
+                        setStorico(appCache.storico);
+                        setFilteredData(appCache.storico);
+                        setLoading(false);
+                        return;
+                    }
+                    try {
+                        const res = await api('getStorico', { filters: {} });
+                        const data = res.data || [];
+                        setStorico(data);
+                        setFilteredData(data);
+                        appCache.storico = data;
+                    } catch (err) {
+                        alert('Errore caricamento');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
 
             const applyFilters = () => {
                 let filtered = [...storico];
@@ -1234,17 +1167,16 @@ const stampaSelezionati = () => {
                 if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
                 if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
                 setFilteredData(filtered);
-setCurrentPage(1); // Reset alla prima pagina
-setShowFilters(false);
+                setShowFilters(false);
             };
 
             const updateUbicazione = async (item, newUbic) => {
                 try {
                     await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: newUbic });
                     const updated = storico.map(i => i.Seriale_Riscontrato === item.Seriale_Riscontrato ? { ...i, Ubicazioni: newUbic } : i);
-setStorico(updated);
-appCache.set('storico', updated);
-setFilteredData(updated);
+                    setStorico(updated);
+                    appCache.storico = updated;
+                    setFilteredData(updated);
                     setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
                     alert('Ubicazione aggiornata');
                 } catch (err) {
@@ -1261,9 +1193,9 @@ setFilteredData(updated);
                         await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: bulkUbicazione });
                     }
                     const updated = storico.map(i => selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) ? { ...i, Ubicazioni: bulkUbicazione } : i);
-setStorico(updated);
-appCache.set('storico', updated);
-setFilteredData(updated);
+                    setStorico(updated);
+                    appCache.storico = updated;
+                    setFilteredData(updated);
                     setSelected([]);
                     setBulkUbicazione('');
                     alert('Ubicazioni aggiornate');
@@ -1425,32 +1357,9 @@ setFilteredData(updated);
                                 <button onClick={() => setSelected([])} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Deseleziona</button>
                             </div>
                         </div>
-)}
+                    )}
 
-{/* Pagination Controls */}
-{totalPages > 1 && (
-    <div className="flex justify-center items-center gap-2 my-4">
-        <button 
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-            disabled={currentPage === 1}
-            className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            ← Prec
-        </button>
-        <span className="px-4 py-1">
-            Pagina <strong>{currentPage}</strong> di <strong>{totalPages}</strong>
-        </span>
-        <button 
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 bg-blue-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            Succ →
-        </button>
-    </div>
-)}
-
-<div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
     <thead className="bg-gray-50">
@@ -1475,7 +1384,7 @@ setFilteredData(updated);
         </tr>
     </thead>
     <tbody>
-    {paginatedData.map((item, idx) => (
+        {filteredData.map((item, idx) => (
             <tr key={idx} className="border-t hover:bg-gray-50">
                 <td className="px-3 py-2">
                     <input 
