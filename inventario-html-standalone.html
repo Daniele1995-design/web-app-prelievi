@@ -10,8 +10,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
-  <style>
+ <style>
     @page {
+        size: 100mm auto;   /* larghezza fissa 100mm, altezza automatica */
         margin: 0;
     }
 
@@ -20,19 +21,52 @@
     @media print {
         .no-print { display: none !important; }
         .print-only { display: block !important; }
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: white; 
-        }
-        html, body { 
-            width: 100%; 
-            height: 100%; 
+
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100mm !important;
+            min-height: 100vh;
+            background: white;
+            overflow: hidden;
         }
 
-        /* Forza dimensione pagina SOLO quando è attivo il formato 10x5 */
-        body.formato-10x5 @page {
-            size: 100mm 50mm;
+        #print-area {
+            width: 100mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+            box-sizing: border-box;
+        }
+
+        /* Forza scala 1:1 e colori corretti */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            transform: scale(1) !important;
+            zoom: 1 !important;
+        }
+
+        /* 10x10: altezza fissa + spazio tra etichette */
+        .etichetta-10x10 {
+            width: 100mm !important;
+            height: 100mm !important;
+            page-break-after: always;
+            break-after: page;
+            margin-bottom: 5mm !important;  /* spazio tra un'etichetta e l'altra */
+            overflow: hidden;
+        }
+
+        /* 10x5: altezza fissa precisa */
+        .etichetta-10x5 {
+            width: 100mm !important;
+            height: 50mm !important;
+            page-break-after: always;
+            break-after: page;
+            overflow: hidden;
         }
     }
 
@@ -46,7 +80,7 @@
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
-        margin-bottom: 10mm; /* ← fondamentale per spaziatura perfetta come nel file funzionante */
+        margin-bottom: 10mm;
         font-family: Arial, sans-serif;
     }
 
@@ -710,14 +744,7 @@ appCache.lastUpdate.stats = null;
            const stampaEtichetta = (item, formato) => {
     const printArea = document.getElementById('print-area');
     const bcId = 'bc-print-' + Date.now();
-    const is10x5 = formato === '10x5';
-
-    // Attiva/disattiva la regola @page per 10x5
-    if (is10x5) {
-        document.body.classList.add('formato-10x5');
-    } else {
-        document.body.classList.remove('formato-10x5');
-    }
+    
 
     let html = '';
     if (formato === '10x10') {
@@ -802,8 +829,6 @@ appCache.lastUpdate.stats = null;
 
         setTimeout(() => {
             window.print();
-            // Ripristina dopo la stampa
-            document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
             printArea.innerHTML = '';
         }, 500);
@@ -985,13 +1010,7 @@ const stampaSelezionati = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
     const printArea = document.getElementById('print-area');
-    const is10x5 = formatoStampa === '10x5';
 
-    if (is10x5) {
-        document.body.classList.add('formato-10x5');
-    } else {
-        document.body.classList.remove('formato-10x5');
-    }
 
     let html = '';
     selected.forEach((item, idx) => {
@@ -1086,7 +1105,6 @@ const stampaSelezionati = () => {
 
         setTimeout(() => {
             window.print();
-            document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
             printArea.innerHTML = '';
         }, 500);
@@ -1265,13 +1283,6 @@ const stampaSelezionati = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
     const printArea = document.getElementById('print-area');
-    const is10x5 = formatoStampa === '10x5';
-
-    if (is10x5) {
-        document.body.classList.add('formato-10x5');
-    } else {
-        document.body.classList.remove('formato-10x5');
-    }
 
     let html = '';
     selected.forEach((item, idx) => {
@@ -1366,7 +1377,6 @@ const stampaSelezionati = () => {
 
         setTimeout(() => {
             window.print();
-            document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
             printArea.innerHTML = '';
         }, 500);
