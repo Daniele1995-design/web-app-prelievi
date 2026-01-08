@@ -10,43 +10,57 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
-   <style>
-    @page { 
-        size: 100mm 100mm; 
-        margin: 0; 
+  <style>
+    @page {
+        margin: 0;
     }
+
     .print-only { display: none; }
-    @media print { 
-        .no-print { display: none !important; } 
+
+    @media print {
+        .no-print { display: none !important; }
         .print-only { display: block !important; }
-        body { margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: white; 
+        }
+        html, body { 
+            width: 100%; 
+            height: 100%; 
+        }
+
+        /* Forza dimensione pagina SOLO quando è attivo il formato 10x5 */
+        body.formato-10x5 @page {
+            size: 100mm 50mm;
+        }
     }
-    
+
     /* ========== ETICHETTA 10x10 ========== */
     .etichetta-10x10 {
         width: 100mm;
         height: 100mm;
         border: 2px solid #000;
         background: white;
-        padding: 2mm;
+        padding: 2mm 3.5mm;
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
-        margin: 0;
+        margin-bottom: 10mm; /* ← fondamentale per spaziatura perfetta come nel file funzionante */
         font-family: Arial, sans-serif;
     }
-    
+
     .logo-container {
         height: 7mm;
         margin-bottom: 0.5mm;
         position: relative;
     }
-    
+
     .logo-img {
         height: 6mm;
         width: auto;
     }
-    
+
     .label-cod-bp {
         position: absolute;
         right: 0;
@@ -57,27 +71,27 @@
         transform: rotate(180deg);
         letter-spacing: 0.5px;
     }
-    
+
     .bp-section {
         margin-bottom: 0.5mm;
         position: relative;
         padding-right: 10mm;
     }
-    
+
     .bp-label {
         font-size: 6pt;
         font-weight: bold;
         margin: 0;
         line-height: 1;
     }
-    
+
     .bp-value {
         font-size: 15pt;
         font-weight: bold;
         line-height: 1.1;
         margin: 0;
     }
-    
+
     .qr-bp {
         position: absolute;
         top: -1mm;
@@ -85,32 +99,32 @@
         width: 9mm;
         height: 9mm;
     }
-    
+
     .etichetta-10x10 hr {
         border: none;
         border-top: 1.5px solid black;
         margin: 0.7mm 0;
     }
-    
+
     .etichetta-10x10 hr.thin {
         border-top: 1px solid black;
         margin: 0.5mm 0;
     }
-    
+
     .art-label {
         font-weight: bold;
         font-size: 6pt;
         margin: 0 0 0.3mm;
         line-height: 1;
     }
-    
+
     .barcode-svg {
         width: 75mm;
         height: 20px;
         margin: 0 auto 0.3mm;
         display: block;
     }
-    
+
     .wms {
         text-align: center;
         font-size: 8pt;
@@ -118,25 +132,25 @@
         margin: 0 0 0.5mm;
         line-height: 1;
     }
-    
+
     .po-row {
         margin: 0.5mm 0;
         display: flex;
         justify-content: space-between;
         position: relative;
     }
-    
+
     .po-col {
         flex: 1;
     }
-    
+
     .po-label {
         font-size: 6pt;
         font-weight: bold;
         margin: 0;
         line-height: 1;
     }
-    
+
     .po-value {
         font-size: 13pt;
         font-weight: bold;
@@ -144,7 +158,7 @@
         display: block;
         margin: 0;
     }
-    
+
     .label-tpn {
         position: absolute;
         right: 2mm;
@@ -154,20 +168,20 @@
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
-    
+
     .part-section {
         margin: 0.5mm 0;
         position: relative;
         padding-right: 10mm;
     }
-    
+
     .part-label {
         font-size: 6pt;
         font-weight: bold;
         margin: 0;
         line-height: 1;
     }
-    
+
     .part-value {
         font-size: 10pt;
         font-weight: bold;
@@ -176,7 +190,7 @@
         margin: 0;
         word-break: break-all;
     }
-    
+
     .qr-part {
         position: absolute;
         top: 0;
@@ -184,13 +198,13 @@
         width: 9mm;
         height: 9mm;
     }
-    
+
     .sn-section {
         position: relative;
         margin: 0.5mm 0;
         padding-right: 10mm;
     }
-    
+
     .sn-label {
         font-size: 6pt;
         font-weight: bold;
@@ -198,7 +212,7 @@
         margin: 0;
         line-height: 1;
     }
-    
+
     .sn-value {
         font-size: 9pt;
         font-weight: bold;
@@ -207,7 +221,7 @@
         margin: 0;
         word-break: break-all;
     }
-    
+
     .qr-sn {
         position: absolute;
         top: 0;
@@ -215,7 +229,7 @@
         width: 9mm;
         height: 9mm;
     }
-    
+
     .label-sn {
         position: absolute;
         right: 2mm;
@@ -225,11 +239,11 @@
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
-    
+
     .ubicazione-under-sn {
         margin-top: 0.5mm;
     }
-    
+
     .ubicazione-under-sn .pos-label {
         font-size: 6pt;
         font-weight: bold;
@@ -237,7 +251,7 @@
         margin: 0;
         line-height: 1;
     }
-    
+
     .ubicazione-under-sn .pos-value {
         font-size: 9pt;
         font-weight: bold;
@@ -256,18 +270,16 @@
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
-        font-size: 7pt;
-        margin: 0;
         font-family: Arial, sans-serif;
     }
-    
+
     .et5-logo {
         height: 6mm;
         width: auto;
         display: inline-block;
         vertical-align: top;
     }
-    
+
     .et5-codbp {
         display: inline-block;
         float: right;
@@ -276,21 +288,21 @@
         font-size: 10pt;
         line-height: 1.2;
     }
-    
+
     .et5-qr-bp {
         width: 8mm;
         height: 8mm;
         vertical-align: middle;
         margin-left: 1.5mm;
     }
-    
+
     .et5-barcode {
         width: 65mm;
         height: 18px;
         display: block;
         margin: 1.5mm auto 1mm;
     }
-    
+
     .et5-wms {
         text-align: center;
         font-weight: bold;
@@ -298,7 +310,7 @@
         margin: 0 0 1mm;
         line-height: 1;
     }
-    
+
     .et5-info {
         font-size: 7pt;
         display: flex;
@@ -306,19 +318,19 @@
         margin-top: 1.5mm;
         align-items: flex-start;
     }
-    
+
     .et5-info div {
         line-height: 1.3;
         flex: 1;
     }
-    
+
     .et5-qr-sn {
         width: 8mm;
         height: 8mm;
         margin-left: 2mm;
         flex-shrink: 0;
     }
-    
+
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -698,9 +710,18 @@ appCache.lastUpdate.stats = null;
            const stampaEtichetta = (item, formato) => {
     const printArea = document.getElementById('print-area');
     const bcId = 'bc-print-' + Date.now();
-    
+    const is10x5 = formato === '10x5';
+
+    // Attiva/disattiva la regola @page per 10x5
+    if (is10x5) {
+        document.body.classList.add('formato-10x5');
+    } else {
+        document.body.classList.remove('formato-10x5');
+    }
+
+    let html = '';
     if (formato === '10x10') {
-        printArea.innerHTML = `
+        html = `
             <div class="etichetta-10x10">
                 <div class="logo-container">
                     <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -740,7 +761,7 @@ appCache.lastUpdate.stats = null;
                 </div>
             </div>`;
     } else {
-        printArea.innerHTML = `
+        html = `
             <div class="etichetta-10x5">
                 <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
                 <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
@@ -752,42 +773,39 @@ appCache.lastUpdate.stats = null;
                 </div>
             </div>`;
     }
-    
-  printArea.style.display = 'block';
-    
-    // PRECARICA TUTTE LE IMMAGINI CON PROMISE
+
+    printArea.innerHTML = html;
+    printArea.style.display = 'block';
+
     const images = Array.from(printArea.querySelectorAll('img'));
     const imagePromises = images.map(img => {
-        return new Promise((resolve) => {
-            if (img.complete && img.naturalHeight !== 0) {
-                resolve();
-            } else {
-                img.onload = () => resolve();
-                img.onerror = () => resolve();
-                setTimeout(() => resolve(), 3000);
+        return new Promise(resolve => {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000);
             }
         });
     });
-    
-    // ATTENDI TUTTE LE IMMAGINI POI STAMPA
+
     Promise.all(imagePromises).then(() => {
         if (item.WMSCode) {
-            try {
-                JsBarcode('#'+bcId, item.WMSCode, {
-                    format: "CODE128",
-                    height: formato === '10x10' ? 18 : 16,
-                    width: 1.5,
-                    displayValue: false,
-                    margin: 0
-                });
-            } catch (e) {
-                console.error('Errore barcode:', e);
-            }
+            JsBarcode('#' + bcId, item.WMSCode, {
+                format: "CODE128",
+                height: formato === '10x10' ? 20 : 18,
+                width: 1.5,
+                displayValue: false,
+                margin: 0
+            });
         }
-        
+
         setTimeout(() => {
             window.print();
+            // Ripristina dopo la stampa
+            document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
+            printArea.innerHTML = '';
         }, 500);
     });
 };
