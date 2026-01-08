@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
-<style id="print-style">
+<style>
 /* ======================================================
    STILI COMUNI
 ====================================================== */
@@ -23,31 +23,17 @@ body {
 .no-print { margin-bottom: 20px; }
 
 @media print {
-  .etichetta-10x10 {
-    width: 10cm;
-    height: 10cm;
-    page-break-inside: avoid;
+  .no-print { display: none; }
+
+  @page {
+    size: 100mm auto;
+    margin: 0;
   }
 
-  .etichetta-10x5 {
-    width: 10cm;
-    height: 5cm;
-    page-break-inside: avoid;
-  }
-
-  body {
+  html, body {
+    width: 100mm;
     margin: 0;
     padding: 0;
-  }
-
-  /* Evita di stampare altri elementi */
-  #root > *:not(#print-area) {
-    display: none !important;
-  }
-
-  /* Forza visibilità del contenuto di print-area */
-  #print-area {
-    display: block !important;
   }
 }
 
@@ -60,6 +46,7 @@ body {
   border: 0.5px solid #000;
   background: white;
   padding: 1.5mm 2.5mm;
+  box-sizing: border-box;
   page-break-after: always;
   position: relative;
   display: flex;
@@ -118,13 +105,13 @@ body {
 /* Separatori */
 .etichetta-10x10 hr {
   border: none;
-  border-top: 0.5px solid black;
+  border-top: 1.5px solid black;
   margin: 0.8mm 0;
   flex-shrink: 0;
 }
 
 .etichetta-10x10 hr.thin {
-  border-top: 0.5px solid black;
+  border-top: 1.5px solid black;
   margin: 0.8mm 0;
   flex-shrink: 0;
 }
@@ -350,7 +337,6 @@ body {
   flex-shrink: 0;
 }
 </style>
-    <style id="page-style"></style> <!-- PER IL SIZE DINAMICO -->
 </head>
 <body>
     <div id="root"></div>
@@ -501,18 +487,6 @@ function isCacheValid(key) {
             Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
-       function setPageSize(formato) {
-  const pageStyle = document.getElementById('page-style');
-  pageStyle.innerHTML = `
-    @media print {
-      @page {
-        size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'};
-        margin: 0;
-      }
-    }
-  `;
-}
-
         function App() {
     const [user, setUser] = useState(() => {
         const saved = sessionStorage.getItem('ats_user');
@@ -642,67 +616,66 @@ function isCacheValid(key) {
             );
         }
 
-       function Dashboard({ user }) {
+        function Dashboard({ user }) {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ✅ load DEVE STARE QUI, NON dentro useEffect
-    async function load() {
-        try {
-            setLoading(true);
-            await dbCache.init();
-
-            const [giacenzaLocal, storicoLocal] = await Promise.all([
-                dbCache.get('giacenza') || [],
-                dbCache.get('storico') || []
-            ]);
-
-            if (giacenzaLocal.length > 0) {
-                const matchOk = storicoLocal.filter(i => i.Match === 'OK').length;
-
-                const localStats = {
-                    totaleGiacenza: giacenzaLocal.length,
-                    totaleInventariato: storicoLocal.length,
-                    daInventariare: giacenzaLocal.length - storicoLocal.length,
-                    matchOk,
-                    percentualeCompletamento: giacenzaLocal.length
-                        ? Math.round((storicoLocal.length / giacenzaLocal.length) * 100)
-                        : 0
-                };
-
-                setStats(localStats);
-                appCache.stats = localStats;
-            }
-
-            setLoading(false);
-        } catch (err) {
-            console.error(err);
+    useEffect(() => {
+        async function load() {
             try {
-                const res = await api('getStats');
-                setStats(res.stats);
-                appCache.stats = res.stats;
-            } catch (serverErr) {
-                console.error('Errore caricamento stats:', serverErr);
+                // Calcola stats dai dati locali in cache
+                await dbCache.init();
+                const [giacenzaLocal, storicoLocal] = await Promise.all([
+                    dbCache.get('giacenza'),
+                    dbCache.get('storico')
+                ]);
+
+                if (giacenzaLocal.length > 0) {
+                    // Calcola statistiche locali
+                    const totaleGiacenza = giacenzaLocal.length;
+                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                    const daInventariare = totaleGiacenza - inventariati;
+                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                    const percentuale = totaleGiacenza > 0 
+                        ? Math.round((inventariati / totaleGiacenza) * 100) 
+                        : 0;
+
+                    const localStats = {
+                        totaleGiacenza,
+                        totaleInventariato: inventariati,
+                        daInventariare,
+                        matchOk,
+                        percentualeCompletamento: percentuale
+                    };
+
+                    setStats(localStats);
+                    appCache.stats = localStats;
+                }
+
+                // Opzionale: ricarica dal server ogni 2 minuti
+                setLoading(false);
+            } catch (err) {
+                console.error(err);
+                // Fallback: prova a caricare dal server
+                try {
+                    const res = await api('getStats');
+                    setStats(res.stats);
+                    appCache.stats = res.stats;
+                } catch (serverErr) {
+                    console.error('Errore caricamento stats:', serverErr);
+                }
+                setLoading(false);
             }
-            setLoading(false);
         }
-    }
-
-    // 🔹 load iniziale + refresh periodico
-    useEffect(() => {
+        
         load();
-        const interval = setInterval(load, 30000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // 🔹 EVENTO GLOBALE (QUESTO È LO STEP 3.2)
-    useEffect(() => {
-        const refresh = () => {
-            console.log('📊 Dashboard aggiornata');
+        
+        // Auto-refresh ogni 30 secondi per aggiornare le stats
+        const interval = setInterval(() => {
             load();
-        };
-        window.addEventListener('ats-data-updated', refresh);
-        return () => window.removeEventListener('ats-data-updated', refresh);
+        }, 30000);
+        
+        return () => clearInterval(interval);
     }, []);
 
     if (loading) return <div className="text-center py-12">Caricamento...</div>;
@@ -711,26 +684,19 @@ function isCacheValid(key) {
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
                 <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
                 <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
                 <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
             </div>
-
             <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-2">
                     <span className="font-medium text-gray-700">Completamento</span>
-                    <span className="text-2xl font-bold text-blue-600">
-                        {stats.percentualeCompletamento}%
-                    </span>
+                    <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div
-                        className="bg-blue-600 h-4 rounded-full transition-all"
-                        style={{ width: `${stats.percentualeCompletamento}%` }}
-                    />
+                    <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.percentualeCompletamento}%` }} />
                 </div>
             </div>
         </div>
@@ -916,6 +882,16 @@ function isCacheValid(key) {
                     dbCache.set('storico', updatedStorico)
                 ]);
 
+                // forza update locale immediato
+await dbCache.set('storico', updatedStorico);
+await dbCache.set('giacenza', updatedGiacenza);
+
+// invalida stats
+appCache.stats = null;
+
+// notifica dashboard
+window.dispatchEvent(new Event('ats-data-updated'));
+
                 // IMPORTANTE: Invalida le stats della dashboard
                 appCache.stats = null;
                 appCache.lastUpdate = null;
@@ -943,8 +919,6 @@ function isCacheValid(key) {
             setGiacenza(updated);
             appCache.giacenza = updated;
             await dbCache.set('giacenza', updated);
-            appCache.stats = null;
-            window.dispatchEvent(new Event('ats-data-updated'));
             
             setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
             setEditingUbicazione(false);
@@ -1040,39 +1014,10 @@ function isCacheValid(key) {
             }
 
             setTimeout(() => {
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    document.body.appendChild(printFrame);
-
-    const doc = printFrame.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <html>
-            <head>
-                <title>Stampa Etichette</title>
-                <style>
-                    body { margin:0; padding:0; }
-                    ${document.getElementById('page-style').innerHTML}
-                </style>
-            </head>
-            <body>${printArea.innerHTML}</body>
-        </html>
-    `);
-    doc.close();
-
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-
-    // Rimuovi iframe dopo stampa
-    setTimeout(() => document.body.removeChild(printFrame), 500);
-
-    // Pulisci printArea
-    printArea.style.display = 'none';
-    printArea.innerHTML = '';
-}, 600);
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
         });
     };
 
@@ -1284,8 +1229,6 @@ function isCacheValid(key) {
             setGiacenza(updatedGiacenza);
             appCache.giacenza = updatedGiacenza;
             await dbCache.set('giacenza', updatedGiacenza);
-            appCache.stats = null;
-            window.dispatchEvent(new Event('ats-data-updated'));
             
             setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
             setSelected([]);
@@ -1298,9 +1241,6 @@ function isCacheValid(key) {
 
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
-
-         // Imposta il formato pagina
-    setPageSize(formatoStampa);
 
         const printArea = document.getElementById('print-area');
         const timestamp = Date.now();
@@ -1395,39 +1335,10 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    document.body.appendChild(printFrame);
-
-    const doc = printFrame.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <html>
-            <head>
-                <title>Stampa Etichette</title>
-                <style>
-                    body { margin:0; padding:0; }
-                    ${document.getElementById('page-style').innerHTML}
-                </style>
-            </head>
-            <body>${printArea.innerHTML}</body>
-        </html>
-    `);
-    doc.close();
-
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-
-    // Rimuovi iframe dopo stampa
-    setTimeout(() => document.body.removeChild(printFrame), 500);
-
-    // Pulisci printArea
-    printArea.style.display = 'none';
-    printArea.innerHTML = '';
-}, 600);;
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
         });
     };
 
@@ -1744,39 +1655,10 @@ function isCacheValid(key) {
             });
 
             setTimeout(() => {
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    document.body.appendChild(printFrame);
-
-    const doc = printFrame.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <html>
-            <head>
-                <title>Stampa Etichette</title>
-                <style>
-                    body { margin:0; padding:0; }
-                    ${document.getElementById('page-style').innerHTML}
-                </style>
-            </head>
-            <body>${printArea.innerHTML}</body>
-        </html>
-    `);
-    doc.close();
-
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-
-    // Rimuovi iframe dopo stampa
-    setTimeout(() => document.body.removeChild(printFrame), 500);
-
-    // Pulisci printArea
-    printArea.style.display = 'none';
-    printArea.innerHTML = '';
-}, 600);
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
         });
     };
 
