@@ -8,7 +8,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.8/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
 <style>
 /* ======================================================
@@ -113,13 +113,13 @@ body {
 /* Separatori */
 .etichetta-10x10 hr {
   border: none;
-  border-top: 1.8px solid black;
+  border-top: 1.5px solid black;
   margin: 1.2mm 0;
 }
 
 .etichetta-10x10 hr.thin {
-  border-top: 1.8px solid black;
-  margin: 1.8mm 0;
+  border-top: 1.5px solid black;
+  margin: 1.5mm 0;
 }
 
 /* Articolo */
@@ -322,7 +322,7 @@ body {
 }
 
 .et5-info div {
-  line-height: 1.8;
+  line-height: 1.5;
   word-break: break-all;
 }
 
@@ -1140,7 +1140,7 @@ useEffect(() => {
                 JsBarcode('#' + bcId, item.WMSCode, {
                     format: "CODE128",
                     height: formato === '10x10' ? 20 : 18,
-                    width: 1.8,
+                    width: 1.5,
                     displayValue: false,
                     margin: 0
                 });
@@ -1501,7 +1501,7 @@ useEffect(() => {
                     JsBarcode(element, item.WMSCode, {
                         format: "CODE128",
                         height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.8,
+                        width: 1.5,
                         displayValue: false,
                         margin: 0
                     });
@@ -1907,7 +1907,7 @@ useEffect(() => {
                     JsBarcode(element, item.WMSCode, {
                         format: "CODE128",
                         height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.8,
+                        width: 1.5,
                         displayValue: false,
                         margin: 0
                     });
