@@ -11,300 +11,296 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
 <style>
-    @page {
-        size: 100mm auto;
-        margin: 0;
-    }
-    .print-only { display: none; }
-    @media print {
-        .no-print { display: none !important; }
-        .print-only { display: block !important; }
-        body { margin: 0; padding: 0; background: white; }
-        html, body { width: 100mm; }
-        #print-area { width: 100mm; margin: 0 auto; }
-        .etichetta-10x10, .etichetta-10x5 {
-            page-break-after: always;
-        }
-    }
-   
-    /* ========== ETICHETTA 10x10 ========== */
-    .etichetta-10x10 {
-        width: 100mm;
-        height: 100mm;
-        border: none;                   /* rimosso il bordo */
-        background: white;
-        padding: 4mm 5mm 4mm 5mm;       /* padding uniforme, più spazio interno */
-        box-sizing: border-box;
-        page-break-after: always;
-        position: relative;
-        margin: 0;
-        font-family: Arial, sans-serif;
-    }
-   
-    .logo-container {
-        height: 10mm;
-        margin-bottom: 2mm;
-        position: relative;
-    }
-   
-    .logo-img {
-        height: 9mm;
-        width: auto;
-    }
-   
-    .label-cod-bp {
-        position: absolute;
-        right: 0mm;                     /* attaccato al bordo destro */
-        top: 5mm;
-        font-size: 6.5pt;
-        font-weight: bold;
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-        letter-spacing: 0.5px;
-    }
-   
-    .bp-section {
-        margin-bottom: 2mm;
-        position: relative;
-        padding-right: 8mm;             /* QR BP più a sinistra */
-    }
-   
-    .bp-label {
-        font-size: 9pt;
-        font-weight: bold;
-    }
-   
-    .bp-value {
-        font-size: 24pt;                /* ingrandito ulteriormente */
-        font-weight: bold;
-        line-height: 1;
-    }
-   
-    .qr-bp {
-        position: absolute;
-        top: 5mm;
-        right: 7mm;                     /* allineato a sinistra della scritta verticale */
-        width: 9mm;
-        height: 9mm;
-    }
-   
-    .etichetta-10x10 hr {
-        border: none;
-        border-top: 2px solid black;
-        margin: 2mm 0;
-    }
-   
-    .etichetta-10x10 hr.thin {
-        border-top: 1.5px solid black;
-        margin: 1.5mm 0;
-    }
-   
-    .art-label {
-        font-size: 9pt;
-        font-weight: bold;
-        margin: 0 0 1.5mm;
-    }
-   
-    .barcode-svg {
-        width: 82mm;
-        height: 26px;
-        margin: 0 auto 1.5mm;
-        display: block;
-    }
-   
-    .wms {
-        text-align: center;
-        font-size: 12pt;
-        font-weight: bold;
-        margin: 0 0 2mm;
-    }
-   
-    .po-row {
-        margin: 2mm 0;
-        display: flex;
-        justify-content: space-between;
-    }
-   
-    .po-label {
-        font-size: 9pt;
-        font-weight: bold;
-    }
-   
-    .po-value {
-        font-size: 18pt;
-        font-weight: bold;
-    }
-   
-    .label-tpn {
-        position: absolute;
-        right: 3mm;
-        top: 55mm;
-        font-size: 6.5pt;
-        font-weight: bold;
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-    }
-   
-    /* Parte bassa spostata più giù */
-    .part-section {
-        margin-top: 8mm;                /* spostato più in basso */
-        margin-bottom: 2mm;
-        position: relative;
-        padding-right: 8mm;
-    }
-   
-    .part-label {
-        font-size: 9pt;
-        font-weight: bold;
-    }
-   
-    .part-value {
-        font-size: 15pt;
-        font-weight: bold;
-    }
-   
-    .qr-part {
-        position: absolute;
-        top: 0;
-        right: 7mm;                     /* allineato a sinistra della scritta */
-        width: 9mm;
-        height: 9mm;
-    }
-   
-    .sn-section {
-        position: relative;
-        margin: 2mm 0;
-        padding-right: 8mm;
-    }
-   
-    .sn-label {
-        font-size: 9pt;
-        font-weight: bold;
-    }
-   
-    .sn-value {
-        font-size: 15pt;
-        font-weight: bold;
-    }
-   
-    .qr-sn {
-        position: absolute;
-        top: 0;
-        right: 7mm;
-        width: 9mm;
-        height: 9mm;
-    }
-   
-    .label-sn {
-        position: absolute;
-        right: 0mm;                     /* attaccato al bordo destro */
-        bottom: 8mm;
-        font-size: 6.5pt;
-        font-weight: bold;
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-    }
-   
-    .ubicazione-under-sn {
-        margin-top: 2mm;
-    }
-   
-    .ubicazione-under-sn .pos-label {
-        font-size: 9pt;
-        font-weight: bold;
-    }
-   
-    .ubicazione-under-sn .pos-value {
-        font-size: 13pt;
-        font-weight: bold;
-        line-height: 1.2;
-        word-break: break-all;
-    }
+/* ======================================================
+   STAMPA GENERALE
+====================================================== */
+@page {
+  margin: 0;
+}
 
-    /* ========== ETICHETTA 10x5 ========== */
-    .etichetta-10x5 {
-        width: 100mm;
-        height: 50mm;
-        border: none;                   /* rimosso bordo se vuoi, altrimenti rimetti 1px */
-        background: white;
-        padding: 3mm;
-        box-sizing: border-box;
-        page-break-after: always;
-        position: relative;
-        font-family: Arial, sans-serif;
-    }
-   
-    .et5-logo {
-        height: 7mm;
-        width: auto;
-        display: inline-block;
-        vertical-align: top;
-        margin-bottom: 2mm;             /* spostato più giù */
-    }
-   
-    .et5-codbp {
-        display: inline-block;
-        float: right;
-        text-align: right;
-        font-weight: bold;
-        font-size: 13pt;
-        line-height: 1.2;
-        margin-bottom: 2mm;
-    }
-   
-    .et5-qr-bp {
-        width: 6mm;
-        height: 6mm;
-        vertical-align: middle;
-        margin-left: 2mm;
-    }
-   
-    .et5-barcode {
-        width: 65mm;
-        height: 18px;
-        display: block;
-        margin: 3mm auto 2mm;           /* barcode più in basso */
-    }
-   
-    .et5-wms {
-        text-align: center;
-        font-weight: bold;
-        font-size: 9pt;
-        margin: 0 0 3mm;                /* WMS più in basso */
-    }
-   
-    .et5-info {
-        font-size: 8pt;
-        display: flex;
-        justify-content: space-between;
-        margin-top: 3mm;                /* info più in basso */
-        align-items: flex-start;
-    }
-   
-    .et5-info div {
-        line-height: 1.4;
-        flex: 1;
-    }
-   
-    .et5-qr-sn {
-        width: 6mm;
-        height: 6mm;
-        margin-left: 3mm;
-        flex-shrink: 0;
-    }
-   
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
+body {
+  margin: 0;
+  padding: 0;
+  background: white;
+  font-family: Arial, sans-serif;
+}
+
+.no-print { display: block; }
+.print-only { display: none; }
+
+@media print {
+  .no-print { display: none !important; }
+  html, body { margin: 0; padding: 0; }
+}
+
+/* ======================================================
+   ETICHETTA 10x10 — FULL PAGE CORRETTA
+====================================================== */
+.etichetta-10x10 {
+  width: 100mm;
+  height: 100mm;
+  padding: 1.5mm 3mm;
+  box-sizing: border-box;
+  page-break-after: always;
+  position: relative;
+}
+
+/* --- Logo / Header --- */
+.logo-container {
+  height: 11mm;
+  margin-bottom: 1mm;
+  position: relative;
+}
+
+.logo-img {
+  height: 10mm;
+}
+
+/* --- COD BP verticale --- */
+.label-cod-bp {
+  position: absolute;
+  right: 0;
+  top: 16mm;
+  font-size: 7.5pt;
+  font-weight: bold;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* --- BP --- */
+.bp-label {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.bp-value {
+  font-size: 24pt;
+  font-weight: bold;
+  line-height: 1;
+}
+
+/* QR BP */
+.qr-bp {
+  position: absolute;
+  top: 16mm;
+  right: 12mm;
+  width: 13mm;
+  height: 13mm;
+}
+
+/* --- Separatori --- */
+.etichetta-10x10 hr {
+  border: none;
+  border-top: 2px solid black;
+  margin: 1.8mm 0;
+}
+
+.etichetta-10x10 hr.thin {
+  border-top: 1.8px solid black;
+  margin: 2mm 0;
+}
+
+/* --- Articolo --- */
+.art-label {
+  font-size: 10pt;
+  font-weight: bold;
+  margin-bottom: 1mm;
+}
+
+.barcode-svg {
+  width: 80mm;
+  height: 30px;
+  margin: 0 auto 1mm;
+  display: block;
+}
+
+.wms {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: bold;
+}
+
+/* --- PO / Posizione --- */
+.po-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 2mm 0;
+}
+
+.po-label {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.po-value {
+  font-size: 22pt;
+  font-weight: bold;
+}
+
+/* --- TPN verticale --- */
+.label-tpn {
+  position: absolute;
+  right: 0;
+  top: 63mm;
+  font-size: 7.5pt;
+  font-weight: bold;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* --- Part Number --- */
+.part-section {
+  position: relative;
+  margin: 2mm 0;
+}
+
+.part-label {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.part-value {
+  font-size: 18pt;
+  font-weight: bold;
+}
+
+/* QR PART centrato */
+.qr-part {
+  position: absolute;
+  top: 50%;
+  right: 12mm;
+  transform: translateY(-50%);
+  width: 13mm;
+  height: 13mm;
+}
+
+/* --- Serial Number / Lotto --- */
+.sn-section {
+  position: relative;
+  margin-top: 3mm;
+}
+
+.sn-label {
+  font-size: 10pt;
+  font-weight: bold;
+  display: block;
+}
+
+.sn-value {
+  font-size: 17pt;
+  font-weight: bold;
+  display: block;
+  margin-top: 0.5mm;
+}
+
+/* QR SN centrato */
+.qr-sn {
+  position: absolute;
+  top: 50%;
+  right: 12mm;
+  transform: translateY(-50%);
+  width: 13mm;
+  height: 13mm;
+}
+
+/* SN verticale */
+.label-sn {
+  position: absolute;
+  right: 0;
+  bottom: 7mm;
+  font-size: 7.5pt;
+  font-weight: bold;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* --- Ubicazione --- */
+.ubicazione-under-sn {
+  margin-top: 2mm;
+}
+
+.ubicazione-under-sn .pos-label {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.ubicazione-under-sn .pos-value {
+  font-size: 14pt;
+  font-weight: bold;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+/* ======================================================
+   ETICHETTA 10x5 — SISTEMATA E RIEMPITA
+====================================================== */
+@page {
+  size: 100mm 50mm;
+}
+
+.etichetta-10x5 {
+  width: 100mm;
+  height: 50mm;
+  padding: 2mm 3mm;
+  box-sizing: border-box;
+  page-break-after: always;
+  position: relative;
+}
+
+/* --- Header --- */
+.et5-logo {
+  height: 9mm;
+  display: inline-block;
+}
+
+.et5-codbp {
+  float: right;
+  text-align: right;
+  font-weight: bold;
+  font-size: 15pt;
+  line-height: 1.1;
+}
+
+.et5-qr-bp {
+  width: 9mm;
+  height: 9mm;
+  margin-left: 2mm;
+  vertical-align: middle;
+}
+
+/* --- Barcode --- */
+.et5-barcode {
+  width: 65mm;
+  height: 22px;
+  display: block;
+  margin: 2mm auto 1mm;
+}
+
+.et5-wms {
+  text-align: center;
+  font-size: 10pt;
+  font-weight: bold;
+  margin-bottom: 1mm;
+}
+
+/* --- Info --- */
+.et5-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+  margin-top: 1mm;
+}
+
+.et5-info div {
+  line-height: 1.4;
+}
+
+/* QR SN */
+.et5-qr-sn {
+  width: 9mm;
+  height: 9mm;
+  margin-left: 2mm;
+}
 </style>
 </head>
 <body>
