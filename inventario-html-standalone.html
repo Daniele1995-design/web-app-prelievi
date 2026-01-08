@@ -744,18 +744,26 @@ appCache.lastUpdate.stats = null;
             </div>`;
     }
     
-    printArea.style.display = 'block';
+  printArea.style.display = 'block';
     
-    // ASPETTA CARICAMENTO IMMAGINI
-    const images = printArea.querySelectorAll('img');
-    let loadedImages = 0;
-    const totalImages = images.length;
+    // PRECARICA TUTTE LE IMMAGINI CON PROMISE
+    const images = Array.from(printArea.querySelectorAll('img'));
+    const imagePromises = images.map(img => {
+        return new Promise((resolve) => {
+            if (img.complete && img.naturalHeight !== 0) {
+                resolve();
+            } else {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+                setTimeout(() => resolve(), 3000);
+            }
+        });
+    });
     
-    const checkAllLoaded = () => {
-        loadedImages++;
-        if (loadedImages === totalImages) {
-            // TUTTE LE IMMAGINI CARICATE
-            if (item.WMSCode) {
+    // ATTENDI TUTTE LE IMMAGINI POI STAMPA
+    Promise.all(imagePromises).then(() => {
+        if (item.WMSCode) {
+            try {
                 JsBarcode('#'+bcId, item.WMSCode, {
                     format: "CODE128",
                     height: formato === '10x10' ? 18 : 16,
@@ -763,13 +771,17 @@ appCache.lastUpdate.stats = null;
                     displayValue: false,
                     margin: 0
                 });
+            } catch (e) {
+                console.error('Errore barcode:', e);
             }
-            setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-            }, 100);
         }
-    };
+        
+        setTimeout(() => {
+            window.print();
+            printArea.style.display = 'none';
+        }, 500);
+    });
+};
     
     images.forEach(img => {
         if (img.complete) {
@@ -965,14 +977,35 @@ appCache.lastUpdate.stats = null;
                 });
                 printArea.innerHTML = html;
                 printArea.style.display = 'block';
-                setTimeout(() => {
+                
+                // PRECARICA TUTTE LE IMMAGINI
+                const images = Array.from(printArea.querySelectorAll('img'));
+                const imagePromises = images.map(img => {
+                    return new Promise((resolve) => {
+                        if (img.complete && img.naturalHeight !== 0) {
+                            resolve();
+                        } else {
+                            img.onload = () => resolve();
+                            img.onerror = () => resolve();
+                            setTimeout(() => resolve(), 3000);
+                        }
+                    });
+                });
+                
+                Promise.all(imagePromises).then(() => {
                     selected.forEach((item, idx) => {
                         const bcId = 'bc-lista-'+idx;
-                        if (item.WMSCode) JsBarcode('#'+bcId, item.WMSCode, {format:"CODE128", height:formatoStampa==='10x10'?26:20, width:1.8, displayValue:false, margin:0});
+                        if (item.WMSCode) {
+                            try {
+                                JsBarcode('#'+bcId, item.WMSCode, {format:"CODE128", height:formatoStampa==='10x10'?26:20, width:1.8, displayValue:false, margin:0});
+                            } catch(e) { console.error('Barcode error:', e); }
+                        }
                     });
-                    window.print();
-                    printArea.style.display = 'none';
-                }, 300);
+                    setTimeout(() => {
+                        window.print();
+                        printArea.style.display = 'none';
+                    }, 500);
+                });
             };
 
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
@@ -1156,16 +1189,37 @@ appCache.lastUpdate.stats = null;
                         html += `<div class="etichetta-10x5"><img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg"><div class="et5-codbp">Codice BP<br>${item.CodSap||''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap||'')}"></div><svg class="et5-barcode" id="${bcId}"></svg><div class="et5-wms">${item.WMSCode||''}</div><div class="et5-info"><div>PO Nr°: ${item.PoNr||''} / Pos: ${item.Stato||''}<br>Part Number: ${item.CodSap||''}<br>Seriale: ${item.Seriale_Riscontrato||''}</div><img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.Seriale_Riscontrato||'')}"></div></div>`;
                     }
                 });
-                printArea.innerHTML = html;
+                  printArea.innerHTML = html;
                 printArea.style.display = 'block';
-                setTimeout(() => {
+                
+                // PRECARICA TUTTE LE IMMAGINI
+                const images = Array.from(printArea.querySelectorAll('img'));
+                const imagePromises = images.map(img => {
+                    return new Promise((resolve) => {
+                        if (img.complete && img.naturalHeight !== 0) {
+                            resolve();
+                        } else {
+                            img.onload = () => resolve();
+                            img.onerror = () => resolve();
+                            setTimeout(() => resolve(), 3000);
+                        }
+                    });
+                });
+                
+                Promise.all(imagePromises).then(() => {
                     selected.forEach((item, idx) => {
                         const bcId = 'bc-storico-'+idx;
-                        if (item.WMSCode) JsBarcode('#'+bcId, item.WMSCode, {format:"CODE128", height:formatoStampa==='10x10'?26:20, width:1.8, displayValue:false, margin:0});
+                        if (item.WMSCode) {
+                            try {
+                                JsBarcode('#'+bcId, item.WMSCode, {format:"CODE128", height:formatoStampa==='10x10'?26:20, width:1.8, displayValue:false, margin:0});
+                            } catch(e) { console.error('Barcode error:', e); }
+                        }
                     });
-                    window.print();
-                    printArea.style.display = 'none';
-                }, 300);
+                    setTimeout(() => {
+                        window.print();
+                        printArea.style.display = 'none';
+                    }, 500);
+                });
             };
 
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
