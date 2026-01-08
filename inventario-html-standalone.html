@@ -8,7 +8,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.8/dist/JsBarcode.all.min.js"></script>
    
 <style>
 /* ======================================================
@@ -119,7 +119,7 @@ body {
 
 .etichetta-10x10 hr.thin {
   border-top: 1.8px solid black;
-  margin: 1.5mm 0;
+  margin: 1.8mm 0;
 }
 
 /* Articolo */
@@ -322,7 +322,7 @@ body {
 }
 
 .et5-info div {
-  line-height: 1.5;
+  line-height: 1.8;
   word-break: break-all;
 }
 
@@ -1076,7 +1076,7 @@ useEffect(() => {
                     <div class="bp-section">
                         <div class="bp-label">Codice BP</div>
                         <div class="bp-value">${item.CodSap || ''}</div>
-                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                     </div>
                     <hr>
                     <div class="art-label">Articolo</div>
@@ -1092,13 +1092,13 @@ useEffect(() => {
                     <div class="part-section">
                         <span class="part-label">Part Number</span>
                         <span class="part-value">${item.CodSap || ''}</span>
-                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                     </div>
                     <hr class="thin">
                     <div class="sn-section">
                         <span class="sn-label">SerialNumber/Lotto</span>
                         <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         <div class="label-sn">SN</div>
                     </div>
                     <div class="ubicazione-under-sn">
@@ -1139,8 +1139,8 @@ useEffect(() => {
             if (item.WMSCode) {
                 JsBarcode('#' + bcId, item.WMSCode, {
                     format: "CODE128",
-                    height: formato === '10x10' ? 20 : 18,
-                    width: 1.5,
+                    height: formato === '10x10' ? 26 : 20,
+                    width: 1.8,
                     displayValue: false,
                     margin: 0
                 });
@@ -1433,7 +1433,7 @@ useEffect(() => {
                         <div class="bp-section">
                             <div class="bp-label">Codice BP</div>
                             <div class="bp-value">${item.CodSap || ''}</div>
-                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr>
                         <div class="art-label">Articolo</div>
@@ -1449,13 +1449,13 @@ useEffect(() => {
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
                             <span class="part-value">${item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
                         <div class="sn-section">
                             <span class="sn-label">SerialNumber/Lotto</span>
                             <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                             <div class="label-sn">SN</div>
                         </div>
                         <div class="ubicazione-under-sn">
@@ -1500,8 +1500,8 @@ useEffect(() => {
                 if (item.WMSCode && element) {
                     JsBarcode(element, item.WMSCode, {
                         format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
+                        height: formatoStampa === '10x10' ? 26 : 20,
+                        width: 1.8,
                         displayValue: false,
                         margin: 0
                     });
@@ -1839,7 +1839,7 @@ useEffect(() => {
                         <div class="bp-section">
                             <div class="bp-label">Codice BP</div>
                             <div class="bp-value">${item.CodSap || ''}</div>
-                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr>
                         <div class="art-label">Articolo</div>
@@ -1855,13 +1855,13 @@ useEffect(() => {
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
                             <span class="part-value">${item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
                         <div class="sn-section">
                             <span class="sn-label">SerialNumber/Lotto</span>
                             <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                             <div class="label-sn">SN</div>
                         </div>
                         <div class="ubicazione-under-sn">
@@ -1906,8 +1906,8 @@ useEffect(() => {
                 if (item.WMSCode && element) {
                     JsBarcode(element, item.WMSCode, {
                         format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
+                        height: formatoStampa === '10x10' ? 26 : 20,
+                        width: 1.8,
                         displayValue: false,
                         margin: 0
                     });
