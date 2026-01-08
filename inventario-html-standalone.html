@@ -38,37 +38,34 @@ body {
 }
 
 /* ======================================================
-   ETICHETTA 10x10 — OTTIMIZZATA
+   ETICHETTA 10x10 — LAYOUT OTTIMIZZATO
 ====================================================== */
 .etichetta-10x10 {
-  width: 10cm;
-  height: 10cm;
+  width: 100mm;
+  height: 100mm;
   border: 0.5px solid #000;
   background: white;
-  padding: 1.5mm 2.5mm;
+  padding: 2mm 3.5mm;
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 10mm;
 }
 
-/* Header */
 .logo-container {
-  height: 9mm;
-  margin-bottom: 0.3mm;
+  height: 10mm;
+  margin-bottom: 0.5mm;
   position: relative;
-  flex-shrink: 0;
 }
 
 .logo-img {
-  height: 8mm;
+  height: 9mm;
 }
 
 .label-cod-bp {
   position: absolute;
   right: 0;
-  top: 10mm;
+  top: 12mm;
   font-size: 7pt;
   font-weight: bold;
   writing-mode: vertical-rl;
@@ -78,84 +75,82 @@ body {
 
 /* BP */
 .bp-section { 
-  margin-bottom: 0.5mm;
-  flex-shrink: 0;
+  margin-bottom: 1mm;
 }
 
 .bp-label {
-  font-size: 8pt;
+  font-size: 9pt;
   font-weight: bold;
   margin-bottom: 0.2mm;
 }
 
 .bp-value {
-  font-size: 18pt;
+  font-size: 20pt;
   font-weight: bold;
   line-height: 1;
 }
 
 .qr-bp {
   position: absolute;
-  top: 10mm;
-  right: 15mm;
-  width: 10mm;
-  height: 10mm;
+  top: 11mm;
+  right: 9mm;
+  width: 11mm;
+  height: 11mm;
 }
 
 /* Separatori */
 .etichetta-10x10 hr {
   border: none;
-  border-top: 1.5px solid black;
-  margin: 0.8mm 0;
-  flex-shrink: 0;
+  border-top: 1.8px solid black;
+  margin: 1.2mm 0;
 }
 
 .etichetta-10x10 hr.thin {
-  border-top: 1.5px solid black;
-  margin: 0.8mm 0;
-  flex-shrink: 0;
+  border-top: 1.8px solid black;
+  margin: 1.5mm 0;
 }
 
 /* Articolo */
 .art-label {
   font-weight: bold;
-  font-size: 8pt;
-  margin: 0 0 0.5mm;
-  flex-shrink: 0;
+  font-size: 9pt;
+  margin: 0 0 0.8mm;
 }
 
 .barcode-svg {
-  width: 75mm;
-  height: 24px;
-  margin: 0 auto 0.5mm;
+  width: 72mm;
+  height: 26px;
+  margin: 0 auto 0.8mm;
   display: block;
-  flex-shrink: 0;
 }
 
 .wms {
   text-align: center;
-  font-size: 10pt;
+  font-size: 10.5pt;
   font-weight: bold;
-  margin-bottom: 0.5mm;
-  flex-shrink: 0;
+  margin-bottom: 1mm;
 }
 
 /* PO */
 .po-row {
-  margin-top: 0.8mm;
-  margin-bottom: 0.5mm;
+  margin-top: 1.2mm;
+  margin-bottom: 1mm;
   display: flex;
   justify-content: space-between;
-  flex-shrink: 0;
+  align-items: flex-start;
+}
+
+.po-col {
+  flex: 1;
 }
 
 .po-label {
-  font-size: 8pt;
+  font-size: 9pt;
   font-weight: bold;
 }
 
 .po-value {
-  font-size: 16pt;
+  font-size: 18pt;
   font-weight: bold;
   line-height: 1;
   display: block;
@@ -164,8 +159,8 @@ body {
 /* TPN */
 .label-tpn {
   position: absolute;
-  right: 2.5mm;
-  top: 58mm;
+  right: 3mm;
+  top: 62mm;
   font-size: 7pt;
   font-weight: bold;
   writing-mode: vertical-rl;
@@ -175,65 +170,63 @@ body {
 
 /* Part Number */
 .part-section {
-  margin: 0.8mm 0 1.5mm;
+  margin: 1mm 0 3mm;
   position: relative;
-  flex-shrink: 0;
 }
 
 .part-label {
-  font-size: 8pt;
+  font-size: 9pt;
   font-weight: bold;
+  line-height: 1.1;
 }
 
 .part-value {
-  font-size: 14pt;
+  font-size: 16pt;
   font-weight: bold;
   line-height: 1;
   display: block;
-  padding-right: 12mm;
 }
 
 .qr-part {
   position: absolute;
   top: 0;
-  right: 5mm;
-  width: 10mm;
-  height: 10mm;
+  right: 3.5mm;
+  width: 11mm;
+  height: 11mm;
 }
 
 /* Serial */
 .sn-section {
   position: relative;
-  margin: 1mm 0 0.5mm;
-  flex-shrink: 0;
+  margin: 2mm 0 0.5mm;
 }
 
 .sn-label {
-  font-size: 8pt;
+  font-size: 9pt;
   font-weight: bold;
+  display: block;
 }
 
 .sn-value {
-  font-size: 14pt;
+  font-size: 16pt;
   font-weight: bold;
   line-height: 1.2;
   display: block;
-  padding-right: 12mm;
   word-break: break-all;
 }
 
 .qr-sn {
   position: absolute;
   top: 0;
-  right: 5mm;
-  width: 10mm;
-  height: 10mm;
+  right: 3.5mm;
+  width: 11mm;
+  height: 11mm;
 }
 
 .label-sn {
   position: absolute;
   right: 0;
-  bottom: 1.5mm;
+  bottom: 2.8mm;
   font-size: 7pt;
   font-weight: bold;
   writing-mode: vertical-rl;
@@ -241,48 +234,41 @@ body {
   letter-spacing: 0.3px;
 }
 
-/* Ubicazione - Usa lo spazio rimanente */
+/* Ubicazione */
 .ubicazione-under-sn {
-  margin-top: 0.5mm;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  margin-top: -0.5mm;
 }
 
 .ubicazione-under-sn .pos-label {
-  font-size: 8pt;
+  font-size: 9pt;
   font-weight: bold;
-  margin-bottom: 0.5mm;
+  display: block;
 }
 
 .ubicazione-under-sn .pos-value {
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: bold;
-  line-height: 1.3;
+  line-height: 1.2;
   word-break: break-all;
-  flex: 1;
-  overflow: hidden;
 }
 
 /* ======================================================
-   ETICHETTA 10x5 — OTTIMIZZATA
+   ETICHETTA 10x5 — LAYOUT OTTIMIZZATO
 ====================================================== */
 .etichetta-10x5 {
   width: 100mm;
   height: 50mm;
   border: 0.5px solid #000;
   background: white;
-  padding: 1.5mm 2.5mm;
+  padding: 2mm 3mm;
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
   font-size: 8pt;
-  display: flex;
-  flex-direction: column;
 }
 
 .et5-logo {
-  height: 7mm;
+  height: 8mm;
   display: inline-block;
   vertical-align: middle;
 }
@@ -292,22 +278,21 @@ body {
   float: right;
   text-align: right;
   font-weight: bold;
-  font-size: 14pt;
-  line-height: 1.1;
+  font-size: 16pt;
 }
 
 .et5-qr-bp {
-  width: 9mm;
-  height: 9mm;
+  width: 10mm;
+  height: 10mm;
   vertical-align: middle;
   margin-left: 2mm;
 }
 
 .et5-barcode {
-  width: 60mm;
-  height: 18px;
+  width: 55mm;
+  height: 20px;
   display: block;
-  margin: 1.5mm auto 1mm;
+  margin: 2mm auto 1mm;
 }
 
 .et5-wms {
@@ -318,25 +303,26 @@ body {
 }
 
 .et5-info {
-  font-size: 9pt;
+  font-size: 10pt;
   display: flex;
   justify-content: space-between;
   margin-top: 1mm;
-  flex: 1;
 }
 
 .et5-info div {
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-all;
 }
 
 .et5-qr-sn {
-  width: 9mm;
-  height: 9mm;
+  width: 10mm;
+  height: 10mm;
   margin-left: 2mm;
-  flex-shrink: 0;
+  vertical-align: middle;
+  margin-top: 4mm;
 }
 </style>
+
 </head>
 <body>
     <div id="root"></div>
