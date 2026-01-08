@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
-<style>
+<style id="print-style">
 /* ======================================================
    STILI COMUNI
 ====================================================== */
@@ -347,6 +347,7 @@ body {
   flex-shrink: 0;
 }
 </style>
+    <style id="page-style"></style> <!-- PER IL SIZE DINAMICO -->
 </head>
 <body>
     <div id="root"></div>
@@ -497,9 +498,9 @@ function isCacheValid(key) {
             Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
-        function setPageSize(formato) {
-  const style = document.getElementById('print-style');
-  style.innerHTML = `
+       function setPageSize(formato) {
+  const pageStyle = document.getElementById('page-style');
+  pageStyle.innerHTML = `
     @media print {
       @page {
         size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'};
@@ -1265,6 +1266,9 @@ function isCacheValid(key) {
 
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
+
+         // Imposta il formato pagina
+    setPageSize(formatoStampa);
 
         const printArea = document.getElementById('print-area');
         const timestamp = Date.now();
