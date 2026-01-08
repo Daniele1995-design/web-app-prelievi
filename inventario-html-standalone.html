@@ -1010,12 +1010,11 @@ const stampaSelezionati = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
     const printArea = document.getElementById('print-area');
-
+    const timestamp = Date.now(); // ← generato una sola volta
 
     let html = '';
     selected.forEach((item, idx) => {
-        // ID unico ma FISSO per tutto il ciclo
-        const bcId = `bc-multi-${idx}-${Date.now()}`;
+        const bcId = `bc-multi-${idx}-${timestamp}`; // ← ID unico e coerente
 
         if (formatoStampa === '10x10') {
             html += `
@@ -1088,9 +1087,8 @@ const stampaSelezionati = () => {
     });
 
     Promise.all(imagePromises).then(() => {
-        // Usa lo stesso bcId creato sopra
         selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${Date.now()}`; // STESSO di prima
+            const bcId = `bc-multi-${idx}-${timestamp}`; // ← stesso ID di prima
             const element = document.getElementById(bcId);
             if (item.WMSCode && element) {
                 JsBarcode(element, item.WMSCode, {
@@ -1109,8 +1107,7 @@ const stampaSelezionati = () => {
             printArea.innerHTML = '';
         }, 500);
     });
-};
-            if (loading) return <div className="text-center py-12">Caricamento...</div>;
+};            if (loading) return <div className="text-center py-12">Caricamento...</div>;
 
             return (
                 <div className="space-y-6">
@@ -1283,11 +1280,11 @@ const stampaSelezionati = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
     const printArea = document.getElementById('print-area');
+    const timestamp = Date.now(); // ← generato una sola volta
 
     let html = '';
     selected.forEach((item, idx) => {
-        // ID unico ma FISSO per tutto il ciclo
-        const bcId = `bc-multi-${idx}-${Date.now()}`;
+        const bcId = `bc-multi-${idx}-${timestamp}`; // ← ID unico e coerente
 
         if (formatoStampa === '10x10') {
             html += `
@@ -1360,9 +1357,8 @@ const stampaSelezionati = () => {
     });
 
     Promise.all(imagePromises).then(() => {
-        // Usa lo stesso bcId creato sopra
         selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${Date.now()}`; // STESSO di prima
+            const bcId = `bc-multi-${idx}-${timestamp}`; // ← stesso ID di prima
             const element = document.getElementById(bcId);
             if (item.WMSCode && element) {
                 JsBarcode(element, item.WMSCode, {
