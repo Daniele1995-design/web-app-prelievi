@@ -792,15 +792,6 @@ appCache.lastUpdate.stats = null;
     });
 };
     
-    images.forEach(img => {
-        if (img.complete) {
-            checkAllLoaded();
-        } else {
-            img.onload = checkAllLoaded;
-            img.onerror = checkAllLoaded; // Continua anche se errore
-        }
-    });
-};
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
 
             const giacenzaDaMostrare = giacenza.filter(i => !i.inventariato);
