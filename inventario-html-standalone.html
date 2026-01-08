@@ -45,7 +45,7 @@ body {
   height: 100mm;
   border: 0.5px solid #000;
   background: white;
-  padding: 2mm 3.5mm;
+  padding: 2mm 2mm;
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
@@ -66,26 +66,26 @@ body {
   position: absolute;
   right: 0;
   top: 12mm;
-  font-size: 7pt;
+  font-size: 8pt;
   font-weight: bold;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 /* BP */
 .bp-section { 
-  margin-bottom: 1mm;
+  margin-bottom: 1.5mm;
 }
 
 .bp-label {
-  font-size: 9pt;
+  font-size: 10pt;
   font-weight: bold;
-  margin-bottom: 0.2mm;
+  margin-bottom: 0.5mm;
 }
 
 .bp-value {
-  font-size: 20pt;
+  font-size: 26pt;
   font-weight: bold;
   line-height: 1;
 }
@@ -93,51 +93,53 @@ body {
 .qr-bp {
   position: absolute;
   top: 11mm;
-  right: 9mm;
-  width: 11mm;
-  height: 11mm;
+  right: 2mm;
+  width: 14mm;
+  height: 14mm;
 }
 
 /* Separatori */
 .etichetta-10x10 hr {
   border: none;
-  border-top: 1.8px solid black;
-  margin: 1.2mm 0;
+  border-top: 2px solid black;
+  margin: 1.5mm 0;
 }
 
 .etichetta-10x10 hr.thin {
-  border-top: 1.8px solid black;
+  border-top: 2px solid black;
   margin: 1.5mm 0;
 }
 
 /* Articolo */
 .art-label {
   font-weight: bold;
-  font-size: 9pt;
-  margin: 0 0 0.8mm;
+  font-size: 10pt;
+  margin: 0 0 1mm;
 }
 
 .barcode-svg {
-  width: 72mm;
-  height: 26px;
-  margin: 0 auto 0.8mm;
+  width: 85mm;
+  height: 28px;
+  margin: 0 auto 1mm;
   display: block;
 }
 
 .wms {
   text-align: center;
-  font-size: 10.5pt;
+  font-size: 13pt;
   font-weight: bold;
-  margin-bottom: 1mm;
+  margin-bottom: 1.5mm;
+  letter-spacing: 0.5px;
 }
 
 /* PO */
 .po-row {
-  margin-top: 1.2mm;
-  margin-bottom: 1mm;
+  margin-top: 1.5mm;
+  margin-bottom: 1.5mm;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 3mm;
 }
 
 .po-col {
@@ -145,12 +147,14 @@ body {
 }
 
 .po-label {
-  font-size: 9pt;
+  font-size: 10pt;
   font-weight: bold;
+  display: block;
+  margin-bottom: 0.5mm;
 }
 
 .po-value {
-  font-size: 18pt;
+  font-size: 22pt;
   font-weight: bold;
   line-height: 1;
   display: block;
@@ -159,56 +163,59 @@ body {
 /* TPN */
 .label-tpn {
   position: absolute;
-  right: 3mm;
-  top: 62mm;
-  font-size: 7pt;
+  right: 2mm;
+  top: 50mm;
+  font-size: 8pt;
   font-weight: bold;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 /* Part Number */
 .part-section {
-  margin: 1mm 0 3mm;
+  margin: 1.5mm 0 2mm;
   position: relative;
 }
 
 .part-label {
-  font-size: 9pt;
+  font-size: 10pt;
   font-weight: bold;
-  line-height: 1.1;
+  line-height: 1.2;
+  display: block;
+  margin-bottom: 0.5mm;
 }
 
 .part-value {
-  font-size: 16pt;
+  font-size: 20pt;
   font-weight: bold;
-  line-height: 1;
+  line-height: 1.1;
   display: block;
 }
 
 .qr-part {
   position: absolute;
   top: 0;
-  right: 3.5mm;
-  width: 11mm;
-  height: 11mm;
+  right: 2mm;
+  width: 14mm;
+  height: 14mm;
 }
 
 /* Serial */
 .sn-section {
   position: relative;
-  margin: 2mm 0 0.5mm;
+  margin: 2mm 0 1mm;
 }
 
 .sn-label {
-  font-size: 9pt;
+  font-size: 10pt;
   font-weight: bold;
   display: block;
+  margin-bottom: 0.5mm;
 }
 
 .sn-value {
-  font-size: 16pt;
+  font-size: 20pt;
   font-weight: bold;
   line-height: 1.2;
   display: block;
@@ -218,37 +225,38 @@ body {
 .qr-sn {
   position: absolute;
   top: 0;
-  right: 3.5mm;
-  width: 11mm;
-  height: 11mm;
+  right: 2mm;
+  width: 14mm;
+  height: 14mm;
 }
 
 .label-sn {
   position: absolute;
   right: 0;
-  bottom: 2.8mm;
-  font-size: 7pt;
+  bottom: 2mm;
+  font-size: 8pt;
   font-weight: bold;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 /* Ubicazione */
 .ubicazione-under-sn {
-  margin-top: -0.5mm;
+  margin-top: 0.5mm;
 }
 
 .ubicazione-under-sn .pos-label {
-  font-size: 9pt;
+  font-size: 10pt;
   font-weight: bold;
   display: block;
+  margin-bottom: 0.5mm;
 }
 
 .ubicazione-under-sn .pos-value {
-  font-size: 12pt;
+  font-size: 16pt;
   font-weight: bold;
-  line-height: 1.2;
+  line-height: 1.3;
   word-break: break-all;
 }
 
