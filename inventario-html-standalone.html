@@ -22,15 +22,18 @@
         body { margin: 0; padding: 0; background: white; }
         html, body { width: 100mm; }
         #print-area { width: 100mm; margin: 0 auto; }
+        .etichetta-10x10, .etichetta-10x5 {
+            page-break-after: always;
+        }
     }
    
-    /* ========== ETICHETTA 10x10 - INGRANDITA E RIEMPITA ========== */
+    /* ========== ETICHETTA 10x10 ========== */
     .etichetta-10x10 {
         width: 100mm;
         height: 100mm;
-        border: 1px solid #000;
+        border: none;                   /* rimosso il bordo */
         background: white;
-        padding: 4mm;                   /* più spazio interno per riempire */
+        padding: 4mm 5mm 4mm 5mm;       /* padding uniforme, più spazio interno */
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
@@ -40,7 +43,7 @@
    
     .logo-container {
         height: 10mm;
-        margin-bottom: 1.5mm;
+        margin-bottom: 2mm;
         position: relative;
     }
    
@@ -51,9 +54,9 @@
    
     .label-cod-bp {
         position: absolute;
-        right: 0;
-        top: 0;
-        font-size: 6pt;
+        right: 0mm;                     /* attaccato al bordo destro */
+        top: 5mm;
+        font-size: 6.5pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
@@ -61,193 +64,170 @@
     }
    
     .bp-section {
-        margin-bottom: 1mm;
+        margin-bottom: 2mm;
         position: relative;
-        padding-right: 10mm;            /* ridotto per spostare QR BP più a sinistra */
+        padding-right: 8mm;             /* QR BP più a sinistra */
     }
    
     .bp-label {
-        font-size: 9pt;                 /* +30% */
+        font-size: 9pt;
         font-weight: bold;
-        margin: 0;
     }
    
     .bp-value {
-        font-size: 22pt;                /* +37% da 16pt */
+        font-size: 24pt;                /* ingrandito ulteriormente */
         font-weight: bold;
         line-height: 1;
-        margin: 0;
     }
    
     .qr-bp {
         position: absolute;
-        top: 0mm;
-        right: 0;
-        width: 8mm;                     /* rimpicciolito di 1/3 (da 12mm) */
-        height: 8mm;
+        top: 5mm;
+        right: 7mm;                     /* allineato a sinistra della scritta verticale */
+        width: 9mm;
+        height: 9mm;
     }
    
     .etichetta-10x10 hr {
         border: none;
-        border-top: 2px solid black;    /* più spessa */
-        margin: 1.5mm 0;
+        border-top: 2px solid black;
+        margin: 2mm 0;
     }
    
     .etichetta-10x10 hr.thin {
         border-top: 1.5px solid black;
-        margin: 1mm 0;
+        margin: 1.5mm 0;
     }
    
     .art-label {
+        font-size: 9pt;
         font-weight: bold;
-        font-size: 9pt;                 /* +28% */
-        margin: 0 0 1mm;
+        margin: 0 0 1.5mm;
     }
    
     .barcode-svg {
-        width: 85mm;                    /* allargato per riempire */
-        height: 24px;                   /* più alto */
-        margin: 0 auto 1mm;
+        width: 82mm;
+        height: 26px;
+        margin: 0 auto 1.5mm;
         display: block;
     }
    
     .wms {
         text-align: center;
-        font-size: 11pt;                /* +37% */
+        font-size: 12pt;
         font-weight: bold;
-        margin: 0 0 1.2mm;
+        margin: 0 0 2mm;
     }
    
     .po-row {
-        margin: 1.2mm 0;
+        margin: 2mm 0;
         display: flex;
         justify-content: space-between;
-        position: relative;
-    }
-   
-    .po-col {
-        flex: 1;
     }
    
     .po-label {
-        font-size: 9pt;                 /* +28% */
+        font-size: 9pt;
         font-weight: bold;
-        margin: 0;
     }
    
     .po-value {
-        font-size: 18pt;                /* +28% da 14pt */
+        font-size: 18pt;
         font-weight: bold;
-        line-height: 1;
-        display: block;
-        margin: 0;
     }
    
     .label-tpn {
         position: absolute;
         right: 3mm;
         top: 55mm;
-        font-size: 6pt;
+        font-size: 6.5pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
    
+    /* Parte bassa spostata più giù */
     .part-section {
-        margin: 1.2mm 0;
+        margin-top: 8mm;                /* spostato più in basso */
+        margin-bottom: 2mm;
         position: relative;
-        padding-right: 10mm;            /* ridotto per QR più a sinistra */
+        padding-right: 8mm;
     }
    
     .part-label {
         font-size: 9pt;
         font-weight: bold;
-        margin: 0;
     }
    
     .part-value {
-        font-size: 15pt;                /* +36% da 11pt */
+        font-size: 15pt;
         font-weight: bold;
-        line-height: 1.1;
-        display: block;
-        margin: 0;
-        word-break: break-all;
     }
    
     .qr-part {
         position: absolute;
         top: 0;
-        right: 0;
-        width: 8mm;                     /* rimpicciolito di 1/3 */
-        height: 8mm;
+        right: 7mm;                     /* allineato a sinistra della scritta */
+        width: 9mm;
+        height: 9mm;
     }
    
     .sn-section {
         position: relative;
-        margin: 1.2mm 0;
-        padding-right: 10mm;
+        margin: 2mm 0;
+        padding-right: 8mm;
     }
    
     .sn-label {
         font-size: 9pt;
         font-weight: bold;
-        display: block;
-        margin: 0;
     }
    
     .sn-value {
-        font-size: 14pt;                /* +40% da 10pt */
+        font-size: 15pt;
         font-weight: bold;
-        line-height: 1.1;
-        display: block;
-        margin: 0;
-        word-break: break-all;
     }
    
     .qr-sn {
         position: absolute;
         top: 0;
-        right: 0;
-        width: 8mm;                     /* rimpicciolito di 1/3 */
-        height: 8mm;
+        right: 7mm;
+        width: 9mm;
+        height: 9mm;
     }
    
     .label-sn {
         position: absolute;
-        right: 3mm;
-        bottom: 15mm;
-        font-size: 6pt;
+        right: 0mm;                     /* attaccato al bordo destro */
+        bottom: 8mm;
+        font-size: 6.5pt;
         font-weight: bold;
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
    
     .ubicazione-under-sn {
-        margin-top: 1mm;
+        margin-top: 2mm;
     }
    
     .ubicazione-under-sn .pos-label {
         font-size: 9pt;
         font-weight: bold;
-        display: block;
-        margin: 0;
     }
    
     .ubicazione-under-sn .pos-value {
-        font-size: 12pt;                /* +33% da 9pt */
+        font-size: 13pt;
         font-weight: bold;
         line-height: 1.2;
         word-break: break-all;
-        margin: 0;
     }
 
-    /* ========== ETICHETTA 10x5 - COMPATTA E BILANCIATA ========== */
+    /* ========== ETICHETTA 10x5 ========== */
     .etichetta-10x5 {
         width: 100mm;
         height: 50mm;
-        border: 1px solid #000;
+        border: none;                   /* rimosso bordo se vuoi, altrimenti rimetti 1px */
         background: white;
-        padding: 2mm 3mm;
+        padding: 3mm;
         box-sizing: border-box;
         page-break-after: always;
         position: relative;
@@ -255,10 +235,11 @@
     }
    
     .et5-logo {
-        height: 6mm;                    /* leggermente ridotto */
+        height: 7mm;
         width: auto;
         display: inline-block;
         vertical-align: top;
+        margin-bottom: 2mm;             /* spostato più giù */
     }
    
     .et5-codbp {
@@ -266,48 +247,49 @@
         float: right;
         text-align: right;
         font-weight: bold;
-        font-size: 11pt;                /* leggermente ridotto per stare in altezza */
+        font-size: 13pt;
         line-height: 1.2;
+        margin-bottom: 2mm;
     }
    
     .et5-qr-bp {
-        width: 5mm;                     /* metà di 10mm */
-        height: 5mm;
+        width: 6mm;
+        height: 6mm;
         vertical-align: middle;
-        margin-left: 1mm;
+        margin-left: 2mm;
     }
    
     .et5-barcode {
-        width: 60mm;                    /* allargato */
-        height: 14px;
+        width: 65mm;
+        height: 18px;
         display: block;
-        margin: 1mm auto 0.5mm;         /* barcode e wms più in alto */
+        margin: 3mm auto 2mm;           /* barcode più in basso */
     }
    
     .et5-wms {
         text-align: center;
         font-weight: bold;
-        font-size: 8pt;
-        margin: 0 0 0.8mm;              /* più in alto */
+        font-size: 9pt;
+        margin: 0 0 3mm;                /* WMS più in basso */
     }
    
     .et5-info {
-        font-size: 7pt;
+        font-size: 8pt;
         display: flex;
         justify-content: space-between;
-        margin-top: 1mm;                /* ridotto per stare in altezza */
+        margin-top: 3mm;                /* info più in basso */
         align-items: flex-start;
     }
    
     .et5-info div {
-        line-height: 1.3;
+        line-height: 1.4;
         flex: 1;
     }
    
     .et5-qr-sn {
-        width: 5mm;                     /* metà di 10mm */
-        height: 5mm;
-        margin-left: 2mm;
+        width: 6mm;
+        height: 6mm;
+        margin-left: 3mm;
         flex-shrink: 0;
     }
    
