@@ -1062,134 +1062,98 @@ useEffect(() => {
     };
 
     const stampaEtichetta = (item, formato) => {
-    const bcId = 'bc-print-' + Date.now();
-    let html = '';
-    
-    if (formato === '10x10') {
-        html = `
-            <div class="etichetta-10x10">
-                <div class="logo-container">
-                    <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="label-cod-bp">COD BP</div>
-                </div>
-                <div class="bp-section">
-                    <div class="bp-label">Codice BP</div>
-                    <div class="bp-value">${item.CodSap || ''}</div>
-                </div>
-                <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                <hr>
-                <div class="art-label">Articolo</div>
-                <svg class="barcode-svg" id="${bcId}"></svg>
-                <div class="wms">${item.WMSCode || ''}</div>
-                <hr>
-                <div class="po-row">
-                    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                </div>
-                <div class="label-tpn">TPN</div>
-                <hr class="thin">
-                <div class="part-section">
-                    <span class="part-label">Part Number</span>
-                    <span class="part-value">${item.CodSap || ''}</span>
-                    <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                </div>
-                <hr class="thin">
-                <div class="sn-section">
-                    <span class="sn-label">SerialNumber/Lotto</span>
-                    <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                    <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                    <div class="label-sn">SN</div>
-                </div>
-                <div class="ubicazione-under-sn">
-                    <span class="pos-label">Ubicazione</span>
-                    <div class="pos-value">${item.Ubicazioni || ''}</div>
-                </div>
-            </div>`;
-    } else {
-        html = `
-            <div class="etichetta-10x5">
-                <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                <svg class="et5-barcode" id="${bcId}"></svg>
-                <div class="et5-wms">${item.WMSCode || ''}</div>
-                <div class="et5-info">
-                    <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                    <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                </div>
-            </div>`;
-    }
+        const printArea = document.getElementById('print-area');
+        const bcId = 'bc-print-' + Date.now();
 
-    // Apri finestra popup
-    const printWindow = window.open('', '_blank', 'width=400,height=400');
-    
-    printWindow.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Stampa Etichetta</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <style>
-        ${document.querySelector('style').textContent}
-        body { margin: 0; padding: 0; background: white; }
-        @media print {
-            @page { size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
+        let html = '';
+        if (formato === '10x10') {
+            html = `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.CodSap || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else {
+            html = `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
         }
-    </style>
-</head>
-<body>
-    ${html}
-    <script>
-        window.onload = function() {
-            const images = Array.from(document.querySelectorAll('img'));
-            let loaded = 0;
-            
-            images.forEach(img => {
-                if (img.complete) {
-                    loaded++;
-                } else {
-                    img.onload = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
-                    img.onerror = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
+
+        printArea.innerHTML = html;
+        printArea.style.display = 'block';
+
+        const images = Array.from(printArea.querySelectorAll('img'));
+        const imagePromises = images.map(img => {
+            return new Promise(resolve => {
+                if (img.complete && img.naturalHeight !== 0) resolve();
+                else {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                    setTimeout(resolve, 3000);
                 }
             });
-            
-            if (loaded === images.length) renderAndPrint();
-            
-            function renderAndPrint() {
-                const wmsCode = '${item.WMSCode || ''}';
-                if (wmsCode) {
-                    JsBarcode('#${bcId}', wmsCode, {
-                        format: "CODE128",
-                        height: ${formato === '10x10' ? 26 : 20},
-                        width: 1.8,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
-                
-                setTimeout(() => {
-                    window.print();
-                    
-                    // Chiudi finestra dopo stampa/annulla
-                    setTimeout(() => {
-                        window.close();
-                    }, 100);
-                }, 500);
+        });
+
+        Promise.all(imagePromises).then(() => {
+            if (item.WMSCode) {
+                JsBarcode('#' + bcId, item.WMSCode, {
+                    format: "CODE128",
+                    height: formato === '10x10' ? 20 : 18,
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
+                });
             }
-        };
-    </script>
-</body>
-</html>
-    `);
-    
-    printWindow.document.close();
-};
+
+            setTimeout(() => {
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
+        });
+    };
+
     if (loading) return (
         <div className="text-center py-12">
             <div className="text-xl font-bold mb-2">Caricamento...</div>
@@ -1450,137 +1414,107 @@ useEffect(() => {
     };
 
     const stampaSelezionati = () => {
-    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+        if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
-    const timestamp = Date.now();
-    let html = '';
-    
-    selected.forEach((item, idx) => {
-        const bcId = `bc-multi-${idx}-${timestamp}`;
+        const printArea = document.getElementById('print-area');
+        const timestamp = Date.now();
 
-        if (formatoStampa === '10x10') {
-            html += `
-                <div class="etichetta-10x10">
-                    <div class="logo-container">
-                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                        <div class="label-cod-bp">COD BP</div>
-                    </div>
-                    <div class="bp-section">
-                        <div class="bp-label">Codice BP</div>
-                        <div class="bp-value">${item.CodSap || ''}</div>
-                    </div>
-                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                    <hr>
-                    <div class="art-label">Articolo</div>
-                    <svg class="barcode-svg" id="${bcId}"></svg>
-                    <div class="wms">${item.WMSCode || ''}</div>
-                    <hr>
-                    <div class="po-row">
-                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                    </div>
-                    <div class="label-tpn">TPN</div>
-                    <hr class="thin">
-                    <div class="part-section">
-                        <span class="part-label">Part Number</span>
-                        <span class="part-value">${item.CodSap || ''}</span>
-                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                    </div>
-                    <hr class="thin">
-                    <div class="sn-section">
-                        <span class="sn-label">SerialNumber/Lotto</span>
-                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                        <div class="label-sn">SN</div>
-                    </div>
-                    <div class="ubicazione-under-sn">
-                        <span class="pos-label">Ubicazione</span>
-                        <div class="pos-value">${item.Ubicazioni || ''}</div>
-                    </div>
-                </div>`;
-        } else {
-            html += `
-                <div class="etichetta-10x5">
-                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                    <svg class="et5-barcode" id="${bcId}"></svg>
-                    <div class="et5-wms">${item.WMSCode || ''}</div>
-                    <div class="et5-info">
-                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                    </div>
-                </div>`;
-        }
-    });
+        let html = '';
+        selected.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${timestamp}`;
 
-    // Apri finestra popup
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    
-    printWindow.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Stampa Etichette</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <style>
-        ${document.querySelector('style').textContent}
-        body { margin: 0; padding: 0; background: white; }
-        @media print {
-            @page { size: ${formatoStampa === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
-        }
-    </style>
-</head>
-<body>
-    ${html}
-    <script>
-        window.onload = function() {
-            const images = Array.from(document.querySelectorAll('img'));
-            let loaded = 0;
-            
-            images.forEach(img => {
-                if (img.complete) {
-                    loaded++;
-                } else {
-                    img.onload = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
-                    img.onerror = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
+            if (formatoStampa === '10x10') {
+                html += `
+                    <div class="etichetta-10x10">
+                        <div class="logo-container">
+                            <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                            <div class="label-cod-bp">COD BP</div>
+                        </div>
+                        <div class="bp-section">
+                            <div class="bp-label">Codice BP</div>
+                            <div class="bp-value">${item.CodSap || ''}</div>
+                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        </div>
+                        <hr>
+                        <div class="art-label">Articolo</div>
+                        <svg class="barcode-svg" id="${bcId}"></svg>
+                        <div class="wms">${item.WMSCode || ''}</div>
+                        <hr>
+                        <div class="po-row">
+                            <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                        </div>
+                        <div class="label-tpn">TPN</div>
+                        <hr class="thin">
+                        <div class="part-section">
+                            <span class="part-label">Part Number</span>
+                            <span class="part-value">${item.CodSap || ''}</span>
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        </div>
+                        <hr class="thin">
+                        <div class="sn-section">
+                            <span class="sn-label">SerialNumber/Lotto</span>
+                            <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                            <div class="label-sn">SN</div>
+                        </div>
+                        <div class="ubicazione-under-sn">
+                            <span class="pos-label">Ubicazione</span>
+                            <div class="pos-value">${item.Ubicazioni || ''}</div>
+                        </div>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="etichetta-10x5">
+                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                        <svg class="et5-barcode" id="${bcId}"></svg>
+                        <div class="et5-wms">${item.WMSCode || ''}</div>
+                        <div class="et5-info">
+                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        </div>
+                    </div>`;
+            }
+        });
+
+        printArea.innerHTML = html;
+        printArea.style.display = 'block';
+
+        const images = Array.from(printArea.querySelectorAll('img'));
+        const imagePromises = images.map(img => {
+            return new Promise(resolve => {
+                if (img.complete && img.naturalHeight !== 0) resolve();
+                else {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                    setTimeout(resolve, 3000);
                 }
             });
-            
-            if (loaded === images.length) renderAndPrint();
-            
-            function renderAndPrint() {
-                ${selected.map((item, idx) => `
-                    if ('${item.WMSCode || ''}') {
-                        JsBarcode('#bc-multi-${idx}-${timestamp}', '${item.WMSCode || ''}', {
-                            format: "CODE128",
-                            height: ${formatoStampa === '10x10' ? 26 : 20},
-                            width: 1.8,
-                            displayValue: false,
-                            margin: 0
-                        });
-                    }
-                `).join('')}
-                
-                setTimeout(() => {
-                    window.print();
-                    setTimeout(() => window.close(), 100);
-                }, 500);
-            }
-        };
-    </script>
-</body>
-</html>
-    `);
-    
-    printWindow.document.close();
-};
+        });
+
+        Promise.all(imagePromises).then(() => {
+            selected.forEach((item, idx) => {
+                const bcId = `bc-multi-${idx}-${timestamp}`;
+                const element = document.getElementById(bcId);
+                if (item.WMSCode && element) {
+                    JsBarcode(element, item.WMSCode, {
+                        format: "CODE128",
+                        height: formatoStampa === '10x10' ? 20 : 18,
+                        width: 1.5,
+                        displayValue: false,
+                        margin: 0
+                    });
+                }
+            });
+
+            setTimeout(() => {
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
+        });
+    };
 
     if (loading) return (
         <div className="text-center py-12">
@@ -1886,138 +1820,107 @@ useEffect(() => {
     };
 
     const stampaSelezionati = () => {
-    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+        if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
-    const timestamp = Date.now();
-    let html = '';
-    
-    selected.forEach((item, idx) => {
-        const bcId = `bc-multi-${idx}-${timestamp}`;
+        const printArea = document.getElementById('print-area');
+        const timestamp = Date.now();
 
-        if (formatoStampa === '10x10') {
-            html += `
-                <div class="etichetta-10x10">
-                    <div class="logo-container">
-                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                        <div class="label-cod-bp">COD BP</div>
-                    </div>
-                    <div class="bp-section">
-                        <div class="bp-label">Codice BP</div>
-                        <div class="bp-value">${item.CodSap || ''}</div>
-                    </div>
-                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                    <hr>
-                    <div class="art-label">Articolo</div>
-                    <svg class="barcode-svg" id="${bcId}"></svg>
-                    <div class="wms">${item.WMSCode || ''}</div>
-                    <hr>
-                    <div class="po-row">
-                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                    </div>
-                    <div class="label-tpn">TPN</div>
-                    <hr class="thin">
-                    <div class="part-section">
-                        <span class="part-label">Part Number</span>
-                        <span class="part-value">${item.CodSap || ''}</span>
-                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                    </div>
-                    <hr class="thin">
-                    <div class="sn-section">
-                        <span class="sn-label">SerialNumber/Lotto</span>
-                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                        <div class="label-sn">SN</div>
-                    </div>
-                    <div class="ubicazione-under-sn">
-                        <span class="pos-label">Ubicazione</span>
-                        <div class="pos-value">${item.Ubicazioni || ''}</div>
-                    </div>
-                </div>`;
-        } else {
-            html += `
-                <div class="etichetta-10x5">
-                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                    <svg class="et5-barcode" id="${bcId}"></svg>
-                    <div class="et5-wms">${item.WMSCode || ''}</div>
-                    <div class="et5-info">
-                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                    </div>
-                </div>`;
-        }
-    });
+        let html = '';
+        selected.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${timestamp}`;
 
-    // Apri finestra popup
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    
-    printWindow.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Stampa Etichette</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <style>
-        ${document.querySelector('style').textContent}
-        body { margin: 0; padding: 0; background: white; }
-        @media print {
-            @page { size: ${formatoStampa === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
-        }
-    </style>
-</head>
-<body>
-    ${html}
-    <script>
-        window.onload = function() {
-            const images = Array.from(document.querySelectorAll('img'));
-            let loaded = 0;
-            
-            images.forEach(img => {
-                if (img.complete) {
-                    loaded++;
-                } else {
-                    img.onload = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
-                    img.onerror = () => {
-                        loaded++;
-                        if (loaded === images.length) renderAndPrint();
-                    };
+            if (formatoStampa === '10x10') {
+                html += `
+                    <div class="etichetta-10x10">
+                        <div class="logo-container">
+                            <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                            <div class="label-cod-bp">COD BP</div>
+                        </div>
+                        <div class="bp-section">
+                            <div class="bp-label">Codice BP</div>
+                            <div class="bp-value">${item.CodSap || ''}</div>
+                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        </div>
+                        <hr>
+                        <div class="art-label">Articolo</div>
+                        <svg class="barcode-svg" id="${bcId}"></svg>
+                        <div class="wms">${item.WMSCode || ''}</div>
+                        <hr>
+                        <div class="po-row">
+                            <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                        </div>
+                        <div class="label-tpn">TPN</div>
+                        <hr class="thin">
+                        <div class="part-section">
+                            <span class="part-label">Part Number</span>
+                            <span class="part-value">${item.CodSap || ''}</span>
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        </div>
+                        <hr class="thin">
+                        <div class="sn-section">
+                            <span class="sn-label">SerialNumber/Lotto</span>
+                            <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                            <div class="label-sn">SN</div>
+                        </div>
+                        <div class="ubicazione-under-sn">
+                            <span class="pos-label">Ubicazione</span>
+                            <div class="pos-value">${item.Ubicazioni || ''}</div>
+                        </div>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="etichetta-10x5">
+                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                        <svg class="et5-barcode" id="${bcId}"></svg>
+                        <div class="et5-wms">${item.WMSCode || ''}</div>
+                        <div class="et5-info">
+                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        </div>
+                    </div>`;
+            }
+        });
+
+        printArea.innerHTML = html;
+        printArea.style.display = 'block';
+
+        const images = Array.from(printArea.querySelectorAll('img'));
+        const imagePromises = images.map(img => {
+            return new Promise(resolve => {
+                if (img.complete && img.naturalHeight !== 0) resolve();
+                else {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                    setTimeout(resolve, 3000);
                 }
             });
-            
-            if (loaded === images.length) renderAndPrint();
-            
-            function renderAndPrint() {
-                ${selected.map((item, idx) => `
-                    if ('${item.WMSCode || ''}') {
-                        JsBarcode('#bc-multi-${idx}-${timestamp}', '${item.WMSCode || ''}', {
-                            format: "CODE128",
-                            height: ${formatoStampa === '10x10' ? 26 : 20},
-                            width: 1.8,
-                            displayValue: false,
-                            margin: 0
-                        });
-                    }
-                `).join('')}
-                
-                setTimeout(() => {
-                    window.print();
-                    setTimeout(() => window.close(), 100);
-                }, 500);
-            }
-        };
-    </script>
-</body>
-</html>
-    `);
-    
-    printWindow.document.close();
-};
+        });
 
+        Promise.all(imagePromises).then(() => {
+            selected.forEach((item, idx) => {
+                const bcId = `bc-multi-${idx}-${timestamp}`;
+                const element = document.getElementById(bcId);
+                if (item.WMSCode && element) {
+                    JsBarcode(element, item.WMSCode, {
+                        format: "CODE128",
+                        height: formatoStampa === '10x10' ? 20 : 18,
+                        width: 1.5,
+                        displayValue: false,
+                        margin: 0
+                    });
+                }
+            });
+
+            setTimeout(() => {
+                window.print();
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+            }, 500);
+        });
+    };
     if (loading) return (
         <div className="text-center py-12">
             <div className="text-xl font-bold mb-2">Caricamento...</div>
