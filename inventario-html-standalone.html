@@ -1069,7 +1069,7 @@ useEffect(() => {
                 JsBarcode('#' + bcId, item.WMSCode, {
                     format: "CODE128",
                     height: formato === '10x10' ? 20 : 18,
-                    width: 1.5,
+                    width: 10,
                     displayValue: false,
                     margin: 0
                 });
@@ -1414,7 +1414,7 @@ useEffect(() => {
                     JsBarcode(element, item.WMSCode, {
                         format: "CODE128",
                         height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
+                        width: 10,
                         displayValue: false,
                         margin: 0
                     });
