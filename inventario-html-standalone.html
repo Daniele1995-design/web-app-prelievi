@@ -670,7 +670,44 @@ function isCacheValid(key) {
         }, 30000);
         
         return () => clearInterval(interval);
-    }, []);
+    },// Listener per aggiornamenti real-time
+useEffect(() => {
+    const handleUpdate = async () => {
+        try {
+            await dbCache.init();
+            const [giacenzaLocal, storicoLocal] = await Promise.all([
+                dbCache.get('giacenza'),
+                dbCache.get('storico')
+            ]);
+
+            if (giacenzaLocal.length > 0) {
+                const totaleGiacenza = giacenzaLocal.length;
+                const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                const daInventariare = totaleGiacenza - inventariati;
+                const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                const percentuale = totaleGiacenza > 0 
+                    ? Math.round((inventariati / totaleGiacenza) * 100) 
+                    : 0;
+
+                const localStats = {
+                    totaleGiacenza,
+                    totaleInventariato: inventariati,
+                    daInventariare,
+                    matchOk,
+                    percentualeCompletamento: percentuale
+                };
+
+                setStats(localStats);
+                appCache.stats = localStats;
+            }
+        } catch (err) {
+            console.error('Errore aggiornamento stats:', err);
+        }
+    };
+
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, []);
 
     if (loading) return <div className="text-center py-12">Caricamento...</div>;
     if (!stats) return <div className="text-center py-12 text-red-600">Errore caricamento statistiche</div>;
@@ -695,6 +732,7 @@ function isCacheValid(key) {
             </div>
         </div>
     );
+            
 }
         function StatCard({ title, value, icon, color }) {
             return (
@@ -805,25 +843,88 @@ function isCacheValid(key) {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
 
-        const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato || '').toUpperCase() === scanned);
-        if (alreadyScanned) {
-            setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO' });
+        // Controlla SUBITO nella cache locale (giacenza e storico)
+        const alreadyInStorico = storico.find(item => 
+            String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
+        );
+        
+        if (alreadyInStorico) {
+            setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO IN STORICO' });
             playBeep('error');
             setScanInput('');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
 
-        const found = giacenza.find(item => String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato);
+        const alreadyInGiacenza = giacenza.find(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && item.inventariato
+        );
+        
+        if (alreadyInGiacenza) {
+            setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
+            playBeep('error');
+            setScanInput('');
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+            return;
+        }
+
+        const found = giacenza.find(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato
+        );
+
         if (found) {
             const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+            
+            // 1. AGGIORNA SUBITO LA UI LOCALE
+            const updatedGiacenza = giacenza.map(item =>
+                item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                    ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
+                    : item
+            );
+            
+            const newEntry = { 
+                id: Date.now() + Math.random(),
+                Timestamp: new Date().toISOString(), 
+                Operatore: user.nome, 
+                Seriale_Riscontrato: scanned, 
+                Match: match ? 'OK' : 'KO',
+                CodSap: found.CodSap,
+                Descrizione: found.Descrizione,
+                Cdc: found.Cdc,
+                Stato: found.Stato,
+                Ubicazioni: found.Ubicazioni,
+                RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+                WMSCode: found.WMSCode,
+                PoNr: found.PoNr
+            };
+            
+            const updatedStorico = [newEntry, ...storico];
+            
+            // Aggiorna UI immediata
+            setGiacenza(updatedGiacenza);
+            setStorico(updatedStorico);
             setCurrentItem(found);
             setNewUbicazione(found.Ubicazioni || '');
             setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
             playBeep(match ? 'success' : 'error');
+            
+            // Salva in cache locale
+            appCache.giacenza = updatedGiacenza;
+            appCache.storico = updatedStorico;
+            appCache.stats = null; // Invalida stats
+            
+            await Promise.all([
+                dbCache.set('giacenza', updatedGiacenza),
+                dbCache.set('storico', updatedStorico)
+            ]);
+            
+            // 2. NOTIFICA ALTRI COMPONENTI
+            window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+            }));
 
+            // 3. INVIA AL SERVER IN BACKGROUND
             try {
-                // Salva al server
                 await api('saveRiscontro', {
                     data: {
                         operatore: user.nome,
@@ -840,59 +941,27 @@ function isCacheValid(key) {
                         idRigaGiacenza: found.ID_Riga || ''
                     }
                 });
-
-                // Aggiorna giacenza (rimuovi dalla lista)
-                const updatedGiacenza = giacenza.map(item =>
-                    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-                        ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
-                        : item
-                );
-                setGiacenza(updatedGiacenza);
-                appCache.giacenza = updatedGiacenza;
-                
-                // Aggiungi allo storico
-                const newEntry = { 
-                    id: Date.now() + Math.random(),
-                    Timestamp: new Date(), 
-                    Operatore: user.nome, 
-                    Seriale_Riscontrato: scanned, 
-                    Match: match ? 'OK' : 'KO',
-                    CodSap: found.CodSap,
-                    Descrizione: found.Descrizione,
-                    Cdc: found.Cdc,
-                    Stato: found.Stato,
-                    Ubicazioni: found.Ubicazioni,
-                    RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                    WMSCode: found.WMSCode,
-                    PoNr: found.PoNr
-                };
-                const updatedStorico = [newEntry, ...storico];
-                setStorico(updatedStorico);
-                appCache.storico = updatedStorico;
-                
-                // Salva in IndexedDB per persistenza
-                await Promise.all([
-                    dbCache.set('giacenza', updatedGiacenza),
-                    dbCache.set('storico', updatedStorico)
-                ]);
-
-                // forza update locale immediato
-await dbCache.set('storico', updatedStorico);
-await dbCache.set('giacenza', updatedGiacenza);
-
-// invalida stats
-appCache.stats = null;
-
-// notifica dashboard
-window.dispatchEvent(new Event('ats-data-updated'));
-
-                // IMPORTANTE: Invalida le stats della dashboard
-                appCache.stats = null;
-                appCache.lastUpdate = null;
-
+                console.log('✅ Salvato sul server');
             } catch (err) {
-                console.error(err);
-                setMessage({ type: 'error', text: 'Salvato locale' });
+                console.error('❌ Errore invio server:', err);
+                
+                // ROLLBACK se il server fallisce
+                setGiacenza(giacenza);
+                setStorico(storico);
+                appCache.giacenza = giacenza;
+                appCache.storico = storico;
+                
+                await Promise.all([
+                    dbCache.set('giacenza', giacenza),
+                    dbCache.set('storico', storico)
+                ]);
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { giacenza: giacenza, storico: storico }
+                }));
+                
+                setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
+                alert('⚠️ Errore comunicazione con il server.\nL\'operazione è stata annullata.\n\n' + err.message);
             }
         } else {
             setMessage({ type: 'error', text: '❌ NON TROVATO' });
@@ -903,7 +972,6 @@ window.dispatchEvent(new Event('ats-data-updated'));
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
 };
-
     const handleUpdateUbicazione = async () => {
         if (!currentItem || !newUbicazione.trim()) return;
         try {
@@ -1168,7 +1236,32 @@ window.dispatchEvent(new Event('ats-data-updated'));
             }
         }
         load();
-    }, []);
+    },
+              // Listener per aggiornamenti real-time
+useEffect(() => {
+    const handleUpdate = async (event) => {
+        if (event.detail && event.detail.giacenza) {
+            const updatedGiacenza = event.detail.giacenza;
+            setGiacenza(updatedGiacenza);
+            appCache.giacenza = updatedGiacenza;
+            
+            // Riapplica filtri
+            let filtered = updatedGiacenza.filter(i => !i.inventariato);
+            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase().includes(filters.codSap.toUpperCase()));
+            if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase().includes(filters.poNr.toUpperCase()));
+            
+            setFilteredData(filtered);
+            setHasMore(filtered.length > displayCount);
+        }
+    };
+
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, [filters, displayCount]);[]);
 
     const applyFilters = () => {
         let filtered = giacenza.filter(i => !i.inventariato);
@@ -1504,7 +1597,30 @@ window.dispatchEvent(new Event('ats-data-updated'));
         }
         
         loadData();
-    }, []);
+    },
+              // Listener per aggiornamenti real-time
+useEffect(() => {
+    const handleUpdate = async (event) => {
+        if (event.detail && event.detail.storico) {
+            const updatedStorico = event.detail.storico;
+            setStorico(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            // Riapplica filtri
+            let filtered = [...updatedStorico];
+            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
+            
+            setFilteredData(filtered);
+        }
+    };
+
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, [filters]);[]);
 
     const applyFilters = () => {
         let filtered = [...storico];
