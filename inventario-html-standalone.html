@@ -11,312 +11,301 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
    
 <style>
-/* ======================================================
-   IMPOSTAZIONI GENERALI / STAMPA
-====================================================== */
-@page {
-  size: auto;
-  margin: 0;
-}
+    @page {
+        size: 100mm auto;
+        margin: 0;
+    }
+    .print-only { display: none; }
+    @media print {
+        .no-print { display: none !important; }
+        .print-only { display: block !important; }
+        body { margin: 0; padding: 0; background: white; }
+        html, body { width: 100mm; }
+        #print-area { width: 100mm; margin: 0 auto; }
+        .etichetta-10x10, .etichetta-10x5 {
+            page-break-after: always;
+        }
+    }
+   
+    /* ========== ETICHETTA 10x10 ========== */
+    .etichetta-10x10 {
+        width: 100mm;
+        height: 100mm;
+        border: none;                   /* rimosso il bordo */
+        background: white;
+        padding: 4mm 5mm 4mm 5mm;       /* padding uniforme, più spazio interno */
+        box-sizing: border-box;
+        page-break-after: always;
+        position: relative;
+        margin: 0;
+        font-family: Arial, sans-serif;
+    }
+   
+    .logo-container {
+        height: 10mm;
+        margin-bottom: 2mm;
+        position: relative;
+    }
+   
+    .logo-img {
+        height: 9mm;
+        width: auto;
+    }
+   
+    .label-cod-bp {
+        position: absolute;
+        right: 0mm;                     /* attaccato al bordo destro */
+        top: 5mm;
+        font-size: 6.5pt;
+        font-weight: bold;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        letter-spacing: 0.5px;
+    }
+   
+    .bp-section {
+        margin-bottom: 2mm;
+        position: relative;
+        padding-right: 8mm;             /* QR BP più a sinistra */
+    }
+   
+    .bp-label {
+        font-size: 9pt;
+        font-weight: bold;
+    }
+   
+    .bp-value {
+        font-size: 24pt;                /* ingrandito ulteriormente */
+        font-weight: bold;
+        line-height: 1;
+    }
+   
+    .qr-bp {
+        position: absolute;
+        top: 5mm;
+        right: 7mm;                     /* allineato a sinistra della scritta verticale */
+        width: 9mm;
+        height: 9mm;
+    }
+   
+    .etichetta-10x10 hr {
+        border: none;
+        border-top: 2px solid black;
+        margin: 2mm 0;
+    }
+   
+    .etichetta-10x10 hr.thin {
+        border-top: 1.5px solid black;
+        margin: 1.5mm 0;
+    }
+   
+    .art-label {
+        font-size: 9pt;
+        font-weight: bold;
+        margin: 0 0 1.5mm;
+    }
+   
+    .barcode-svg {
+        width: 82mm;
+        height: 26px;
+        margin: 0 auto 1.5mm;
+        display: block;
+    }
+   
+    .wms {
+        text-align: center;
+        font-size: 12pt;
+        font-weight: bold;
+        margin: 0 0 2mm;
+    }
+   
+    .po-row {
+        margin: 2mm 0;
+        display: flex;
+        justify-content: space-between;
+    }
+   
+    .po-label {
+        font-size: 9pt;
+        font-weight: bold;
+    }
+   
+    .po-value {
+        font-size: 18pt;
+        font-weight: bold;
+    }
+   
+    .label-tpn {
+        position: absolute;
+        right: 3mm;
+        top: 55mm;
+        font-size: 6.5pt;
+        font-weight: bold;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
+   
+    /* Parte bassa spostata più giù */
+    .part-section {
+        margin-top: 8mm;                /* spostato più in basso */
+        margin-bottom: 2mm;
+        position: relative;
+        padding-right: 8mm;
+    }
+   
+    .part-label {
+        font-size: 9pt;
+        font-weight: bold;
+    }
+   
+    .part-value {
+        font-size: 15pt;
+        font-weight: bold;
+    }
+   
+    .qr-part {
+        position: absolute;
+        top: 0;
+        right: 7mm;                     /* allineato a sinistra della scritta */
+        width: 9mm;
+        height: 9mm;
+    }
+   
+    .sn-section {
+        position: relative;
+        margin: 2mm 0;
+        padding-right: 8mm;
+    }
+   
+    .sn-label {
+        font-size: 9pt;
+        font-weight: bold;
+    }
+   
+    .sn-value {
+        font-size: 15pt;
+        font-weight: bold;
+    }
+   
+    .qr-sn {
+        position: absolute;
+        top: 0;
+        right: 7mm;
+        width: 9mm;
+        height: 9mm;
+    }
+   
+    .label-sn {
+        position: absolute;
+        right: 0mm;                     /* attaccato al bordo destro */
+        bottom: 8mm;
+        font-size: 6.5pt;
+        font-weight: bold;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
+   
+    .ubicazione-under-sn {
+        margin-top: 2mm;
+    }
+   
+    .ubicazione-under-sn .pos-label {
+        font-size: 9pt;
+        font-weight: bold;
+    }
+   
+    .ubicazione-under-sn .pos-value {
+        font-size: 13pt;
+        font-weight: bold;
+        line-height: 1.2;
+        word-break: break-all;
+    }
 
-body {
-  margin: 0;
-  padding: 0;
-  background: white;
-  font-family: Arial, sans-serif;
-}
-
-.no-print { display: block; }
-.print-only { display: none; }
-
-@media print {
-  .no-print { display: none !important; }
-  .print-only { display: block !important; }
-  html, body { margin: 0; padding: 0; }
-  #print-area { margin: 0 auto; }
-}
-
-/* ======================================================
-   ETICHETTA 10x10  (IDENTICA A QUELLA PERFETTA)
-====================================================== */
-.etichetta-10x10 {
-  width: 100mm;
-  height: 100mm;
-  background: white;
-  padding: 2mm 3.5mm;
-  box-sizing: border-box;
-  page-break-after: always;
-  position: relative;
-  margin: 0;
-}
-
-/* --- Header / Logo --- */
-.logo-container {
-  height: 10mm;
-  margin-bottom: 0.5mm;
-  position: relative;
-}
-
-.logo-img {
-  height: 9mm;
-}
-
-.label-cod-bp {
-  position: absolute;
-  right: 0;
-  top: 12mm;
-  font-size: 7pt;
-  font-weight: bold;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  letter-spacing: 0.3px;
-}
-
-/* --- BP --- */
-.bp-section {
-  margin-bottom: 1mm;
-}
-
-.bp-label {
-  font-size: 9pt;
-  font-weight: bold;
-  margin-bottom: 0.2mm;
-}
-
-.bp-value {
-  font-size: 20pt;
-  font-weight: bold;
-  line-height: 1;
-}
-
-.qr-bp {
-  position: absolute;
-  top: 11mm;
-  right: 9mm;
-  width: 11mm;
-  height: 11mm;
-}
-
-/* --- Separatori --- */
-.etichetta-10x10 hr {
-  border: none;
-  border-top: 1.8px solid black;
-  margin: 1.2mm 0;
-}
-
-.etichetta-10x10 hr.thin {
-  border-top: 1.8px solid black;
-  margin: 1.5mm 0;
-}
-
-/* --- Articolo --- */
-.art-label {
-  font-size: 9pt;
-  font-weight: bold;
-  margin: 0 0 0.8mm;
-}
-
-.barcode-svg {
-  width: 72mm;
-  height: 26px;
-  margin: 0 auto 0.8mm;
-  display: block;
-}
-
-.wms {
-  text-align: center;
-  font-size: 10.5pt;
-  font-weight: bold;
-  margin-bottom: 1mm;
-}
-
-/* --- PO / Posizione --- */
-.po-row {
-  margin-top: 1.2mm;
-  margin-bottom: 1mm;
-  display: flex;
-  justify-content: space-between;
-}
-
-.po-label {
-  font-size: 9pt;
-  font-weight: bold;
-}
-
-.po-value {
-  font-size: 18pt;
-  font-weight: bold;
-  line-height: 1;
-  display: block;
-}
-
-/* --- TPN --- */
-.label-tpn {
-  position: absolute;
-  right: 3mm;
-  top: 62mm;
-  font-size: 7pt;
-  font-weight: bold;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  letter-spacing: 0.3px;
-}
-
-/* --- Part Number --- */
-.part-section {
-  margin: 1mm 0 3mm;
-  position: relative;
-}
-
-.part-label {
-  font-size: 9pt;
-  font-weight: bold;
-}
-
-.part-value {
-  font-size: 16pt;
-  font-weight: bold;
-  line-height: 1;
-  display: block;
-}
-
-.qr-part {
-  position: absolute;
-  top: 0;
-  right: 3.5mm;
-  width: 11mm;
-  height: 11mm;
-}
-
-/* --- Serial Number --- */
-.sn-section {
-  position: relative;
-  margin: 2mm 0 0.5mm;
-}
-
-.sn-label {
-  font-size: 9pt;
-  font-weight: bold;
-}
-
-.sn-value {
-  font-size: 16pt;
-  font-weight: bold;
-  line-height: 1.2;
-}
-
-.qr-sn {
-  position: absolute;
-  top: 0;
-  right: 3.5mm;
-  width: 11mm;
-  height: 11mm;
-}
-
-.label-sn {
-  position: absolute;
-  right: 0;
-  bottom: 2.8mm;
-  font-size: 7pt;
-  font-weight: bold;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  letter-spacing: 0.3px;
-}
-
-/* --- Ubicazione --- */
-.ubicazione-under-sn {
-  margin-top: -0.5mm;
-}
-
-.ubicazione-under-sn .pos-label {
-  font-size: 9pt;
-  font-weight: bold;
-}
-
-.ubicazione-under-sn .pos-value {
-  font-size: 12pt;
-  font-weight: bold;
-  line-height: 1.2;
-  word-break: break-all;
-}
-
-/* ======================================================
-   ETICHETTA 10x5  (IDENTICA A QUELLA PERFETTA)
-====================================================== */
-@page {
-  size: 100mm 50mm;
-}
-
-.etichetta-10x5 {
-  width: 100mm;
-  height: 50mm;
-  background: white;
-  padding: 2mm 3mm;
-  box-sizing: border-box;
-  page-break-after: always;
-  position: relative;
-  font-size: 8pt;
-}
-
-/* --- Header --- */
-.et5-logo {
-  height: 8mm;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.et5-codbp {
-  display: inline-block;
-  float: right;
-  text-align: right;
-  font-weight: bold;
-  font-size: 16pt;
-  line-height: 1.1;
-}
-
-.et5-qr-bp {
-  width: 10mm;
-  height: 10mm;
-  vertical-align: middle;
-  margin-left: 2mm;
-}
-
-/* --- Barcode --- */
-.et5-barcode {
-  width: 55mm;
-  height: 20px;
-  display: block;
-  margin: 2mm auto 1mm;
-}
-
-.et5-wms {
-  text-align: center;
-  font-weight: bold;
-  font-size: 9pt;
-  margin-bottom: 1mm;
-}
-
-/* --- Info --- */
-.et5-info {
-  font-size: 10pt;
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1mm;
-}
-
-.et5-info div {
-  line-height: 1.5;
-}
-
-.et5-qr-sn {
-  width: 10mm;
-  height: 10mm;
-  margin-left: 2mm;
-  margin-top: 4mm;
-}
+    /* ========== ETICHETTA 10x5 ========== */
+    .etichetta-10x5 {
+        width: 100mm;
+        height: 50mm;
+        border: none;                   /* rimosso bordo se vuoi, altrimenti rimetti 1px */
+        background: white;
+        padding: 3mm;
+        box-sizing: border-box;
+        page-break-after: always;
+        position: relative;
+        font-family: Arial, sans-serif;
+    }
+   
+    .et5-logo {
+        height: 7mm;
+        width: auto;
+        display: inline-block;
+        vertical-align: top;
+        margin-bottom: 2mm;             /* spostato più giù */
+    }
+   
+    .et5-codbp {
+        display: inline-block;
+        float: right;
+        text-align: right;
+        font-weight: bold;
+        font-size: 13pt;
+        line-height: 1.2;
+        margin-bottom: 2mm;
+    }
+   
+    .et5-qr-bp {
+        width: 6mm;
+        height: 6mm;
+        vertical-align: middle;
+        margin-left: 2mm;
+    }
+   
+    .et5-barcode {
+        width: 65mm;
+        height: 18px;
+        display: block;
+        margin: 3mm auto 2mm;           /* barcode più in basso */
+    }
+   
+    .et5-wms {
+        text-align: center;
+        font-weight: bold;
+        font-size: 9pt;
+        margin: 0 0 3mm;                /* WMS più in basso */
+    }
+   
+    .et5-info {
+        font-size: 8pt;
+        display: flex;
+        justify-content: space-between;
+        margin-top: 3mm;                /* info più in basso */
+        align-items: flex-start;
+    }
+   
+    .et5-info div {
+        line-height: 1.4;
+        flex: 1;
+    }
+   
+    .et5-qr-sn {
+        width: 6mm;
+        height: 6mm;
+        margin-left: 3mm;
+        flex-shrink: 0;
+    }
+   
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
 </style>
-
 </head>
 <body>
     <div id="root"></div>
@@ -855,378 +844,288 @@ appCache.lastUpdate.stats = null;
         }
 
         function ModeLista({ user }) {
-    const [displayedData, setDisplayedData] = useState([]); // Solo dati mostrati
-    const [allData, setAllData] = useState([]); // Tutti i dati
-    const [loading, setLoading] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({});
-    const [selected, setSelected] = useState([]);
-    const [bulkUbicazione, setBulkUbicazione] = useState('');
-    const [formatoStampa, setFormatoStampa] = useState('10x10');
-    const [hasMore, setHasMore] = useState(true);
-    const tableRef = useRef(null);
-    const BATCH_SIZE = 200; // Carica 200 righe alla volta
+            const [giacenza, setGiacenza] = useState(appCache.giacenza || []);
+            const [filteredData, setFilteredData] = useState([]);
+            const [loading, setLoading] = useState(!appCache.giacenza);
+            const [showFilters, setShowFilters] = useState(false);
+            const [filters, setFilters] = useState({});
+            const [selected, setSelected] = useState([]);
+            const [bulkUbicazione, setBulkUbicazione] = useState('');
+            const [formatoStampa, setFormatoStampa] = useState('10x10');
 
-    useEffect(() => {
-        async function load() {
-            const cached = appCache.get('giacenza');
-            if (cached) {
-                const filtered = cached.filter(i => !i.inventariato);
-                setAllData(filtered);
-                setDisplayedData(filtered.slice(0, BATCH_SIZE));
-                setHasMore(filtered.length > BATCH_SIZE);
-                setLoading(false);
-                return;
-            }
-            try {
-                const res = await api('getGiacenza', { filters: {} });
-                const data = res.data
-                    .map(i => ({ ...i, inventariato: false }))
-                    .filter(i => !i.inventariato);
-                setAllData(data);
-                setDisplayedData(data.slice(0, BATCH_SIZE));
-                setHasMore(data.length > BATCH_SIZE);
-                appCache.set('giacenza', res.data);
-            } catch (err) {
-                alert('Errore caricamento');
-            } finally {
-                setLoading(false);
-            }
-        }
-        load();
-    }, []);
-
-    // Carica più dati quando si scrolla
-    useEffect(() => {
-        const handleScroll = () => {
-            if (!tableRef.current || loadingMore || !hasMore) return;
-            
-            const { scrollTop, scrollHeight, clientHeight } = tableRef.current;
-            // Carica quando sei a 300px dalla fine
-            if (scrollHeight - scrollTop - clientHeight < 300) {
-                loadMore();
-            }
-        };
-
-        const table = tableRef.current;
-        if (table) {
-            table.addEventListener('scroll', handleScroll);
-            return () => table.removeEventListener('scroll', handleScroll);
-        }
-    }, [loadingMore, hasMore, displayedData]);
-
-    const loadMore = () => {
-        if (loadingMore || !hasMore) return;
-        setLoadingMore(true);
-        
-        // Simula delay per evitare troppi render
-        setTimeout(() => {
-            const currentLength = displayedData.length;
-            const nextBatch = allData.slice(currentLength, currentLength + BATCH_SIZE);
-            setDisplayedData(prev => [...prev, ...nextBatch]);
-            setHasMore(currentLength + BATCH_SIZE < allData.length);
-            setLoadingMore(false);
-        }, 50);
-    };
-
-    const applyFilters = () => {
-        let filtered = allData;
-        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase().includes(filters.codSap.toUpperCase()));
-        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase().includes(filters.poNr.toUpperCase()));
-        
-        setAllData(filtered);
-        setDisplayedData(filtered.slice(0, BATCH_SIZE));
-        setHasMore(filtered.length > BATCH_SIZE);
-        setShowFilters(false);
-    };
-
-    const toggleSelect = (item) => {
-        setSelected(prev => 
-            prev.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) 
-                ? prev.filter(i => i.RISCONTROSERIALEF !== item.RISCONTROSERIALEF) 
-                : [...prev, item]
-        );
-    };
-
-    const verificaMassivo = async () => {
-        if (selected.length === 0) return alert('Seleziona almeno un articolo');
-        const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
-        if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}?`)) return;
-        
-        try {
-            for (const item of selected) {
-                await api('saveRiscontro', {
-                    data: {
-                        operatore: user.nome,
-                        codSap: item.CodSap,
-                        descrizione: item.Descrizione,
-                        ubicazione: ubicazioneFinale,
-                        serialeAtteso: item.RISCONTROSERIALEF,
-                        serialeRiscontrato: item.RISCONTROSERIALEF,
-                        match: true,
-                        qta: item['Qtà'] || 1,
-                        wmsCode: item.WMSCode || '',
-                        cdc: item.Cdc || '',
-                        poNr: item.PoNr || '',
-                        idRigaGiacenza: item.ID_Riga || ''
+            useEffect(() => {
+                async function load() {
+                    if (appCache.giacenza) {
+                        setGiacenza(appCache.giacenza);
+                        setFilteredData(appCache.giacenza.filter(i => !i.inventariato));
+                        setLoading(false);
+                        return;
                     }
+                    try {
+                        const res = await api('getGiacenza', { filters: {} });
+                        const data = res.data.map(i => ({ ...i, inventariato: false }));
+                        setGiacenza(data);
+                        setFilteredData(data);
+                        appCache.giacenza = data;
+                    } catch (err) {
+                        alert('Errore caricamento');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+                load();
+            }, []);
+
+            const applyFilters = () => {
+                let filtered = giacenza.filter(i => !i.inventariato);
+                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase().includes(filters.codSap.toUpperCase()));
+                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase().includes(filters.poNr.toUpperCase()));
+                setFilteredData(filtered);
+                setShowFilters(false);
+            };
+
+            const toggleSelect = (item) => {
+                setSelected(prev => prev.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) ? prev.filter(i => i.RISCONTROSERIALEF !== item.RISCONTROSERIALEF) : [...prev, item]);
+            };
+
+            const verificaMassivo = async () => {
+                if (selected.length === 0) return alert('Seleziona almeno un articolo');
+                const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
+                if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}?`)) return;
+                
+                try {
+                    for (const item of selected) {
+                        await api('saveRiscontro', {
+                            data: {
+                                operatore: user.nome,
+                                codSap: item.CodSap,
+                                descrizione: item.Descrizione,
+                                ubicazione: ubicazioneFinale,
+                                serialeAtteso: item.RISCONTROSERIALEF,
+                                serialeRiscontrato: item.RISCONTROSERIALEF,
+                                match: true,
+                                qta: item['Qtà'] || 1,
+                                wmsCode: item.WMSCode || '',
+                                cdc: item.Cdc || '',
+                                poNr: item.PoNr || '',
+                                idRigaGiacenza: item.ID_Riga || ''  // NUOVO!
+                            }
+                        });
+                    }
+
+                    // INVALIDA CACHE
+appCache.lastUpdate.giacenza = null;
+appCache.lastUpdate.storico = null;
+appCache.lastUpdate.stats = null;
+                    
+                    const updatedGiacenza = giacenza.map(i => selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } : i);
+                    setGiacenza(updatedGiacenza);
+                    appCache.giacenza = updatedGiacenza;
+                    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+                    setSelected([]);
+                    setBulkUbicazione('');
+                    alert('Verifica completata');
+                } catch (err) {
+                    alert('Errore verifica');
+                }
+            };
+
+const stampaSelezionati = () => {
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+
+    const printArea = document.getElementById('print-area');
+    const timestamp = Date.now(); // ← generato una sola volta
+
+    let html = '';
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`; // ← ID unico e coerente
+
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.CodSap || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else {
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        }
+    });
+
+    printArea.innerHTML = html;
+    printArea.style.display = 'block';
+
+    const images = Array.from(printArea.querySelectorAll('img'));
+    const imagePromises = images.map(img => {
+        return new Promise(resolve => {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000);
+            }
+        });
+    });
+
+    Promise.all(imagePromises).then(() => {
+        selected.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${timestamp}`; // ← stesso ID di prima
+            const element = document.getElementById(bcId);
+            if (item.WMSCode && element) {
+                JsBarcode(element, item.WMSCode, {
+                    format: "CODE128",
+                    height: formatoStampa === '10x10' ? 20 : 18,
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
                 });
             }
+        });
 
-            appCache.invalidate('giacenza');
-            appCache.invalidate('storico');
-            appCache.invalidate('stats');
-            
-            // Rimuovi gli item verificati dai dati visualizzati
-            const updatedAll = allData.filter(i => !selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF));
-            const updatedDisplay = displayedData.filter(i => !selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF));
-            
-            setAllData(updatedAll);
-            setDisplayedData(updatedDisplay);
-            setSelected([]);
-            setBulkUbicazione('');
-            alert('Verifica completata');
-        } catch (err) {
-            alert('Errore verifica');
+        setTimeout(() => {
+            window.print();
+            printArea.style.display = 'none';
+            printArea.innerHTML = '';
+        }, 500);
+    });
+};            if (loading) return <div className="text-center py-12">Caricamento...</div>;
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">Lista Giacenza</h2>
+                        <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            <Icons.Filter /> Filtri
+                        </button>
+                    </div>
+
+                    {showFilters && (
+                        <div className="modal-overlay" onClick={() => setShowFilters(false)}>
+                            <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+                                    <input type="text" placeholder="Cod. SAP" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+                                    <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
+                                    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+                                    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
+                                    <input type="text" placeholder="Po Nr" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
+                                    <button onClick={() => { setFilters({}); setFilteredData(giacenza.filter(i => !i.inventariato)); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {selected.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
+                            <div className="flex gap-2 items-center flex-wrap">
+                                <input type="text" placeholder="Ubicazione (opzionale)" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
+                                <button onClick={verificaMassivo} className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                    <Icons.Check /> Verifica Selezionati
+                                </button>
+                                <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
+                                    <option value="10x10">10×10</option>
+                                    <option value="10x5">10×5</option>
+                                </select>
+                                <button onClick={stampaSelezionati} className="flex items-center gap-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                    <Icons.Printer /> Stampa
+                                </button>
+                                <button onClick={() => setSelected([])} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Deseleziona</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <p className="text-gray-600">Visualizzati: <strong>{filteredData.length}</strong> di <strong>{giacenza.filter(i => !i.inventariato).length}</strong></p>
+
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2"><input type="checkbox" onChange={(e) => setSelected(e.target.checked ? filteredData : [])} checked={selected.length === filteredData.length && filteredData.length > 0} /></th>
+                                        <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
+                                        <th className="px-3 py-2 text-left font-semibold">CDC</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Stato</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Seriale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredData.map((item, idx) => (
+                                        <tr key={idx} className="border-t hover:bg-gray-50">
+                                            <td className="px-3 py-2"><input type="checkbox" checked={selected.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) !== undefined} onChange={() => toggleSelect(item)} /></td>
+                                            <td className="px-3 py-2 font-medium">{item.PoNr}</td>
+                                            <td className="px-3 py-2">{item.Cdc}</td>
+                                            <td className="px-3 py-2 font-medium">{item.CodSap}</td>
+                                            <td className="px-3 py-2">{item.Descrizione}</td>
+                                            <td className="px-3 py-2 text-center">{item['SerS/No'] === 'Sì' ? '✅' : '❌'}</td>
+                                            <td className="px-3 py-2"><span className={`px-2 py-1 rounded text-xs font-medium ${item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{item.Stato}</span></td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
+                                            <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
         }
-    };
 
-    // La funzione stampaSelezionati rimane identica...
-    const stampaSelezionati = () => {
-        if (selected.length === 0) return alert('Seleziona almeno un articolo');
-
-        const printArea = document.getElementById('print-area');
-        const timestamp = Date.now();
-
-        let html = '';
-        selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${timestamp}`;
-
-            if (formatoStampa === '10x10') {
-                html += `
-                    <div class="etichetta-10x10">
-                        <div class="logo-container">
-                            <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                            <div class="label-cod-bp">COD BP</div>
-                        </div>
-                        <div class="bp-section">
-                            <div class="bp-label">Codice BP</div>
-                            <div class="bp-value">${item.CodSap || ''}</div>
-                            <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        </div>
-                        <hr>
-                        <div class="art-label">Articolo</div>
-                        <svg class="barcode-svg" id="${bcId}"></svg>
-                        <div class="wms">${item.WMSCode || ''}</div>
-                        <hr>
-                        <div class="po-row">
-                            <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                        </div>
-                        <div class="label-tpn">TPN</div>
-                        <hr class="thin">
-                        <div class="part-section">
-                            <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        </div>
-                        <hr class="thin">
-                        <div class="sn-section">
-                            <span class="sn-label">SerialNumber/Lotto</span>
-                            <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                            <div class="label-sn">SN</div>
-                        </div>
-                        <div class="ubicazione-under-sn">
-                            <span class="pos-label">Ubicazione</span>
-                            <div class="pos-value">${item.Ubicazioni || ''}</div>
-                        </div>
-                    </div>`;
-            } else {
-                html += `
-                    <div class="etichetta-10x5">
-                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                        <svg class="et5-barcode" id="${bcId}"></svg>
-                        <div class="et5-wms">${item.WMSCode || ''}</div>
-                        <div class="et5-info">
-                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                        </div>
-                    </div>`;
-            }
-        });
-
-        printArea.innerHTML = html;
-        printArea.style.display = 'block';
-
-        const images = Array.from(printArea.querySelectorAll('img'));
-        const imagePromises = images.map(img => {
-            return new Promise(resolve => {
-                if (img.complete && img.naturalHeight !== 0) resolve();
-                else {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                    setTimeout(resolve, 3000);
-                }
-            });
-        });
-
-        Promise.all(imagePromises).then(() => {
-            selected.forEach((item, idx) => {
-                const bcId = `bc-multi-${idx}-${timestamp}`;
-                const element = document.getElementById(bcId);
-                if (item.WMSCode && element) {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
-            });
-
-            setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
-        });
-    };
-
-    if (loading) return <div className="text-center py-12">Caricamento...</div>;
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-800">Lista Giacenza</h2>
-                <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    <Icons.Filter /> Filtri
-                </button>
-            </div>
-
-            {showFilters && (
-                <div className="modal-overlay" onClick={() => setShowFilters(false)}>
-                    <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-                            <input type="text" placeholder="Cod. SAP" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
-                            <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
-                            <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
-                            <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
-                            <input type="text" placeholder="Po Nr" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
-                            <button onClick={() => { 
-                                setFilters({}); 
-                                const cached = appCache.get('giacenza');
-                                const filtered = cached ? cached.filter(i => !i.inventariato) : [];
-                                setAllData(filtered);
-                                setDisplayedData(filtered.slice(0, BATCH_SIZE));
-                                setHasMore(filtered.length > BATCH_SIZE);
-                                setShowFilters(false); 
-                            }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {selected.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
-                    <div className="flex gap-2 items-center flex-wrap">
-                        <input type="text" placeholder="Ubicazione (opzionale)" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
-                        <button onClick={verificaMassivo} className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                            <Icons.Check /> Verifica Selezionati
-                        </button>
-                        <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
-                            <option value="10x10">10×10</option>
-                            <option value="10x5">10×5</option>
-                        </select>
-                        <button onClick={stampaSelezionati} className="flex items-center gap-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                            <Icons.Printer /> Stampa
-                        </button>
-                        <button onClick={() => setSelected([])} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Deseleziona</button>
-                    </div>
-                </div>
-            )}
-
-            <p className="text-gray-600">
-                Visualizzati: <strong>{displayedData.length}</strong> di <strong>{allData.length}</strong>
-                {loadingMore && <span className="ml-2 text-blue-600">⏳ Caricamento...</span>}
-            </p>
-
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div ref={tableRef} className="overflow-x-auto" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr>
-                                <th className="px-3 py-2">
-                                    <input 
-                                        type="checkbox" 
-                                        onChange={(e) => setSelected(e.target.checked ? displayedData : [])} 
-                                        checked={selected.length === displayedData.length && displayedData.length > 0} 
-                                    />
-                                </th>
-                                <th className="px-3 py-2 text-left font-semibold">Po Nr</th>
-                                <th className="px-3 py-2 text-left font-semibold">CDC</th>
-                                <th className="px-3 py-2 text-left font-semibold">Cod. SAP</th>
-                                <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
-                                <th className="px-3 py-2 text-left font-semibold">Ser. S/N</th>
-                                <th className="px-3 py-2 text-left font-semibold">Stato</th>
-                                <th className="px-3 py-2 text-left font-semibold">Ubicazione</th>
-                                <th className="px-3 py-2 text-left font-semibold">Seriale</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {displayedData.map((item, idx) => (
-                                <tr key={`${item.RISCONTROSERIALEF}-${idx}`} className="border-t hover:bg-gray-50">
-                                    <td className="px-3 py-2">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={selected.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) !== undefined} 
-                                            onChange={() => toggleSelect(item)} 
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 font-medium">{item.PoNr}</td>
-                                    <td className="px-3 py-2">{item.Cdc}</td>
-                                    <td className="px-3 py-2 font-medium">{item.CodSap}</td>
-                                    <td className="px-3 py-2">{item.Descrizione}</td>
-                                    <td className="px-3 py-2 text-center">{item['SerS/No'] === 'Sì' ? '✅' : '❌'}</td>
-                                    <td className="px-3 py-2">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {item.Stato}
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-2 font-mono text-xs">{item.Ubicazioni}</td>
-                                    <td className="px-3 py-2 font-mono text-xs">{item.RISCONTROSERIALEF}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {loadingMore && (
-                        <div className="text-center py-4 bg-gray-50">
-                            <span className="text-blue-600">⏳ Caricamento righe...</span>
-                        </div>
-                    )}
-                    {!hasMore && displayedData.length > 0 && (
-                        <div className="text-center py-4 bg-gray-50">
-                            <span className="text-gray-500">✓ Tutti i dati caricati</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
         function Storico({ user }) {
             const [storico, setStorico] = useState(appCache.storico || []);
             const [filteredData, setFilteredData] = useState([]);
