@@ -619,53 +619,91 @@ function isCacheValid(key) {
         }
 
         function Dashboard({ user }) {
-            const [stats, setStats] = useState(appCache.stats);
-            const [loading, setLoading] = useState(!appCache.stats);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-            useEffect(() => {
-                async function load() {
-                    try {
-                        const res = await api('getStats');
-                        setStats(res.stats);
-                        appCache.stats = res.stats;
-                        appCache.lastUpdate = Date.now();
-                    } catch (err) {
-                        console.error(err);
-                    } finally {
-                        setLoading(false);
-                    }
+    useEffect(() => {
+        async function load() {
+            try {
+                // Calcola stats dai dati locali in cache
+                await dbCache.init();
+                const [giacenzaLocal, storicoLocal] = await Promise.all([
+                    dbCache.get('giacenza'),
+                    dbCache.get('storico')
+                ]);
+
+                if (giacenzaLocal.length > 0) {
+                    // Calcola statistiche locali
+                    const totaleGiacenza = giacenzaLocal.length;
+                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                    const daInventariare = totaleGiacenza - inventariati;
+                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                    const percentuale = totaleGiacenza > 0 
+                        ? Math.round((inventariati / totaleGiacenza) * 100) 
+                        : 0;
+
+                    const localStats = {
+                        totaleGiacenza,
+                        totaleInventariato: inventariati,
+                        daInventariare,
+                        matchOk,
+                        percentualeCompletamento: percentuale
+                    };
+
+                    setStats(localStats);
+                    appCache.stats = localStats;
                 }
-                
-                if (!appCache.stats || (appCache.lastUpdate && Date.now() - appCache.lastUpdate > 60000)) load();
-                const interval = setInterval(() => { if (Date.now() - appCache.lastUpdate > 60000) load(); }, 60000);
-                return () => clearInterval(interval);
-            }, []);
 
-            if (loading) return <div className="text-center py-12">Caricamento...</div>;
-            if (!stats) return <div className="text-center py-12 text-red-600">Errore</div>;
-
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
-                        <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
-                        <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
-                        <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-gray-700">Completamento</span>
-                            <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.percentualeCompletamento}%` }} />
-                        </div>
-                    </div>
-                </div>
-            );
+                // Opzionale: ricarica dal server ogni 2 minuti
+                setLoading(false);
+            } catch (err) {
+                console.error(err);
+                // Fallback: prova a caricare dal server
+                try {
+                    const res = await api('getStats');
+                    setStats(res.stats);
+                    appCache.stats = res.stats;
+                } catch (serverErr) {
+                    console.error('Errore caricamento stats:', serverErr);
+                }
+                setLoading(false);
+            }
         }
+        
+        load();
+        
+        // Auto-refresh ogni 30 secondi per aggiornare le stats
+        const interval = setInterval(() => {
+            load();
+        }, 30000);
+        
+        return () => clearInterval(interval);
+    }, []);
 
+    if (loading) return <div className="text-center py-12">Caricamento...</div>;
+    if (!stats) return <div className="text-center py-12 text-red-600">Errore caricamento statistiche</div>;
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
+                <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
+                <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
+                <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-700">Completamento</span>
+                    <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.percentualeCompletamento}%` }} />
+                </div>
+            </div>
+        </div>
+    );
+}
         function StatCard({ title, value, icon, color }) {
             return (
                 <div className="bg-white rounded-lg shadow p-6">
@@ -772,78 +810,97 @@ function isCacheValid(key) {
     };
 
     const handleScan = async (e) => {
-        if (e.key === 'Enter' && scanInput.trim()) {
-            const scanned = scanInput.trim().toUpperCase();
+    if (e.key === 'Enter' && scanInput.trim()) {
+        const scanned = scanInput.trim().toUpperCase();
 
-            const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato || '').toUpperCase() === scanned);
-            if (alreadyScanned) {
-                setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO' });
-                playBeep('error');
-                setScanInput('');
-                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                return;
-            }
-
-            const found = giacenza.find(item => String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato);
-            if (found) {
-                const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-                setCurrentItem(found);
-                setNewUbicazione(found.Ubicazioni || '');
-                setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
-                playBeep(match ? 'success' : 'error');
-
-                try {
-                    await api('saveRiscontro', {
-                        data: {
-                            operatore: user.nome,
-                            codSap: found.CodSap,
-                            descrizione: found.Descrizione,
-                            ubicazione: found.Ubicazioni,
-                            serialeAtteso: found.RISCONTROSERIALEF,
-                            serialeRiscontrato: scanned,
-                            match: match,
-                            qta: found['Qtà'] || 1,
-                            wmsCode: found.WMSCode || '',
-                            cdc: found.Cdc || '',
-                            poNr: found.PoNr || '',
-                            idRigaGiacenza: found.ID_Riga || ''
-                        }
-                    });
-
-                    const updatedGiacenza = giacenza.map(item =>
-                        item.RISCONTROSERIALEF === found.RISCONTROSERIALEF ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } : item
-                    );
-                    setGiacenza(updatedGiacenza);
-                    appCache.giacenza = updatedGiacenza;
-                    
-                    const newEntry = { 
-                        id: Date.now() + Math.random(),
-                        Timestamp: new Date(), 
-                        Operatore: user.nome, 
-                        Seriale_Riscontrato: scanned, 
-                        Match: match ? 'OK' : 'KO', 
-                        ...found 
-                    };
-                    const updatedStorico = [newEntry, ...storico];
-                    setStorico(updatedStorico);
-                    appCache.storico = updatedStorico;
-                    
-                    await Promise.all([
-                        dbCache.set('giacenza', updatedGiacenza),
-                        dbCache.set('storico', updatedStorico)
-                    ]);
-                } catch (err) {
-                    setMessage({ type: 'error', text: 'Salvato locale' });
-                }
-            } else {
-                setMessage({ type: 'error', text: '❌ NON TROVATO' });
-                playBeep('error');
-            }
-
+        const alreadyScanned = storico.find(item => String(item.Seriale_Riscontrato || '').toUpperCase() === scanned);
+        if (alreadyScanned) {
+            setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO' });
+            playBeep('error');
             setScanInput('');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+            return;
         }
-    };
+
+        const found = giacenza.find(item => String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato);
+        if (found) {
+            const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+            setCurrentItem(found);
+            setNewUbicazione(found.Ubicazioni || '');
+            setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
+            playBeep(match ? 'success' : 'error');
+
+            try {
+                // Salva al server
+                await api('saveRiscontro', {
+                    data: {
+                        operatore: user.nome,
+                        codSap: found.CodSap,
+                        descrizione: found.Descrizione,
+                        ubicazione: found.Ubicazioni,
+                        serialeAtteso: found.RISCONTROSERIALEF,
+                        serialeRiscontrato: scanned,
+                        match: match,
+                        qta: found['Qtà'] || 1,
+                        wmsCode: found.WMSCode || '',
+                        cdc: found.Cdc || '',
+                        poNr: found.PoNr || '',
+                        idRigaGiacenza: found.ID_Riga || ''
+                    }
+                });
+
+                // Aggiorna giacenza (rimuovi dalla lista)
+                const updatedGiacenza = giacenza.map(item =>
+                    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                        ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
+                        : item
+                );
+                setGiacenza(updatedGiacenza);
+                appCache.giacenza = updatedGiacenza;
+                
+                // Aggiungi allo storico
+                const newEntry = { 
+                    id: Date.now() + Math.random(),
+                    Timestamp: new Date(), 
+                    Operatore: user.nome, 
+                    Seriale_Riscontrato: scanned, 
+                    Match: match ? 'OK' : 'KO',
+                    CodSap: found.CodSap,
+                    Descrizione: found.Descrizione,
+                    Cdc: found.Cdc,
+                    Stato: found.Stato,
+                    Ubicazioni: found.Ubicazioni,
+                    RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+                    WMSCode: found.WMSCode,
+                    PoNr: found.PoNr
+                };
+                const updatedStorico = [newEntry, ...storico];
+                setStorico(updatedStorico);
+                appCache.storico = updatedStorico;
+                
+                // Salva in IndexedDB per persistenza
+                await Promise.all([
+                    dbCache.set('giacenza', updatedGiacenza),
+                    dbCache.set('storico', updatedStorico)
+                ]);
+
+                // IMPORTANTE: Invalida le stats della dashboard
+                appCache.stats = null;
+                appCache.lastUpdate = null;
+
+            } catch (err) {
+                console.error(err);
+                setMessage({ type: 'error', text: 'Salvato locale' });
+            }
+        } else {
+            setMessage({ type: 'error', text: '❌ NON TROVATO' });
+            playBeep('error');
+        }
+
+        setScanInput('');
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
+};
 
     const handleUpdateUbicazione = async () => {
         if (!currentItem || !newUbicazione.trim()) return;
