@@ -378,6 +378,29 @@ body {
 .col-hidden {
   display: none !important;
 }
+/* Pulsante toggle selettore colonne */
+.column-selector-toggle {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.column-selector-toggle:hover {
+  background: #2563eb;
+}
+
+.column-selector.collapsed {
+  display: none;
+}    
 </style>
 </head>
 <body>
@@ -1039,10 +1062,9 @@ useEffect(() => {
     };
 
     const stampaEtichetta = (item, formato) => {
-    const printArea = document.getElementById('print-area');
     const bcId = 'bc-print-' + Date.now();
-
     let html = '';
+    
     if (formato === '10x10') {
         html = `
             <div class="etichetta-10x10">
@@ -1097,46 +1119,76 @@ useEffect(() => {
             </div>`;
     }
 
-    printArea.innerHTML = html;
-    printArea.style.display = 'block';
-
-    const images = Array.from(printArea.querySelectorAll('img'));
-    const imagePromises = images.map(img => {
-        return new Promise(resolve => {
-            if (img.complete && img.naturalHeight !== 0) resolve();
-            else {
-                img.onload = resolve;
-                img.onerror = resolve;
-                setTimeout(resolve, 3000);
-            }
-        });
-    });
-
-    Promise.all(imagePromises).then(() => {
-        if (item.WMSCode) {
-            JsBarcode('#' + bcId, item.WMSCode, {
-                format: "CODE128",
-                height: formato === '10x10' ? 26 : 20,
-                width: 1.8,
-                displayValue: false,
-                margin: 0
-            });
+    // Apri finestra popup
+    const printWindow = window.open('', '_blank', 'width=400,height=400');
+    
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stampa Etichetta</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        ${document.querySelector('style').textContent}
+        body { margin: 0; padding: 0; background: white; }
+        @media print {
+            @page { size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
         }
-
-        setTimeout(() => {
-            // Imposta classe body per formato corretto
-            if (formato === '10x5') {
-                document.body.classList.add('print-10x5');
+    </style>
+</head>
+<body>
+    ${html}
+    <script>
+        window.onload = function() {
+            const images = Array.from(document.querySelectorAll('img'));
+            let loaded = 0;
+            
+            images.forEach(img => {
+                if (img.complete) {
+                    loaded++;
+                } else {
+                    img.onload = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                    img.onerror = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                }
+            });
+            
+            if (loaded === images.length) renderAndPrint();
+            
+            function renderAndPrint() {
+                const wmsCode = '${item.WMSCode || ''}';
+                if (wmsCode) {
+                    JsBarcode('#${bcId}', wmsCode, {
+                        format: "CODE128",
+                        height: ${formato === '10x10' ? 26 : 20},
+                        width: 1.8,
+                        displayValue: false,
+                        margin: 0
+                    });
+                }
+                
+                setTimeout(() => {
+                    window.print();
+                    
+                    // Chiudi finestra dopo stampa/annulla
+                    setTimeout(() => {
+                        window.close();
+                    }, 100);
+                }, 500);
             }
-            
-            window.print();
-            
-            // Pulisci dopo la stampa
-            document.body.classList.remove('print-10x5');
-            printArea.style.display = 'none';
-            printArea.innerHTML = '';
-        }, 500);
-    });
+        };
+    </script>
+</body>
+</html>
+    `);
+    
+    printWindow.document.close();
 };
     if (loading) return (
         <div className="text-center py-12">
@@ -1239,6 +1291,7 @@ useEffect(() => {
     const [hasMore, setHasMore] = useState(true);
     
     // SELETTORE COLONNE
+    const [showColumnSelector, setShowColumnSelector] = useState(false); // NUOVO        
     const [visibleColumns, setVisibleColumns] = useState({
         poNr: true,
         cdc: true,
@@ -1397,113 +1450,137 @@ useEffect(() => {
     };
 
     const stampaSelezionati = () => {
-        if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
-        const printArea = document.getElementById('print-area');
-        const timestamp = Date.now();
+    const timestamp = Date.now();
+    let html = '';
+    
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
 
-        let html = '';
-        selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${timestamp}`;
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                    </div>
+                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.CodSap || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else {
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        }
+    });
 
-            if (formatoStampa === '10x10') {
-                html += `
-                    <div class="etichetta-10x10">
-                        <div class="logo-container">
-                            <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                            <div class="label-cod-bp">COD BP</div>
-                        </div>
-                        <div class="bp-section">
-                            <div class="bp-label">Codice BP</div>
-                            <div class="bp-value">${item.CodSap || ''}</div>
-                        </div>
-                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        <hr>
-                        <div class="art-label">Articolo</div>
-                        <svg class="barcode-svg" id="${bcId}"></svg>
-                        <div class="wms">${item.WMSCode || ''}</div>
-                        <hr>
-                        <div class="po-row">
-                            <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                        </div>
-                        <div class="label-tpn">TPN</div>
-                        <hr class="thin">
-                        <div class="part-section">
-                            <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        </div>
-                        <hr class="thin">
-                        <div class="sn-section">
-                            <span class="sn-label">SerialNumber/Lotto</span>
-                            <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                            <div class="label-sn">SN</div>
-                        </div>
-                        <div class="ubicazione-under-sn">
-                            <span class="pos-label">Ubicazione</span>
-                            <div class="pos-value">${item.Ubicazioni || ''}</div>
-                        </div>
-                    </div>`;
-            } else {
-                html += `
-                    <div class="etichetta-10x5">
-                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                        <svg class="et5-barcode" id="${bcId}"></svg>
-                        <div class="et5-wms">${item.WMSCode || ''}</div>
-                        <div class="et5-info">
-                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                        </div>
-                    </div>`;
+    // Apri finestra popup
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stampa Etichette</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        ${document.querySelector('style').textContent}
+        body { margin: 0; padding: 0; background: white; }
+        @media print {
+            @page { size: ${formatoStampa === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    ${html}
+    <script>
+        window.onload = function() {
+            const images = Array.from(document.querySelectorAll('img'));
+            let loaded = 0;
+            
+            images.forEach(img => {
+                if (img.complete) {
+                    loaded++;
+                } else {
+                    img.onload = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                    img.onerror = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                }
+            });
+            
+            if (loaded === images.length) renderAndPrint();
+            
+            function renderAndPrint() {
+                ${selected.map((item, idx) => `
+                    if ('${item.WMSCode || ''}') {
+                        JsBarcode('#bc-multi-${idx}-${timestamp}', '${item.WMSCode || ''}', {
+                            format: "CODE128",
+                            height: ${formatoStampa === '10x10' ? 26 : 20},
+                            width: 1.8,
+                            displayValue: false,
+                            margin: 0
+                        });
+                    }
+                `).join('')}
+                
+                setTimeout(() => {
+                    window.print();
+                    setTimeout(() => window.close(), 100);
+                }, 500);
             }
-        });
-
-        printArea.innerHTML = html;
-        printArea.style.display = 'block';
-
-        const images = Array.from(printArea.querySelectorAll('img'));
-        const imagePromises = images.map(img => {
-            return new Promise(resolve => {
-                if (img.complete && img.naturalHeight !== 0) resolve();
-                else {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                    setTimeout(resolve, 3000);
-                }
-            });
-        });
-
-        Promise.all(imagePromises).then(() => {
-            selected.forEach((item, idx) => {
-                const bcId = `bc-multi-${idx}-${timestamp}`;
-                const element = document.getElementById(bcId);
-                if (item.WMSCode && element) {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 26 : 20,
-                        width: 1.8,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
-            });
-
-            setTimeout(() => {
-                if (formatoStampa === '10x5') {
-                    document.body.classList.add('print-10x5');
-                }
-                
-                window.print();
-                
-                document.body.classList.remove('print-10x5');
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
-        });
-    };
+        };
+    </script>
+</body>
+</html>
+    `);
+    
+    printWindow.document.close();
+};
 
     if (loading) return (
         <div className="text-center py-12">
@@ -1518,13 +1595,21 @@ useEffect(() => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">Lista Giacenza</h2>
-                <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    <Icons.Filter /> Filtri
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setShowColumnSelector(!showColumnSelector)} 
+                        className="column-selector-toggle"
+                    >
+                        👁️ {showColumnSelector ? 'Nascondi' : 'Mostra'} Colonne
+                    </button>
+                    <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        <Icons.Filter /> Filtri
+                    </button>
+                </div>
             </div>
 
-            {/* SELETTORE COLONNE */}
-            <div className="column-selector">
+            {/* SELETTORE COLONNE - con classe conditional */}
+            <div className={`column-selector ${!showColumnSelector ? 'collapsed' : ''}`}>
                 <h4>👁️ Mostra/Nascondi Colonne:</h4>
                 <div className="column-options">
                     <div className="column-option">
@@ -1561,7 +1646,6 @@ useEffect(() => {
                     </div>
                 </div>
             </div>
-
             {showFilters && (
                 <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                     <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
@@ -1662,6 +1746,7 @@ useEffect(() => {
     const [formatoStampa, setFormatoStampa] = useState('10x10');
     
     // SELETTORE COLONNE
+    const [showColumnSelector, setShowColumnSelector] = useState(false); // NUOVO        
     const [visibleColumns, setVisibleColumns] = useState({
         dataOra: true,
         operatore: true,
@@ -1801,113 +1886,137 @@ useEffect(() => {
     };
 
     const stampaSelezionati = () => {
-        if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
-        const printArea = document.getElementById('print-area');
-        const timestamp = Date.now();
+    const timestamp = Date.now();
+    let html = '';
+    
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
 
-        let html = '';
-        selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${timestamp}`;
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                    </div>
+                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.CodSap || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else {
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        }
+    });
 
-            if (formatoStampa === '10x10') {
-                html += `
-                    <div class="etichetta-10x10">
-                        <div class="logo-container">
-                            <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                            <div class="label-cod-bp">COD BP</div>
-                        </div>
-                        <div class="bp-section">
-                            <div class="bp-label">Codice BP</div>
-                            <div class="bp-value">${item.CodSap || ''}</div>
-                        </div>
-                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        <hr>
-                        <div class="art-label">Articolo</div>
-                        <svg class="barcode-svg" id="${bcId}"></svg>
-                        <div class="wms">${item.WMSCode || ''}</div>
-                        <hr>
-                        <div class="po-row">
-                            <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Stato || ''}</span></div>
-                        </div>
-                        <div class="label-tpn">TPN</div>
-                        <hr class="thin">
-                        <div class="part-section">
-                            <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                        </div>
-                        <hr class="thin">
-                        <div class="sn-section">
-                            <span class="sn-label">SerialNumber/Lotto</span>
-                            <span class="sn-value">${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</span>
-                            <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                            <div class="label-sn">SN</div>
-                        </div>
-                        <div class="ubicazione-under-sn">
-                            <span class="pos-label">Ubicazione</span>
-                            <div class="pos-value">${item.Ubicazioni || ''}</div>
-                        </div>
-                    </div>`;
-            } else {
-                html += `
-                    <div class="etichetta-10x5">
-                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                        <svg class="et5-barcode" id="${bcId}"></svg>
-                        <div class="et5-wms">${item.WMSCode || ''}</div>
-                        <div class="et5-info">
-                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
-                            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-                        </div>
-                    </div>`;
+    // Apri finestra popup
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    printWindow.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stampa Etichette</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        ${document.querySelector('style').textContent}
+        body { margin: 0; padding: 0; background: white; }
+        @media print {
+            @page { size: ${formatoStampa === '10x10' ? '100mm 100mm' : '100mm 50mm'}; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    ${html}
+    <script>
+        window.onload = function() {
+            const images = Array.from(document.querySelectorAll('img'));
+            let loaded = 0;
+            
+            images.forEach(img => {
+                if (img.complete) {
+                    loaded++;
+                } else {
+                    img.onload = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                    img.onerror = () => {
+                        loaded++;
+                        if (loaded === images.length) renderAndPrint();
+                    };
+                }
+            });
+            
+            if (loaded === images.length) renderAndPrint();
+            
+            function renderAndPrint() {
+                ${selected.map((item, idx) => `
+                    if ('${item.WMSCode || ''}') {
+                        JsBarcode('#bc-multi-${idx}-${timestamp}', '${item.WMSCode || ''}', {
+                            format: "CODE128",
+                            height: ${formatoStampa === '10x10' ? 26 : 20},
+                            width: 1.8,
+                            displayValue: false,
+                            margin: 0
+                        });
+                    }
+                `).join('')}
+                
+                setTimeout(() => {
+                    window.print();
+                    setTimeout(() => window.close(), 100);
+                }, 500);
             }
-        });
-
-        printArea.innerHTML = html;
-        printArea.style.display = 'block';
-
-        const images = Array.from(printArea.querySelectorAll('img'));
-        const imagePromises = images.map(img => {
-            return new Promise(resolve => {
-                if (img.complete && img.naturalHeight !== 0) resolve();
-                else {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                    setTimeout(resolve, 3000);
-                }
-            });
-        });
-
-        Promise.all(imagePromises).then(() => {
-            selected.forEach((item, idx) => {
-                const bcId = `bc-multi-${idx}-${timestamp}`;
-                const element = document.getElementById(bcId);
-                if (item.WMSCode && element) {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 26 : 20,
-                        width: 1.8,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
-            });
-
-            setTimeout(() => {
-                if (formatoStampa === '10x5') {
-                    document.body.classList.add('print-10x5');
-                }
-                
-                window.print();
-                
-                document.body.classList.remove('print-10x5');
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
-        });
-    };
+        };
+    </script>
+</body>
+</html>
+    `);
+    
+    printWindow.document.close();
+};
 
     if (loading) return (
         <div className="text-center py-12">
@@ -1916,17 +2025,25 @@ useEffect(() => {
         </div>
     );
 
-    return (
+     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">Storico Inventario</h2>
-                <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    <Icons.Filter /> Filtri
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setShowColumnSelector(!showColumnSelector)} 
+                        className="column-selector-toggle"
+                    >
+                        👁️ {showColumnSelector ? 'Nascondi' : 'Mostra'} Colonne
+                    </button>
+                    <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        <Icons.Filter /> Filtri
+                    </button>
+                </div>
             </div>
 
-            {/* SELETTORE COLONNE */}
-            <div className="column-selector">
+            {/* SELETTORE COLONNE - con classe conditional */}
+            <div className={`column-selector ${!showColumnSelector ? 'collapsed' : ''}`}>
                 <h4>👁️ Mostra/Nascondi Colonne:</h4>
                 <div className="column-options">
                     <div className="column-option">
@@ -1971,7 +2088,6 @@ useEffect(() => {
                     </div>
                 </div>
             </div>
-
             {showFilters && (
                 <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                     <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
