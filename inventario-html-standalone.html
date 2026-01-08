@@ -23,37 +23,17 @@ body {
 .no-print { margin-bottom: 20px; }
 
 @media print {
-  .no-print { display: none !important; }
-  
+  .no-print { display: none; }
+
   @page {
-    size: 100mm auto;   /* per 10x10, cambia dinamicamente per 10x5 */
-    margin: 0mm !important;
-    padding: 0 !important;
+    size: 100mm auto;
+    margin: 0;
   }
-  
+
   html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100mm !important;
-    height: auto !important;
-    background: white !important;
-    overflow: visible !important;
-  }
-  
-  .etichetta-10x10 {
-    width: 100mm !important;
-    height: 100mm !important;
-    page-break-after: always !important;
-    page-break-inside: avoid !important;
-    overflow: hidden !important;
-  }
-  
-  .etichetta-10x5 {
-    width: 100mm !important;
-    height: 50mm !important;
-    page-break-after: always !important;
-    page-break-inside: avoid !important;
-    overflow: hidden !important;
+    width: 100mm;
+    margin: 0;
+    padding: 0;
   }
 }
 
@@ -131,7 +111,7 @@ body {
 }
 
 .etichetta-10x10 hr.thin {
-  border-top: 1.5px solid black;
+  border-top: 1.5px solid blue;
   margin: 0.8mm 0;
   flex-shrink: 0;
 }
@@ -1024,15 +1004,6 @@ function isCacheValid(key) {
             }
 
             setTimeout(() => {
-                // Aggiungi questo blocco prima di window.print()
-const pageStyle = document.createElement('style');
-pageStyle.textContent = `
-  @page { 
-    size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'}; 
-    margin: 0 !important; 
-  }
-`;
-document.head.appendChild(pageStyle);
                 window.print();
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
@@ -1354,15 +1325,6 @@ document.head.appendChild(pageStyle);
             });
 
             setTimeout(() => {
-                // Aggiungi questo blocco prima di window.print()
-const pageStyle = document.createElement('style');
-pageStyle.textContent = `
-  @page { 
-    size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'}; 
-    margin: 0 !important; 
-  }
-`;
-document.head.appendChild(pageStyle);
                 window.print();
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
@@ -1683,15 +1645,6 @@ document.head.appendChild(pageStyle);
             });
 
             setTimeout(() => {
-                // Aggiungi questo blocco prima di window.print()
-const pageStyle = document.createElement('style');
-pageStyle.textContent = `
-  @page { 
-    size: ${formato === '10x10' ? '100mm 100mm' : '100mm 50mm'}; 
-    margin: 0 !important; 
-  }
-`;
-document.head.appendChild(pageStyle);
                 window.print();
                 printArea.style.display = 'none';
                 printArea.innerHTML = '';
