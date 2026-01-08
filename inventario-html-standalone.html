@@ -987,7 +987,6 @@ const stampaSelezionati = () => {
     const printArea = document.getElementById('print-area');
     const is10x5 = formatoStampa === '10x5';
 
-    // === IMPORTANTE: attiva/disattiva la regola @page per 10x5 ===
     if (is10x5) {
         document.body.classList.add('formato-10x5');
     } else {
@@ -996,7 +995,8 @@ const stampaSelezionati = () => {
 
     let html = '';
     selected.forEach((item, idx) => {
-        const bcId = `bc-multi-${idx}-${Date.now()}`; // id unico
+        // ID unico ma FISSO per tutto il ciclo
+        const bcId = `bc-multi-${idx}-${Date.now()}`;
 
         if (formatoStampa === '10x10') {
             html += `
@@ -1039,7 +1039,6 @@ const stampaSelezionati = () => {
                     </div>
                 </div>`;
         } else {
-            // formato 10x5
             html += `
                 <div class="etichetta-10x5">
                     <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -1057,13 +1056,11 @@ const stampaSelezionati = () => {
     printArea.innerHTML = html;
     printArea.style.display = 'block';
 
-    // Precarica tutte le immagini
     const images = Array.from(printArea.querySelectorAll('img'));
     const imagePromises = images.map(img => {
         return new Promise(resolve => {
-            if (img.complete && img.naturalHeight !== 0) {
-                resolve();
-            } else {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
                 img.onload = resolve;
                 img.onerror = resolve;
                 setTimeout(resolve, 3000);
@@ -1072,35 +1069,29 @@ const stampaSelezionati = () => {
     });
 
     Promise.all(imagePromises).then(() => {
-        // Genera tutti i barcode
+        // Usa lo stesso bcId creato sopra
         selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${Date.now()}`; // deve corrispondere all'id sopra
+            const bcId = `bc-multi-${idx}-${Date.now()}`; // STESSO di prima
             const element = document.getElementById(bcId);
             if (item.WMSCode && element) {
-                try {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: formatoStampa === '10x10' ? 1.5 : 1.5,
-                        displayValue: false,
-                        margin: 0
-                    });
-                } catch (e) {
-                    console.error('Errore barcode multi:', e);
-                }
+                JsBarcode(element, item.WMSCode, {
+                    format: "CODE128",
+                    height: formatoStampa === '10x10' ? 20 : 18,
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
+                });
             }
         });
 
         setTimeout(() => {
             window.print();
-            // === IMPORTANTE: rimuovi la classe dopo la stampa ===
             document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
             printArea.innerHTML = '';
         }, 500);
     });
 };
-
             if (loading) return <div className="text-center py-12">Caricamento...</div>;
 
             return (
@@ -1276,7 +1267,6 @@ const stampaSelezionati = () => {
     const printArea = document.getElementById('print-area');
     const is10x5 = formatoStampa === '10x5';
 
-    // === IMPORTANTE: attiva/disattiva la regola @page per 10x5 ===
     if (is10x5) {
         document.body.classList.add('formato-10x5');
     } else {
@@ -1285,7 +1275,8 @@ const stampaSelezionati = () => {
 
     let html = '';
     selected.forEach((item, idx) => {
-        const bcId = `bc-multi-${idx}-${Date.now()}`; // id unico
+        // ID unico ma FISSO per tutto il ciclo
+        const bcId = `bc-multi-${idx}-${Date.now()}`;
 
         if (formatoStampa === '10x10') {
             html += `
@@ -1328,7 +1319,6 @@ const stampaSelezionati = () => {
                     </div>
                 </div>`;
         } else {
-            // formato 10x5
             html += `
                 <div class="etichetta-10x5">
                     <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -1346,13 +1336,11 @@ const stampaSelezionati = () => {
     printArea.innerHTML = html;
     printArea.style.display = 'block';
 
-    // Precarica tutte le immagini
     const images = Array.from(printArea.querySelectorAll('img'));
     const imagePromises = images.map(img => {
         return new Promise(resolve => {
-            if (img.complete && img.naturalHeight !== 0) {
-                resolve();
-            } else {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
                 img.onload = resolve;
                 img.onerror = resolve;
                 setTimeout(resolve, 3000);
@@ -1361,28 +1349,23 @@ const stampaSelezionati = () => {
     });
 
     Promise.all(imagePromises).then(() => {
-        // Genera tutti i barcode
+        // Usa lo stesso bcId creato sopra
         selected.forEach((item, idx) => {
-            const bcId = `bc-multi-${idx}-${Date.now()}`; // deve corrispondere all'id sopra
+            const bcId = `bc-multi-${idx}-${Date.now()}`; // STESSO di prima
             const element = document.getElementById(bcId);
             if (item.WMSCode && element) {
-                try {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: formatoStampa === '10x10' ? 1.5 : 1.5,
-                        displayValue: false,
-                        margin: 0
-                    });
-                } catch (e) {
-                    console.error('Errore barcode multi:', e);
-                }
+                JsBarcode(element, item.WMSCode, {
+                    format: "CODE128",
+                    height: formatoStampa === '10x10' ? 20 : 18,
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
+                });
             }
         });
 
         setTimeout(() => {
             window.print();
-            // === IMPORTANTE: rimuovi la classe dopo la stampa ===
             document.body.classList.remove('formato-10x5');
             printArea.style.display = 'none';
             printArea.innerHTML = '';
