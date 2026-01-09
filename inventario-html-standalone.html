@@ -318,101 +318,170 @@ body {
   margin-top: 4mm;
 }
 
+/* ======================================================
+   ETICHETTA 10x10G — IDENTICA A 10x10 MA SENZA SERIALE
+====================================================== */
 .etichetta-10x10g {
   width: 100mm;
   height: 100mm;
   border: 0.5px solid #000;
   background: white;
-  padding: 3mm 4mm;
+  padding: 2mm 3.5mm;
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
-  font-size: 10pt;
 }
 
-.etichetta-10x10g .header-10x10g {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2mm;
+/* Usa gli stessi stili della 10x10 */
+.etichetta-10x10g .logo-container {
+  height: 10mm;
+  margin-bottom: 0.5mm;
+  position: relative;
 }
 
-.etichetta-10x10g .logo-10x10g {
-  height: 12mm;
+.etichetta-10x10g .logo-img {
+  height: 9mm;
 }
 
-.etichetta-10x10g .qr-bp-10x10g {
-  width: 12mm;
-  height: 12mm;
-}
-
-.etichetta-10x10g .codice-bp-section {
-  text-align: center;
-  margin-bottom: 2mm;
-}
-
-.etichetta-10x10g .codice-bp-label {
-  font-size: 10pt;
+.etichetta-10x10g .label-cod-bp {
+  position: absolute;
+  right: 0;
+  top: 12mm;
+  font-size: 7pt;
   font-weight: bold;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.3px;
 }
 
-.etichetta-10x10g .codice-bp-value {
-  font-size: 20pt;
+.etichetta-10x10g .bp-section {
+  margin-bottom: 1mm;
+}
+
+.etichetta-10x10g .bp-label {
+  font-size: 9pt;
   font-weight: bold;
-  line-height: 1.2;
+  margin-bottom: 0.2mm;
+}
+
+.etichetta-10x10g .bp-value {
+  font-size: 18pt;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.etichetta-10x10g .qr-bp {
+  position: absolute;
+  top: 11mm;
+  right: 13mm;
+  width: 10mm;
+  height: 10mm;
 }
 
 .etichetta-10x10g hr {
   border: none;
-  border-top: 1px solid black;
-  margin: 2mm 0;
+  border-top: 0.1px solid black;
+  margin: 0.5mm 0;
 }
 
-.etichetta-10x10g .barcode-10x10g {
-  width: 80mm;
-  height: 28px;
-  margin: 2mm auto;
+.etichetta-10x10g hr.thin {
+  border-top: 0.5px solid black;
+  margin: 1mm 0;
+}
+
+.etichetta-10x10g .art-label {
+  font-weight: bold;
+  font-size: 9pt;
+  margin: 0 0 0.8mm;
+}
+
+.etichetta-10x10g .barcode-svg {
+  width: 72mm;
+  height: 26px;
+  margin: 0 auto 0.8mm;
   display: block;
 }
 
-.etichetta-10x10g .wms-10x10g {
+.etichetta-10x10g .wms {
   text-align: center;
-  font-size: 12pt;
+  font-size: 10pt;
   font-weight: bold;
-  margin-bottom: 2mm;
+  margin-bottom: 0.1mm;
 }
 
-.etichetta-10x10g .info-row {
+.etichetta-10x10g .po-row {
+  margin-top: 0.1mm;
+  margin-bottom: 0.5mm;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 1.5mm;
-  font-size: 10pt;
 }
 
-.etichetta-10x10g .info-label {
-  font-weight: bold;
-}
-
-.etichetta-10x10g .info-value {
-  font-weight: normal;
-}
-
-.etichetta-10x10g .ubicazione-section {
-  margin-top: 3mm;
-  border-top: 1px solid black;
-  padding-top: 2mm;
-}
-
-.etichetta-10x10g .ubicazione-label {
+.etichetta-10x10g .po-label {
   font-size: 9pt;
   font-weight: bold;
 }
 
-.etichetta-10x10g .ubicazione-value {
-  font-size: 14pt;
+.etichetta-10x10g .po-value {
+  font-size: 13pt;
   font-weight: bold;
+  line-height: 1;
+  display: block;
+}
+
+.etichetta-10x10g .label-tpn {
+  position: absolute;
+  right: 3mm;
+  top: 55mm;
+  font-size: 7pt;
+  font-weight: bold;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.3px;
+}
+
+.etichetta-10x10g .part-section {
+  margin: 0.1mm 0 1mm;
+  position: relative;
+}
+
+.etichetta-10x10g .part-label {
+  font-size: 9pt;
+  font-weight: bold;
+}
+
+.etichetta-10x10g .part-value {
+  font-size: 13pt;
+  font-weight: bold;
+  line-height: 1;
+  display: block;
+}
+
+.etichetta-10x10g .qr-part {
+  position: absolute;
+  top: 0;
+  right: 3.5mm;
+  width: 10mm;
+  height: 10mm;
+}
+
+.etichetta-10x10g .ubicazione-large {
+  margin-top: 2mm;
+  border-top: 1px solid black;
+  padding-top: 2mm;
+}
+
+.etichetta-10x10g .ubicazione-large .pos-label {
+  font-size: 9pt;
+  font-weight: bold;
+  margin-bottom: 0.5mm;
+}
+
+.etichetta-10x10g .ubicazione-large .pos-value {
+  font-size: 16pt;
+  font-weight: bold;
+  line-height: 1.2;
   word-break: break-all;
-}    
+}
 
 /* ======================================================
    SELETTORE COLONNE
@@ -1274,37 +1343,35 @@ const handleUpdatePartNumber = async () => {
         } else if (formato === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
-            <div class="header-10x10g">
-                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            <div class="logo-container">
+                <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <div class="label-cod-bp">COD BP</div>
             </div>
-            <div class="codice-bp-section">
-                <div class="codice-bp-label">Codice BP</div>
-                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            <div class="bp-section">
+                <div class="bp-label">Codice BP</div>
+                <div class="bp-value">${item.CodSap || ''}</div>
+                <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
             </div>
             <hr>
-            <svg class="barcode-10x10g" id="${bcId}"></svg>
-            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <div class="art-label">Articolo</div>
+            <svg class="barcode-svg" id="${bcId}"></svg>
+            <div class="wms">${item.WMSCode || ''}</div>
             <hr>
-            <div class="info-row">
-                <span class="info-label">Po Nr:</span>
-                <span class="info-value">${item.PoNr || '-'}</span>
+            <div class="po-row">
+                <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
             </div>
-            <div class="info-row">
-                <span class="info-label">CDC:</span>
-                <span class="info-value">${item.Cdc || '-'}</span>
+            <div class="label-tpn">TPN</div>
+            <hr class="thin">
+            <div class="part-section">
+                <span class="part-label">Part Number</span>
+                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
             </div>
-            <div class="info-row">
-                <span class="info-label">Part Number:</span>
-                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Stato:</span>
-                <span class="info-value">${item.Stato || '-'}</span>
-            </div>
-            <div class="ubicazione-section">
-                <div class="ubicazione-label">Ubicazione:</div>
-                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            <hr class="thin">
+            <div class="ubicazione-large">
+                <div class="pos-label">Ubicazione</div>
+                <div class="pos-value">${item.Ubicazioni || ''}</div>
             </div>
         </div>`;
 }
@@ -1801,37 +1868,35 @@ const handleUpdatePartNumber = async () => {
 } else if (formato === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
-            <div class="header-10x10g">
-                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            <div class="logo-container">
+                <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <div class="label-cod-bp">COD BP</div>
             </div>
-            <div class="codice-bp-section">
-                <div class="codice-bp-label">Codice BP</div>
-                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            <div class="bp-section">
+                <div class="bp-label">Codice BP</div>
+                <div class="bp-value">${item.CodSap || ''}</div>
+                <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
             </div>
             <hr>
-            <svg class="barcode-10x10g" id="${bcId}"></svg>
-            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <div class="art-label">Articolo</div>
+            <svg class="barcode-svg" id="${bcId}"></svg>
+            <div class="wms">${item.WMSCode || ''}</div>
             <hr>
-            <div class="info-row">
-                <span class="info-label">Po Nr:</span>
-                <span class="info-value">${item.PoNr || '-'}</span>
+            <div class="po-row">
+                <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
             </div>
-            <div class="info-row">
-                <span class="info-label">CDC:</span>
-                <span class="info-value">${item.Cdc || '-'}</span>
+            <div class="label-tpn">TPN</div>
+            <hr class="thin">
+            <div class="part-section">
+                <span class="part-label">Part Number</span>
+                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
             </div>
-            <div class="info-row">
-                <span class="info-label">Part Number:</span>
-                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Stato:</span>
-                <span class="info-value">${item.Stato || '-'}</span>
-            </div>
-            <div class="ubicazione-section">
-                <div class="ubicazione-label">Ubicazione:</div>
-                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            <hr class="thin">
+            <div class="ubicazione-large">
+                <div class="pos-label">Ubicazione</div>
+                <div class="pos-value">${item.Ubicazioni || ''}</div>
             </div>
         </div>`;
 }
@@ -2447,37 +2512,35 @@ const handleUpdatePartNumber = async () => {
 } else if (formato === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
-            <div class="header-10x10g">
-                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            <div class="logo-container">
+                <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <div class="label-cod-bp">COD BP</div>
             </div>
-            <div class="codice-bp-section">
-                <div class="codice-bp-label">Codice BP</div>
-                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            <div class="bp-section">
+                <div class="bp-label">Codice BP</div>
+                <div class="bp-value">${item.CodSap || ''}</div>
+                <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
             </div>
             <hr>
-            <svg class="barcode-10x10g" id="${bcId}"></svg>
-            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <div class="art-label">Articolo</div>
+            <svg class="barcode-svg" id="${bcId}"></svg>
+            <div class="wms">${item.WMSCode || ''}</div>
             <hr>
-            <div class="info-row">
-                <span class="info-label">Po Nr:</span>
-                <span class="info-value">${item.PoNr || '-'}</span>
+            <div class="po-row">
+                <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
             </div>
-            <div class="info-row">
-                <span class="info-label">CDC:</span>
-                <span class="info-value">${item.Cdc || '-'}</span>
+            <div class="label-tpn">TPN</div>
+            <hr class="thin">
+            <div class="part-section">
+                <span class="part-label">Part Number</span>
+                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
             </div>
-            <div class="info-row">
-                <span class="info-label">Part Number:</span>
-                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Stato:</span>
-                <span class="info-value">${item.Stato || '-'}</span>
-            </div>
-            <div class="ubicazione-section">
-                <div class="ubicazione-label">Ubicazione:</div>
-                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            <hr class="thin">
+            <div class="ubicazione-large">
+                <div class="pos-label">Ubicazione</div>
+                <div class="pos-value">${item.Ubicazioni || ''}</div>
             </div>
         </div>`;
 }
