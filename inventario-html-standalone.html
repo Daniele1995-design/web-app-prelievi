@@ -1028,22 +1028,37 @@ useEffect(() => {
     }
 };
     const handleUpdateUbicazione = async () => {
-        if (!currentItem || !newUbicazione.trim()) return;
-        try {
-            await api('updateUbicazione', { seriale: currentItem.RISCONTROSERIALEF, ubicazione: newUbicazione });
-            
-            const updated = giacenza.map(i => i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF ? { ...i, Ubicazioni: newUbicazione } : i);
-            setGiacenza(updated);
-            appCache.giacenza = updated;
-            await dbCache.set('giacenza', updated);
-            
-            setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
-            setEditingUbicazione(false);
-            alert('Ubicazione aggiornata');
-        } catch (err) {
-            alert('Errore aggiornamento');
-        }
-    };
+    if (!currentItem || !newUbicazione.trim()) return;
+    
+    // 1. AGGIORNA SUBITO IN LOCALE
+    const updated = giacenza.map(i => 
+        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
+            ? { ...i, Ubicazioni: newUbicazione } 
+            : i
+    );
+    setGiacenza(updated);
+    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
+    setEditingUbicazione(false);
+    appCache.giacenza = updated;
+    await dbCache.set('giacenza', updated);
+    
+    // 2. NOTIFICA ALTRI COMPONENTI
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updated }
+    }));
+    
+    // 3. INVIA AL SERVER IN BACKGROUND
+    try {
+        await api('updateUbicazione', { 
+            seriale: currentItem.RISCONTROSERIALEF, 
+            ubicazione: newUbicazione 
+        });
+        console.log('✅ Ubicazione salvata sul server');
+    } catch (err) {
+        console.error('❌ Errore invio server:', err);
+        alert('⚠️ Ubicazione aggiornata localmente, ma errore sincronizzazione server');
+    }
+};
 
     const stampaEtichetta = (item, formato) => {
         const printArea = document.getElementById('print-area');
@@ -1331,18 +1346,19 @@ useEffect(() => {
     }, [filters, displayCount]);
 
     const applyFilters = () => {
-        let filtered = giacenza.filter(i => !i.inventariato);
-        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase().includes(filters.codSap.toUpperCase()));
-        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase().includes(filters.poNr.toUpperCase()));
-        setFilteredData(filtered);
-        setDisplayCount(50);
-        setHasMore(filtered.length > 50);
-        setShowFilters(false);
-    };
+    let filtered = giacenza.filter(i => !i.inventariato);
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    // MATCH ESATTO per Cod.SAP e Po Nr
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+    if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
 
     const loadMore = () => {
         const newCount = displayCount + 50;
@@ -1753,35 +1769,63 @@ useEffect(() => {
     }, [filters]);
 
     const applyFilters = () => {
-        let filtered = [...storico];
-        if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
-        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-        if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
-        setFilteredData(filtered);
-        setShowFilters(false);
-    };
+    let filtered = [...storico];
+    if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
+    // MATCH ESATTO per Cod.SAP
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    // Filtro per Data/Ora
+    if (filters.dataOra) {
+        filtered = filtered.filter(i => {
+            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+            return itemDate.includes(filters.dataOra);
+        });
+    }
+    setFilteredData(filtered);
+    setShowFilters(false);
+};
 
     const toggleColumn = (column) => {
         setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
     };
 
     const updateUbicazione = async (item, newUbic) => {
-        try {
-            await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: newUbic });
-            const updated = storico.map(i => i.Seriale_Riscontrato === item.Seriale_Riscontrato ? { ...i, Ubicazioni: newUbic } : i);
-            setStorico(updated);
-            setFilteredData(updated);
-            appCache.storico = updated;
-            await dbCache.set('storico', updated);
-            setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
-            alert('Ubicazione aggiornata');
-        } catch (err) {
-            alert('Errore aggiornamento');
-        }
-    };
-
+    // 1. AGGIORNA SUBITO IN LOCALE
+    const updated = storico.map(i => 
+        i.Seriale_Riscontrato === item.Seriale_Riscontrato 
+            ? { ...i, Ubicazioni: newUbic } 
+            : i
+    );
+    setStorico(updated);
+    setFilteredData(updated.filter(i => {
+        let match = true;
+        if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
+        if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
+        if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
+        if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
+        if (filters.match) match = match && i.Match === filters.match;
+        if (filters.codSap) match = match && (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase();
+        return match;
+    }));
+    appCache.storico = updated;
+    await dbCache.set('storico', updated);
+    setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    
+    // 2. INVIA AL SERVER IN BACKGROUND
+    try {
+        await api('updateUbicazione', { 
+            seriale: item.Seriale_Riscontrato, 
+            ubicazione: newUbic 
+        });
+        console.log('✅ Ubicazione salvata sul server');
+    } catch (err) {
+        console.error('❌ Errore invio server:', err);
+        alert('⚠️ Ubicazione aggiornata localmente, ma errore sincronizzazione server');
+    }
+};
     const updateBulkUbicazione = async () => {
         if (selected.length === 0 || !bulkUbicazione.trim()) return;
         if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
@@ -1984,6 +2028,8 @@ useEffect(() => {
                             <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+                            <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+                            <input type="text" placeholder="Data (gg/mm/aaaa)" value={filters.dataOra || ''} onChange={(e) => setFilters({ ...filters, dataOra: e.target.value })} className="px-3 py-2 border rounded" />
                             <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
                                 <option value="">Tutti i match</option>
                                 <option value="OK">Solo OK</option>
