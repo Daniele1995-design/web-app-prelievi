@@ -1129,45 +1129,6 @@ useEffect(() => {
 };
     const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
-
-    const handleUpdatePartNumber = async () => {
-    if (!currentItem || !newPartNumber.trim()) return;
-    
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
-    setEditingPartNumber(false);
-    appCache.giacenza = updatedGiacenza;
-    await dbCache.set('giacenza', updatedGiacenza);
-    
-    const updatedStorico = storico.map(i => 
-        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
-    setStorico(updatedStorico);
-    appCache.storico = updatedStorico;
-    await dbCache.set('storico', updatedStorico);
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
-    
-    try {
-        await api('updatePartNumber', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            partNumber: newPartNumber 
-        });
-        console.log('✅ PartNumber salvato sul server');
-    } catch (err) {
-        console.error('❌ Errore invio server:', err);
-        alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
-    }
-};    
     
     // 1. AGGIORNA GIACENZA
     const updatedGiacenza = giacenza.map(i => 
@@ -1209,6 +1170,45 @@ useEffect(() => {
     }
 };
 
+// ✅ NUOVA FUNZIONE SEPARATA (fuori da handleUpdateUbicazione)
+const handleUpdatePartNumber = async () => {
+    if (!currentItem || !newPartNumber.trim()) return;
+    
+    const updatedGiacenza = giacenza.map(i => 
+        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPartNumber } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
+    setEditingPartNumber(false);
+    appCache.giacenza = updatedGiacenza;
+    await dbCache.set('giacenza', updatedGiacenza);
+    
+    const updatedStorico = storico.map(i => 
+        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPartNumber } 
+            : i
+    );
+    setStorico(updatedStorico);
+    appCache.storico = updatedStorico;
+    await dbCache.set('storico', updatedStorico);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    try {
+        await api('updatePartNumber', { 
+            seriale: currentItem.RISCONTROSERIALEF, 
+            partNumber: newPartNumber 
+        });
+        console.log('✅ PartNumber salvato sul server');
+    } catch (err) {
+        console.error('❌ Errore invio server:', err);
+        alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
+    }
+};
     const stampaEtichetta = (item, formato) => {
         const printArea = document.getElementById('print-area');
         const bcId = 'bc-print-' + Date.now();
@@ -1254,7 +1254,7 @@ useEffect(() => {
                         <div class="pos-value">${item.Ubicazioni || ''}</div>
                     </div>
                 </div>`;
-        } else {
+        } else if (formato === '10x5') {
             html = `
                 <div class="etichetta-10x5">
                     <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -1677,7 +1677,7 @@ useEffect(() => {
                         wmsCode: item.WMSCode || '',
                         cdc: item.Cdc || '',
                         poNr: item.PoNr || '',
-                        partNumber: found.PartNumber || '',
+                        partNumber: item.PartNumber || '',
                         idRigaGiacenza: item.ID_Riga || ''
                     }
                 });
@@ -1740,7 +1740,7 @@ useEffect(() => {
                             <div class="pos-value">${item.Ubicazioni || ''}</div>
                         </div>
                     </div>`;
-            } else {
+            } else if (formatoStampa === '10x5') {
                 html += `
                     <div class="etichetta-10x5">
                         <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -1752,7 +1752,6 @@ useEffect(() => {
                             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         </div>
                     </div>`;
-            // DOPO il blocco else per 10x5, aggiungere:
 } else if (formato === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
@@ -2350,7 +2349,7 @@ useEffect(() => {
                             <div class="pos-value">${item.Ubicazioni || ''}</div>
                         </div>
                     </div>`;
-            } else {
+            } else if (formatoStampa === '10x5') {
                 html += `
                     <div class="etichetta-10x5">
                         <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
