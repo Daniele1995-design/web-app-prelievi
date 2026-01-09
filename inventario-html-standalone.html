@@ -219,7 +219,7 @@ body {
   right: 0;
   bottom: 2.8mm;
   font-size: 7pt;
-  top: -15mm;
+  top: 15mm;
   font-weight: bold;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
@@ -1397,8 +1397,8 @@ const handleUpdatePartNumber = async () => {
                     <hr class="thin">
                     <div class="part-section">
                         <span class="part-label">Part Number</span>
-                        <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                        <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                     </div>
                     <hr class="thin">
                     <div class="sn-section">
@@ -1449,8 +1449,8 @@ const handleUpdatePartNumber = async () => {
             <hr class="thin">
             <div class="part-section">
                 <span class="part-label">Part Number</span>
-                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
+                <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.PartNumber || '')}" crossorigin="anonymous">
             </div>
             <div class="ubicazione-large">
                 <div class="pos-label">Ubicazione</div>
@@ -1921,8 +1921,8 @@ const handleUpdatePartNumber = async () => {
                         <hr class="thin">
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
                         <div class="sn-section">
@@ -1944,7 +1944,7 @@ const handleUpdatePartNumber = async () => {
                         <svg class="et5-barcode" id="${bcId}"></svg>
                         <div class="et5-wms">${item.WMSCode || ''}</div>
                         <div class="et5-info">
-                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.CodSap || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+                            <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
                             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         </div>
                     </div>`;
@@ -1973,8 +1973,8 @@ const handleUpdatePartNumber = async () => {
             <hr class="thin">
             <div class="part-section">
                 <span class="part-label">Part Number</span>
-                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
+                <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.PartNumber || '')}" crossorigin="anonymous">
             </div>
             <div class="ubicazione-large">
                 <div class="pos-label">Ubicazione</div>
@@ -2156,8 +2156,8 @@ const handleUpdatePartNumber = async () => {
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>Ser. S/N</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.stato ? 'col-hidden' : ''}`}>Stato</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>Ubicazione</th>
-                                <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>Seriale</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
+                                <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>Seriale</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2563,8 +2563,8 @@ const handleUpdatePartNumber = async () => {
                         <hr class="thin">
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                            <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                            <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
                         <div class="sn-section">
@@ -2616,8 +2616,8 @@ const handleUpdatePartNumber = async () => {
             <hr class="thin">
             <div class="part-section">
                 <span class="part-label">Part Number</span>
-                <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
-                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.CodSap || '')}" crossorigin="anonymous">
+                <span class="part-value">${item.PartNumber || item.PartNumber || ''}</span>
+                <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || item.PartNumber || '')}" crossorigin="anonymous">
             </div>
             <div class="ubicazione-large">
                 <div class="pos-label">Ubicazione</div>
