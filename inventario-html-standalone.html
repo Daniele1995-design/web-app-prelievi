@@ -1207,7 +1207,7 @@ useEffect(() => {
                 RISCONTROSERIALEF: found.RISCONTROSERIALEF,
                 WMSCode: found.WMSCode,
                 PoNr: found.PoNr,
-                PartNumber: found.PartNumber
+                PartNumber: item.PartNumber || ''
             };
             
             const updatedStorico = [newEntry, ...storico];
@@ -1792,7 +1792,7 @@ const handleUpdatePartNumber = async () => {
         RISCONTROSERIALEF: item.RISCONTROSERIALEF,
         WMSCode: item.WMSCode,
         PoNr: item.PoNr,
-        PartNumber: item.PartNumber
+        PartNumber: item.PartNumber || ''
     }));
     
     // Prendi lo storico esistente dalla cache o inizializza vuoto
