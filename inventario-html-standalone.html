@@ -1207,7 +1207,7 @@ useEffect(() => {
                 RISCONTROSERIALEF: found.RISCONTROSERIALEF,
                 WMSCode: found.WMSCode,
                 PoNr: found.PoNr,
-                PartNumber: item.PartNumber || ''
+                PartNumber: found.PartNumber || ''
             };
             
             const updatedStorico = [newEntry, ...storico];
