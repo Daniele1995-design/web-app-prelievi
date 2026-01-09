@@ -995,6 +995,11 @@ useEffect(() => {
     const handleScan = async (e) => {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
+        // ✅ RESET IMMEDIATO DELL'INPUT
+        setScanInput('');
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 100);
 
         // Controlla SUBITO nella cache locale (giacenza e storico)
         const alreadyInStorico = storico.find(item => 
@@ -1320,22 +1325,22 @@ const handleUpdatePartNumber = async () => {
         });
 
         Promise.all(imagePromises).then(() => {
-            if (item.WMSCode) {
-                JsBarcode('#' + bcId, item.WMSCode, {
-                    format: "CODE128",
-                    height: formato === '10x10' ? 20 : 18,
-                    width: 1.5,
-                    displayValue: false,
-                    margin: 0
-                });
-            }
-
-            setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
+    if (item.WMSCode) {
+        JsBarcode('#' + bcId, item.WMSCode, {
+            format: "CODE128",
+            height: formato === '10x10' ? 20 : (formato === '10x10g' ? 24 : 18), // ✅ AGGIUNTO 10x10g
+            width: 1.5,
+            displayValue: false,
+            margin: 0
         });
+    }
+
+    setTimeout(() => {
+        window.print();
+        printArea.style.display = 'none';
+        printArea.innerHTML = '';
+    }, 500);
+});
     };
 
     if (loading) return (
@@ -1453,6 +1458,7 @@ const handleUpdatePartNumber = async () => {
     const [filters, setFilters] = useState({});
     const [selected, setSelected] = useState([]);
     const [bulkUbicazione, setBulkUbicazione] = useState('');
+    const [bulkPartNumber, setBulkPartNumber] = useState('');        
     const [formatoStampa, setFormatoStampa] = useState('10x10');
     const [editingUbicazione, setEditingUbicazione] = useState({});
     const [editingPartNumber, setEditingPartNumber] = useState({});
@@ -1689,6 +1695,46 @@ const handleUpdatePartNumber = async () => {
         }
     })();
 };
+ const updateBulkPartNumber = async () => {
+    if (selected.length === 0 || !bulkPartNumber.trim()) return;
+    if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
+    
+    // 1. AGGIORNA LOCALE
+    const updated = giacenza.map(i => 
+        selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
+            ? { ...i, PartNumber: bulkPartNumber } 
+            : i
+    );
+    setGiacenza(updated);
+    appCache.giacenza = updated;
+    await dbCache.set('giacenza', updated);
+    
+    setFilteredData(updated.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkPartNumber('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updated }
+    }));
+    
+    alert('Part Number aggiornati localmente!');
+    
+    // 2. INVIA AL SERVER IN BACKGROUND
+    (async () => {
+        try {
+            for (const item of selected) {
+                await api('updatePartNumber', { 
+                    seriale: item.RISCONTROSERIALEF, 
+                    partNumber: bulkPartNumber 
+                });
+            }
+            console.log('✅ Part Number aggiornati sul server');
+        } catch (err) {
+            console.error('❌ Errore invio server:', err);
+            alert('⚠️ Alcuni Part Number potrebbero non essere sincronizzati con il server');
+        }
+    })();
+};           
 
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
@@ -1807,26 +1853,26 @@ const handleUpdatePartNumber = async () => {
         });
 
         Promise.all(imagePromises).then(() => {
-            selected.forEach((item, idx) => {
-                const bcId = `bc-multi-${idx}-${timestamp}`;
-                const element = document.getElementById(bcId);
-                if (item.WMSCode && element) {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
+        const element = document.getElementById(bcId);
+        if (item.WMSCode && element) {
+            JsBarcode(element, item.WMSCode, {
+                format: "CODE128",
+                height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18), // ✅ CORRETTO
+                width: 1.5,
+                displayValue: false,
+                margin: 0
             });
+        }
+    });
 
-            setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
-        });
+    setTimeout(() => {
+        window.print();
+        printArea.style.display = 'none';
+        printArea.innerHTML = '';
+    }, 500);
+});
     };
 
     if (loading) return (
@@ -1924,9 +1970,17 @@ const handleUpdatePartNumber = async () => {
                     <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
                     <div className="flex gap-2 items-center flex-wrap">
                         <input type="text" placeholder="Ubicazione (opzionale)" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
+                        <input type="text" placeholder="Part Number (opzionale)" 
+                   value={bulkPartNumber} 
+                   onChange={(e) => setBulkPartNumber(e.target.value)} 
+                   className="px-3 py-2 border rounded" />
                         <button onClick={verificaMassivo} className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                             <Icons.Check /> Verifica Selezionati
                         </button>
+                        <button onClick={updateBulkPartNumber} 
+                    className="flex items-center gap-1 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                🔧 Aggiorna Part Number
+            </button>
                         <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
                             <option value="10x10">10×10</option>
                             <option value="10x5">10×5</option>
@@ -2059,6 +2113,7 @@ const handleUpdatePartNumber = async () => {
     const [bulkUbicazione, setBulkUbicazione] = useState('');
     const [formatoStampa, setFormatoStampa] = useState('10x10');
     const [editingPartNumber, setEditingPartNumber] = useState({});
+    const [bulkPartNumber, setBulkPartNumber] = useState('');
     // SELETTORE COLONNE
     const [showColumnSelector, setShowColumnSelector] = useState(false); // NUOVO        
     const [visibleColumns, setVisibleColumns] = useState({
@@ -2099,6 +2154,33 @@ const handleUpdatePartNumber = async () => {
     } catch (err) {
         console.error('❌ Errore invio server:', err);
         alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
+    }
+};
+            const updateBulkPartNumber = async () => {
+    if (selected.length === 0 || !bulkPartNumber.trim()) return;
+    if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
+    
+    try {
+        for (const item of selected) {
+            await api('updatePartNumber', { 
+                seriale: item.Seriale_Riscontrato, 
+                partNumber: bulkPartNumber 
+            });
+        }
+        const updated = storico.map(i => 
+            selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
+                ? { ...i, PartNumber: bulkPartNumber } 
+                : i
+        );
+        setStorico(updated);
+        setFilteredData(updated);
+        appCache.storico = updated;
+        await dbCache.set('storico', updated);
+        setSelected([]);
+        setBulkPartNumber('');
+        alert('Part Number aggiornati');
+    } catch (err) {
+        alert('Errore aggiornamento');
     }
 };
 
@@ -2417,26 +2499,26 @@ const handleUpdatePartNumber = async () => {
         });
 
         Promise.all(imagePromises).then(() => {
-            selected.forEach((item, idx) => {
-                const bcId = `bc-multi-${idx}-${timestamp}`;
-                const element = document.getElementById(bcId);
-                if (item.WMSCode && element) {
-                    JsBarcode(element, item.WMSCode, {
-                        format: "CODE128",
-                        height: formatoStampa === '10x10' ? 20 : 18,
-                        width: 1.5,
-                        displayValue: false,
-                        margin: 0
-                    });
-                }
+    selected.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
+        const element = document.getElementById(bcId);
+        if (item.WMSCode && element) {
+            JsBarcode(element, item.WMSCode, {
+                format: "CODE128",
+                height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18), // ✅ CORRETTO
+                width: 1.5,
+                displayValue: false,
+                margin: 0
             });
+        }
+    });
 
-            setTimeout(() => {
-                window.print();
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-            }, 500);
-        });
+    setTimeout(() => {
+        window.print();
+        printArea.style.display = 'none';
+        printArea.innerHTML = '';
+    }, 500);
+});
     };
     if (loading) return (
         <div className="text-center py-12">
@@ -2550,9 +2632,18 @@ const handleUpdatePartNumber = async () => {
                     <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
                     <div className="flex gap-2 items-center flex-wrap">
                         <input type="text" placeholder="Nuova ubicazione" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
+                        <input type="text" placeholder="Nuovo Part Number" 
+       value={bulkPartNumber} 
+       onChange={(e) => setBulkPartNumber(e.target.value)} 
+       className="px-3 py-2 border rounded" />
+
                         <button onClick={updateBulkUbicazione} className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                             <Icons.Edit /> Aggiorna Ubicazione
                         </button>
+                        <button onClick={updateBulkPartNumber} 
+        className="flex items-center gap-1 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+    🔧 Aggiorna Part Number
+</button>
                         <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
                             <option value="10x10">10×10</option>
                             <option value="10x5">10×5</option>
