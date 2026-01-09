@@ -318,6 +318,102 @@ body {
   margin-top: 4mm;
 }
 
+.etichetta-10x10g {
+  width: 100mm;
+  height: 100mm;
+  border: 0.5px solid #000;
+  background: white;
+  padding: 3mm 4mm;
+  box-sizing: border-box;
+  page-break-after: always;
+  position: relative;
+  font-size: 10pt;
+}
+
+.etichetta-10x10g .header-10x10g {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2mm;
+}
+
+.etichetta-10x10g .logo-10x10g {
+  height: 12mm;
+}
+
+.etichetta-10x10g .qr-bp-10x10g {
+  width: 12mm;
+  height: 12mm;
+}
+
+.etichetta-10x10g .codice-bp-section {
+  text-align: center;
+  margin-bottom: 2mm;
+}
+
+.etichetta-10x10g .codice-bp-label {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.etichetta-10x10g .codice-bp-value {
+  font-size: 20pt;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.etichetta-10x10g hr {
+  border: none;
+  border-top: 1px solid black;
+  margin: 2mm 0;
+}
+
+.etichetta-10x10g .barcode-10x10g {
+  width: 80mm;
+  height: 28px;
+  margin: 2mm auto;
+  display: block;
+}
+
+.etichetta-10x10g .wms-10x10g {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: bold;
+  margin-bottom: 2mm;
+}
+
+.etichetta-10x10g .info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5mm;
+  font-size: 10pt;
+}
+
+.etichetta-10x10g .info-label {
+  font-weight: bold;
+}
+
+.etichetta-10x10g .info-value {
+  font-weight: normal;
+}
+
+.etichetta-10x10g .ubicazione-section {
+  margin-top: 3mm;
+  border-top: 1px solid black;
+  padding-top: 2mm;
+}
+
+.etichetta-10x10g .ubicazione-label {
+  font-size: 9pt;
+  font-weight: bold;
+}
+
+.etichetta-10x10g .ubicazione-value {
+  font-size: 14pt;
+  font-weight: bold;
+  word-break: break-all;
+}    
+
 /* ======================================================
    SELETTORE COLONNE
 ====================================================== */
@@ -813,6 +909,8 @@ useEffect(() => {
     const [newUbicazione, setNewUbicazione] = useState('');
     const [formatoStampa, setFormatoStampa] = useState('10x10');
     const inputRef = useRef(null);
+    const [editingPartNumber, setEditingPartNumber] = useState(false);
+    const [newPartNumber, setNewPartNumber] = useState('');        
 
     useEffect(() => {
         async function loadData() {
@@ -993,6 +1091,7 @@ useEffect(() => {
                         wmsCode: found.WMSCode || '',
                         cdc: found.Cdc || '',
                         poNr: found.PoNr || '',
+                        partNumber: found.PartNumber || '',
                         idRigaGiacenza: found.ID_Riga || ''
                     }
                 });
@@ -1024,11 +1123,51 @@ useEffect(() => {
         }
 
         setScanInput('');
+        if (inputRef.current) inputRef.current.focus();
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
 };
     const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
+
+    const handleUpdatePartNumber = async () => {
+    if (!currentItem || !newPartNumber.trim()) return;
+    
+    const updatedGiacenza = giacenza.map(i => 
+        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPartNumber } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
+    setEditingPartNumber(false);
+    appCache.giacenza = updatedGiacenza;
+    await dbCache.set('giacenza', updatedGiacenza);
+    
+    const updatedStorico = storico.map(i => 
+        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPartNumber } 
+            : i
+    );
+    setStorico(updatedStorico);
+    appCache.storico = updatedStorico;
+    await dbCache.set('storico', updatedStorico);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    try {
+        await api('updatePartNumber', { 
+            seriale: currentItem.RISCONTROSERIALEF, 
+            partNumber: newPartNumber 
+        });
+        console.log('✅ PartNumber salvato sul server');
+    } catch (err) {
+        console.error('❌ Errore invio server:', err);
+        alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
+    }
+};    
     
     // 1. AGGIORNA GIACENZA
     const updatedGiacenza = giacenza.map(i => 
@@ -1100,7 +1239,7 @@ useEffect(() => {
                     <hr class="thin">
                     <div class="part-section">
                         <span class="part-label">Part Number</span>
-                        <span class="part-value">${item.CodSap || ''}</span>
+                        <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
                         <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                     </div>
                     <hr class="thin">
@@ -1127,7 +1266,43 @@ useEffect(() => {
                         <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                     </div>
                 </div>`;
-        }
+        } else if (formato === '10x10g') {
+    html = `
+        <div class="etichetta-10x10g">
+            <div class="header-10x10g">
+                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+            <div class="codice-bp-section">
+                <div class="codice-bp-label">Codice BP</div>
+                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            </div>
+            <hr>
+            <svg class="barcode-10x10g" id="${bcId}"></svg>
+            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <hr>
+            <div class="info-row">
+                <span class="info-label">Po Nr:</span>
+                <span class="info-value">${item.PoNr || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">CDC:</span>
+                <span class="info-value">${item.Cdc || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Part Number:</span>
+                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Stato:</span>
+                <span class="info-value">${item.Stato || '-'}</span>
+            </div>
+            <div class="ubicazione-section">
+                <div class="ubicazione-label">Ubicazione:</div>
+                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            </div>
+        </div>`;
+}
 
         printArea.innerHTML = html;
         printArea.style.display = 'block';
@@ -1192,6 +1367,7 @@ useEffect(() => {
                             <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-1 border rounded">
                                 <option value="10x10">10×10</option>
                                 <option value="10x5">10×5</option>
+                                <option value="10x10g">10×10G (Generica)</option>
                             </select>
                             <button onClick={() => stampaEtichetta(currentItem, formatoStampa)} className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
                                 <Icons.Printer /> Stampa
@@ -1204,6 +1380,26 @@ useEffect(() => {
                         <InfoRow label="Cod. SAP" value={currentItem.CodSap} />
                         <InfoRow label="Stato" value={currentItem.Stato} />
                         <InfoRow label="Descrizione" value={currentItem.Descrizione} className="col-span-2" />
+                        <div className="col-span-2">
+    <p className="text-sm text-gray-600 font-medium mb-2">Part Number</p>
+    {editingPartNumber ? (
+        <div className="flex gap-2">
+            <input type="text" value={newPartNumber} 
+                   onChange={(e) => setNewPartNumber(e.target.value)} 
+                   className="flex-1 px-3 py-2 border rounded" />
+            <button onClick={handleUpdatePartNumber} 
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Salva</button>
+            <button onClick={() => setEditingPartNumber(false)} 
+                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Annulla</button>
+        </div>
+    ) : (
+        <div className="flex gap-2 items-center">
+            <p className="text-lg font-semibold text-gray-800">{currentItem.PartNumber || '-'}</p>
+            <button onClick={() => { setEditingPartNumber(true); setNewPartNumber(currentItem.PartNumber || ''); }} 
+                    className="text-blue-500 hover:text-blue-700"><Icons.Edit /></button>
+        </div>
+    )}
+</div>
                         <div className="col-span-2">
                             <p className="text-sm text-gray-600 font-medium mb-2">Ubicazione</p>
                             {editingUbicazione ? (
@@ -1259,7 +1455,7 @@ useEffect(() => {
     const [bulkUbicazione, setBulkUbicazione] = useState('');
     const [formatoStampa, setFormatoStampa] = useState('10x10');
     const [editingUbicazione, setEditingUbicazione] = useState({});
-    
+    const [editingPartNumber, setEditingPartNumber] = useState({});
     // VIRTUALIZZAZIONE
     const [displayCount, setDisplayCount] = useState(50);
     const [hasMore, setHasMore] = useState(true);
@@ -1274,8 +1470,36 @@ useEffect(() => {
         serSN: true,
         stato: true,
         ubicazione: true,
+        partNumber: true,
         seriale: true
     });
+            const updatePartNumberLista = async (item, newPN) => {
+    if (!newPN.trim()) return;
+    
+    const updated = giacenza.map(i => 
+        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPN } 
+            : i
+    );
+    setGiacenza(updated);
+    appCache.giacenza = updated;
+    await dbCache.set('giacenza', updated);
+    
+    let filtered = updated.filter(i => !i.inventariato);
+    // Applica filtri esistenti...
+    setFilteredData(filtered);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updated }
+    }));
+    
+    try {
+        await api('updatePartNumber', { seriale: item.RISCONTROSERIALEF, partNumber: newPN });
+        console.log('✅ PartNumber salvato sul server');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+    }
+};
 
     useEffect(() => {
         async function load() {
@@ -1453,6 +1677,7 @@ useEffect(() => {
                         wmsCode: item.WMSCode || '',
                         cdc: item.Cdc || '',
                         poNr: item.PoNr || '',
+                        partNumber: found.PartNumber || '',
                         idRigaGiacenza: item.ID_Riga || ''
                     }
                 });
@@ -1500,7 +1725,7 @@ useEffect(() => {
                         <hr class="thin">
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.CodSap || ''}</span>
+                            <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
                             <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
@@ -1527,7 +1752,44 @@ useEffect(() => {
                             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         </div>
                     </div>`;
-            }
+            // DOPO il blocco else per 10x5, aggiungere:
+} else if (formato === '10x10g') {
+    html = `
+        <div class="etichetta-10x10g">
+            <div class="header-10x10g">
+                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+            <div class="codice-bp-section">
+                <div class="codice-bp-label">Codice BP</div>
+                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            </div>
+            <hr>
+            <svg class="barcode-10x10g" id="${bcId}"></svg>
+            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <hr>
+            <div class="info-row">
+                <span class="info-label">Po Nr:</span>
+                <span class="info-value">${item.PoNr || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">CDC:</span>
+                <span class="info-value">${item.Cdc || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Part Number:</span>
+                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Stato:</span>
+                <span class="info-value">${item.Stato || '-'}</span>
+            </div>
+            <div class="ubicazione-section">
+                <div class="ubicazione-label">Ubicazione:</div>
+                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            </div>
+        </div>`;
+}
         });
 
         printArea.innerHTML = html;
@@ -1627,6 +1889,12 @@ useEffect(() => {
                         <label htmlFor="col-ubicazione">Ubicazione</label>
                     </div>
                     <div className="column-option">
+    <input type="checkbox" id="col-partNumber" 
+           checked={visibleColumns.partNumber} 
+           onChange={() => toggleColumn('partNumber')} />
+    <label htmlFor="col-partNumber">Part Number</label>
+</div>
+                    <div className="column-option">
                         <input type="checkbox" id="col-seriale" checked={visibleColumns.seriale} onChange={() => toggleColumn('seriale')} />
                         <label htmlFor="col-seriale">Seriale</label>
                     </div>
@@ -1663,6 +1931,7 @@ useEffect(() => {
                         <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
                             <option value="10x10">10×10</option>
                             <option value="10x5">10×5</option>
+                            <option value="10x10g">10×10G (Generica)</option>
                         </select>
                         <button onClick={stampaSelezionati} className="flex items-center gap-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                             <Icons.Printer /> Stampa
@@ -1688,6 +1957,7 @@ useEffect(() => {
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.stato ? 'col-hidden' : ''}`}>Stato</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>Ubicazione</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>Seriale</th>
+                                <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1730,6 +2000,36 @@ useEffect(() => {
         </div>
     )}
 </td>
+                                    <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
+    {editingPartNumber[item.RISCONTROSERIALEF] ? (
+        <div className="flex gap-1">
+            <input 
+                type="text" 
+                defaultValue={item.PartNumber} 
+                onBlur={(e) => {
+                    updatePartNumberLista(item, e.target.value);
+                    setEditingPartNumber(prev => {
+                        const n = {...prev};
+                        delete n[item.RISCONTROSERIALEF];
+                        return n;
+                    });
+                }}
+                className="px-2 py-1 border rounded text-xs w-32" 
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
+            <button 
+                onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                     <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF}</td>
                                 </tr>
                             ))}
@@ -1759,7 +2059,7 @@ useEffect(() => {
     const [selected, setSelected] = useState([]);
     const [bulkUbicazione, setBulkUbicazione] = useState('');
     const [formatoStampa, setFormatoStampa] = useState('10x10');
-    
+    const [editingPartNumber, setEditingPartNumber] = useState({});
     // SELETTORE COLONNE
     const [showColumnSelector, setShowColumnSelector] = useState(false); // NUOVO        
     const [visibleColumns, setVisibleColumns] = useState({
@@ -1772,9 +2072,36 @@ useEffect(() => {
         stato: true,
         ubicazione: true,
         serialeAtteso: true,
+        partNumber: true,
         serialeRiscontrato: true,
         match: false
     });
+            const updatePartNumberStorico = async (item, newPN) => {
+    const updated = storico.map(i => 
+        i.Seriale_Riscontrato === item.Seriale_Riscontrato 
+            ? { ...i, PartNumber: newPN } 
+            : i
+    );
+    setStorico(updated);
+    setFilteredData(updated.filter(i => {
+        // Applica filtri esistenti...
+        return true;
+    }));
+    appCache.storico = updated;
+    await dbCache.set('storico', updated);
+    setEditingPartNumber(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    
+    try {
+        await api('updatePartNumber', { 
+            seriale: item.Seriale_Riscontrato, 
+            partNumber: newPN 
+        });
+        console.log('✅ PartNumber salvato sul server');
+    } catch (err) {
+        console.error('❌ Errore invio server:', err);
+        alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
+    }
+};
 
     useEffect(() => {
         async function loadData() {
@@ -2008,7 +2335,7 @@ useEffect(() => {
                         <hr class="thin">
                         <div class="part-section">
                             <span class="part-label">Part Number</span>
-                            <span class="part-value">${item.CodSap || ''}</span>
+                            <span class="part-value">${item.PartNumber || item.CodSap || ''}</span>
                             <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
                         </div>
                         <hr class="thin">
@@ -2035,7 +2362,44 @@ useEffect(() => {
                             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         </div>
                     </div>`;
-            }
+            // DOPO il blocco else per 10x5, aggiungere:
+} else if (formato === '10x10g') {
+    html = `
+        <div class="etichetta-10x10g">
+            <div class="header-10x10g">
+                <img class="logo-10x10g" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                <img class="qr-bp-10x10g" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+            <div class="codice-bp-section">
+                <div class="codice-bp-label">Codice BP</div>
+                <div class="codice-bp-value">${item.CodSap || ''}</div>
+            </div>
+            <hr>
+            <svg class="barcode-10x10g" id="${bcId}"></svg>
+            <div class="wms-10x10g">${item.WMSCode || ''}</div>
+            <hr>
+            <div class="info-row">
+                <span class="info-label">Po Nr:</span>
+                <span class="info-value">${item.PoNr || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">CDC:</span>
+                <span class="info-value">${item.Cdc || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Part Number:</span>
+                <span class="info-value">${item.PartNumber || item.CodSap || '-'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Stato:</span>
+                <span class="info-value">${item.Stato || '-'}</span>
+            </div>
+            <div class="ubicazione-section">
+                <div class="ubicazione-label">Ubicazione:</div>
+                <div class="ubicazione-value">${item.Ubicazioni || '-'}</div>
+            </div>
+        </div>`;
+}
         });
 
         printArea.innerHTML = html;
@@ -2141,6 +2505,12 @@ useEffect(() => {
                         <label htmlFor="col-serialeAtteso">Seriale Atteso</label>
                     </div>
                     <div className="column-option">
+    <input type="checkbox" id="col-partNumber" 
+           checked={visibleColumns.partNumber} 
+           onChange={() => toggleColumn('partNumber')} />
+    <label htmlFor="col-partNumber">Part Number</label>
+</div>
+                    <div className="column-option">
                         <input type="checkbox" id="col-serialeRiscontrato" checked={visibleColumns.serialeRiscontrato} onChange={() => toggleColumn('serialeRiscontrato')} />
                         <label htmlFor="col-serialeRiscontrato">Seriale Riscontrato</label>
                     </div>
@@ -2187,6 +2557,7 @@ useEffect(() => {
                         <select value={formatoStampa} onChange={(e) => setFormatoStampa(e.target.value)} className="px-3 py-2 border rounded">
                             <option value="10x10">10×10</option>
                             <option value="10x5">10×5</option>
+                            <option value="10x10g">10×10G (Generica)</option>
                         </select>
                         <button onClick={stampaSelezionati} className="flex items-center gap-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                             <Icons.Printer /> Stampa
@@ -2217,6 +2588,7 @@ useEffect(() => {
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.stato ? 'col-hidden' : ''}`}>Stato</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>Ubicazione</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>Seriale Atteso</th>
+                                <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>Seriale Riscontrato</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.match ? 'col-hidden' : ''}`}>Match</th>
                             </tr>
@@ -2276,7 +2648,31 @@ useEffect(() => {
                                             </div>
                                         )}
                                     </td>
+                                    
                                     <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF || '-'}</td>
+                                    <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
+    {editingPartNumber[item.Seriale_Riscontrato] ? (
+        <div className="flex gap-1">
+            <input 
+                type="text" 
+                defaultValue={item.PartNumber} 
+                onBlur={(e) => updatePartNumberStorico(item, e.target.value)} 
+                className="px-2 py-1 border rounded text-xs w-32" 
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
+            <button 
+                onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                     <td className={`px-3 py-2 font-mono text-xs font-bold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>{item.Seriale_Riscontrato}</td>
                                     <td className={`px-3 py-2 ${!visibleColumns.match ? 'col-hidden' : ''}`}>
                                         {item.Match === 'OK' ? (
