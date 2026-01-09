@@ -219,7 +219,7 @@ body {
   right: 0;
   bottom: 2.8mm;
   font-size: 7pt;
-  top: 15mm;
+  top: 9mm;
   font-weight: bold;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
@@ -1206,7 +1206,8 @@ useEffect(() => {
                 Ubicazioni: found.Ubicazioni,
                 RISCONTROSERIALEF: found.RISCONTROSERIALEF,
                 WMSCode: found.WMSCode,
-                PoNr: found.PoNr
+                PoNr: found.PoNr,
+                PartNumber: found.PartNumber
             };
             
             const updatedStorico = [newEntry, ...storico];
@@ -1790,7 +1791,8 @@ const handleUpdatePartNumber = async () => {
         Ubicazioni: ubicazioneFinale,
         RISCONTROSERIALEF: item.RISCONTROSERIALEF,
         WMSCode: item.WMSCode,
-        PoNr: item.PoNr
+        PoNr: item.PoNr,
+        PartNumber: item.PartNumber
     }));
     
     // Prendi lo storico esistente dalla cache o inizializza vuoto
