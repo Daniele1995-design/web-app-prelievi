@@ -1340,7 +1340,7 @@ const handleUpdatePartNumber = async () => {
                         <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                     </div>
                 </div>`;
-        } else if (formato === '10x10g') {
+        } else if (formatoStampa === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
             <div class="logo-container">
@@ -1394,7 +1394,7 @@ const handleUpdatePartNumber = async () => {
     if (item.WMSCode) {
         JsBarcode('#' + bcId, item.WMSCode, {
             format: "CODE128",
-            height: formato === '10x10' ? 20 : (formato === '10x10g' ? 24 : 18), // ✅ AGGIUNTO 10x10g
+            height: formato === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18), // ✅ AGGIUNTO 10x10g
             width: 1.5,
             displayValue: false,
             margin: 0
@@ -1864,7 +1864,7 @@ const handleUpdatePartNumber = async () => {
                             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         </div>
                     </div>`;
-} else if (formato === '10x10g') {
+} else if (formatoStampa === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
             <div class="logo-container">
@@ -2507,7 +2507,7 @@ const handleUpdatePartNumber = async () => {
                         </div>
                     </div>`;
             // DOPO il blocco else per 10x5, aggiungere:
-} else if (formato === '10x10g') {
+} else if (formatoStampa === '10x10g') {
     html = `
         <div class="etichetta-10x10g">
             <div class="logo-container">
