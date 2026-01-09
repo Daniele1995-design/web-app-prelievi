@@ -1867,6 +1867,8 @@ useEffect(() => {
     if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
     // MATCH ESATTO per Cod.SAP
     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    // MATCH ESATTO per Po Nr
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());    
     // Filtro per Data/Ora
     if (filters.dataOra) {
         filtered = filtered.filter(i => {
