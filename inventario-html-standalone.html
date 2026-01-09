@@ -1030,24 +1030,34 @@ useEffect(() => {
     const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // 1. AGGIORNA SUBITO IN LOCALE
-    const updated = giacenza.map(i => 
+    // 1. AGGIORNA GIACENZA
+    const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
             ? { ...i, Ubicazioni: newUbicazione } 
             : i
     );
-    setGiacenza(updated);
+    setGiacenza(updatedGiacenza);
     setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
     setEditingUbicazione(false);
-    appCache.giacenza = updated;
-    await dbCache.set('giacenza', updated);
+    appCache.giacenza = updatedGiacenza;
+    await dbCache.set('giacenza', updatedGiacenza);
     
-    // 2. NOTIFICA ALTRI COMPONENTI
+    // 2. AGGIORNA STORICO
+    const updatedStorico = storico.map(i => 
+        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
+            ? { ...i, Ubicazioni: newUbicazione } 
+            : i
+    );
+    setStorico(updatedStorico);
+    appCache.storico = updatedStorico;
+    await dbCache.set('storico', updatedStorico);
+    
+    // 3. NOTIFICA ALTRI COMPONENTI
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updated }
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
-    // 3. INVIA AL SERVER IN BACKGROUND
+    // 4. INVIA AL SERVER IN BACKGROUND
     try {
         await api('updateUbicazione', { 
             seriale: currentItem.RISCONTROSERIALEF, 
@@ -1248,6 +1258,7 @@ useEffect(() => {
     const [selected, setSelected] = useState([]);
     const [bulkUbicazione, setBulkUbicazione] = useState('');
     const [formatoStampa, setFormatoStampa] = useState('10x10');
+    const [editingUbicazione, setEditingUbicazione] = useState({});
     
     // VIRTUALIZZAZIONE
     const [displayCount, setDisplayCount] = useState(50);
@@ -1375,10 +1386,58 @@ useEffect(() => {
     };
 
     const verificaMassivo = async () => {
-        if (selected.length === 0) return alert('Seleziona almeno un articolo');
-        const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
-        if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}?`)) return;
-        
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
+    if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}?`)) return;
+    
+    // 1. AGGIORNA SUBITO IN LOCALE
+    const updatedGiacenza = giacenza.map(i => 
+        selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
+            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } 
+            : i
+    );
+    
+    const newEntries = selected.map(item => ({
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(),
+        Operatore: user.nome,
+        Seriale_Riscontrato: item.RISCONTROSERIALEF,
+        Match: 'OK',
+        CodSap: item.CodSap,
+        Descrizione: item.Descrizione,
+        Cdc: item.Cdc,
+        Stato: item.Stato,
+        Ubicazioni: ubicazioneFinale,
+        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
+        WMSCode: item.WMSCode,
+        PoNr: item.PoNr
+    }));
+    
+    // Prendi lo storico esistente dalla cache o inizializza vuoto
+    const currentStorico = appCache.storico || [];
+    const updatedStorico = [...newEntries, ...currentStorico];
+    
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    
+    await Promise.all([
+        dbCache.set('giacenza', updatedGiacenza),
+        dbCache.set('storico', updatedStorico)
+    ]);
+    
+    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkUbicazione('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    alert('Verifica completata localmente!');
+    
+    // 2. INVIA AL SERVER IN BACKGROUND
+    (async () => {
         try {
             for (const item of selected) {
                 await api('saveRiscontro', {
@@ -1398,20 +1457,13 @@ useEffect(() => {
                     }
                 });
             }
-            
-            const updatedGiacenza = giacenza.map(i => selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } : i);
-            setGiacenza(updatedGiacenza);
-            appCache.giacenza = updatedGiacenza;
-            await dbCache.set('giacenza', updatedGiacenza);
-            
-            setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-            setSelected([]);
-            setBulkUbicazione('');
-            alert('Verifica completata');
+            console.log('✅ Verifica massiva salvata sul server');
         } catch (err) {
-            alert('Errore verifica: ' + err.message);
+            console.error('❌ Errore invio server:', err);
+            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati con il server');
         }
-    };
+    })();
+};
 
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
@@ -1648,7 +1700,36 @@ useEffect(() => {
                                     <td className={`px-3 py-2 ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>{item.Descrizione}</td>
                                     <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>{item['SerS/No'] === 'Sì' ? '✅' : '❌'}</td>
                                     <td className={`px-3 py-2 ${!visibleColumns.stato ? 'col-hidden' : ''}`}><span className={`px-2 py-1 rounded text-xs font-medium ${item.Stato === 'NUOVO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{item.Stato}</span></td>
-                                    <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>{item.Ubicazioni}</td>
+                                    <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>
+    {editingUbicazione[item.RISCONTROSERIALEF] ? (
+        <div className="flex gap-1">
+            <input 
+                type="text" 
+                defaultValue={item.Ubicazioni} 
+                onBlur={(e) => {
+                    updateUbicazioneLista(item, e.target.value);
+                    setEditingUbicazione(prev => {
+                        const n = {...prev};
+                        delete n[item.RISCONTROSERIALEF];
+                        return n;
+                    });
+                }}
+                className="px-2 py-1 border rounded text-xs w-32" 
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span>{item.Ubicazioni}</span>
+            <button 
+                onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                     <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF}</td>
                                 </tr>
                             ))}
@@ -1684,6 +1765,7 @@ useEffect(() => {
     const [visibleColumns, setVisibleColumns] = useState({
         dataOra: true,
         operatore: true,
+        poNr: true,
         codSap: true,
         descrizione: true,
         cdc: true,
@@ -1747,22 +1829,30 @@ useEffect(() => {
     }, []);
 
     useEffect(() => {
-        const handleUpdate = async (event) => {
-            if (event.detail && event.detail.storico) {
-                const updatedStorico = event.detail.storico;
-                setStorico(updatedStorico);
-                appCache.storico = updatedStorico;
-                
-                let filtered = [...updatedStorico];
-                if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
-                
-                setFilteredData(filtered);
+    const handleUpdate = async (event) => {
+        if (event.detail && event.detail.storico) {
+            const updatedStorico = event.detail.storico;
+            setStorico(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            let filtered = [...updatedStorico];
+            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
+            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+            if (filters.dataOra) {
+                filtered = filtered.filter(i => {
+                    const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+                    return itemDate.includes(filters.dataOra);
+                });
             }
-        };
+            
+            setFilteredData(filtered);
+        }
+    };
 
         window.addEventListener('ats-data-updated', handleUpdate);
         return () => window.removeEventListener('ats-data-updated', handleUpdate);
@@ -1787,6 +1877,40 @@ useEffect(() => {
     setFilteredData(filtered);
     setShowFilters(false);
 };
+    const updateUbicazioneLista = async (item, newUbic) => {
+    if (!newUbic.trim()) return;
+    
+    // 1. AGGIORNA LOCALE
+    const updated = giacenza.map(i => 
+        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+            ? { ...i, Ubicazioni: newUbic } 
+            : i
+    );
+    setGiacenza(updated);
+    appCache.giacenza = updated;
+    await dbCache.set('giacenza', updated);
+    
+    let filtered = updated.filter(i => !i.inventariato);
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+    if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    setFilteredData(filtered);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updated }
+    }));
+    
+    // 2. SERVER IN BACKGROUND
+    try {
+        await api('updateUbicazione', { seriale: item.RISCONTROSERIALEF, ubicazione: newUbic });
+        console.log('✅ Ubicazione salvata sul server');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+    }
+};        
 
     const toggleColumn = (column) => {
         setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
@@ -1985,6 +2109,11 @@ useEffect(() => {
                         <input type="checkbox" id="col-operatore" checked={visibleColumns.operatore} onChange={() => toggleColumn('operatore')} />
                         <label htmlFor="col-operatore">Operatore</label>
                     </div>
+                     <div className="column-option">
+                        <input type="checkbox" id="col-poNr" checked={visibleColumns.poNr} onChange={() => toggleColumn('poNr')} />
+                        <label htmlFor="col-poNr">Po Nr</label>
+                    </div>
+                    
                     <div className="column-option">
                         <input type="checkbox" id="col-codSap" checked={visibleColumns.codSap} onChange={() => toggleColumn('codSap')} />
                         <label htmlFor="col-codSap">Cod. SAP</label>
@@ -2025,6 +2154,7 @@ useEffect(() => {
                         <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
+                            <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
@@ -2078,6 +2208,7 @@ useEffect(() => {
                                 </th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.dataOra ? 'col-hidden' : ''}`}>Data/Ora</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.operatore ? 'col-hidden' : ''}`}>Operatore</th>
+                                <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>Po Nr</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.codSap ? 'col-hidden' : ''}`}>Cod. SAP</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>Descrizione</th>
                                 <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>CDC</th>
@@ -2111,6 +2242,7 @@ useEffect(() => {
                                         })}
                                     </td>
                                     <td className={`px-3 py-2 ${!visibleColumns.operatore ? 'col-hidden' : ''}`}>{item.Operatore}</td>
+                                    <td className={`px-3 py-2 ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>{item.PoNr || '-'}</td>
                                     <td className={`px-3 py-2 font-medium ${!visibleColumns.codSap ? 'col-hidden' : ''}`}>{item.CodSap}</td>
                                     <td className={`px-3 py-2 ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>{item.Descrizione}</td>
                                     <td className={`px-3 py-2 ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>{item.Cdc || '-'}</td>
