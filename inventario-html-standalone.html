@@ -1743,7 +1743,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 descrizione: newItemData.descrizione || `Articolo ${newItemData.codSap}`,
                 ubicazioni: newItemData.ubicazione,
                 cdc: newItemData.cdc,
-                stato: 'INVENTARIATO',
+                stato: newItemData.stato,
                 match: 'OK',
                 part_number: newItemData.partNumber || '',
                 ser_sn: newItemData.serSN,
