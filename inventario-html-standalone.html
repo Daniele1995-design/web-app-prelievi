@@ -1473,8 +1473,8 @@ operations: groups[action]
                             appCache.storico = storico;
                             
                             await Promise.all([
-                                dbCache.set('giacenza', giacenza),
-                                dbCache.set('storico', storico)
+                                //dbCache.set('giacenza', giacenza),
+                                //dbCache.set('storico', storico)
                             ]);
                             
                             window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2114,8 +2114,8 @@ operations: groups[action]
                 appCache.storico = updatedStorico;
                 
                 await Promise.all([
-                    dbCache.set('giacenza', updatedGiacenza),
-                    dbCache.set('storico', updatedStorico)
+                    //dbCache.set('giacenza', updatedGiacenza),
+                    //dbCache.set('storico', updatedStorico)
                 ]);
                 
                 setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
@@ -2675,7 +2675,7 @@ operations: groups[action]
                 return match;
             }));
             appCache.storico = updated;
-            await dbCache.set('storico', updated);
+            //await dbCache.set('storico', updated);
             setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
             
             try {
@@ -2708,7 +2708,7 @@ operations: groups[action]
                 return match;
             }));
             appCache.storico = updated;
-            await dbCache.set('storico', updated);
+            //await dbCache.set('storico', updated);
             setEditingPartNumber(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
             
             try {
@@ -2735,7 +2735,7 @@ operations: groups[action]
                 setStorico(updated);
                 setFilteredData(updated);
                 appCache.storico = updated;
-                await dbCache.set('storico', updated);
+                //await dbCache.set('storico', updated);
                 setSelected([]);
                 setBulkUbicazione('');
                 alert('Ubicazioni aggiornate');
@@ -2763,7 +2763,7 @@ operations: groups[action]
                 setStorico(updated);
                 setFilteredData(updated);
                 appCache.storico = updated;
-                await dbCache.set('storico', updated);
+                //await dbCache.set('storico', updated);
                 setSelected([]);
                 setBulkPartNumber('');
                 alert('Part Number aggiornati');
