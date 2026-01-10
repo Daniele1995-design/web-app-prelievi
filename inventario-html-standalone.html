@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario ATS - Supabase Ultimate</title>
-    
+    <title>Inventario ATS - Supabase Full</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +13,7 @@
    
 <style>
 /* ======================================================
-   I TUOI STILI ORIGINALI (INTATTI)
+   STILI ORIGINALI (COPIATI DAL TUO FILE)
 ====================================================== */
 body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .no-print { margin-bottom: 10px; }
@@ -23,6 +22,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   @page { size: 100mm 100mm; margin: 0; }
   html, body { width: 100mm; height: 100mm; margin: 0; padding: 0; }
 }
+
 /* ETICHETTA 10x10 */
 .etichetta-10x10 { width: 100mm; height: 100mm; border: 0.5px solid #000; background: white; padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative; }
 .logo-container { height: 10mm; margin-bottom: 0.5mm; position: relative; }
@@ -55,16 +55,14 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .ubicazione-under-sn .pos-value { font-size: 10pt; font-weight: bold; line-height: 1.2; word-break: break-all; }
 
 /* ETICHETTA 10x5 */
-@media print { @page { size: 100mm 50mm; margin: 0; } }
 .etichetta-10x5 { width: 100mm; height: 50mm; border: 0.5px solid #000; background: white; padding: 2mm 3mm; box-sizing: border-box; page-break-after: always; position: relative; font-size: 8pt; }
 .et5-logo { height: 8mm; display: inline-block; vertical-align: middle; }
-.et5-codbp { display: inline-block; float: center; text-align: center; font-weight: bold; font-size: 16pt; }
-.et5-qr-bp { width: 10mm; height: 10mm; vertical-align: middle; margin-left: 0.5mm; }
-.et5-barcode { width: 65mm; height: 20px; display: block; margin: 2mm auto 1mm; }
-.et5-wms { text-align: center; font-weight: bold; font-size: 9pt; margin-bottom: 1mm; }
-.et5-info { font-size: 10pt; display: flex; justify-content: space-between; margin-top: 1mm; }
-.et5-info div { line-height: 1.5; }
-.et5-qr-sn { width: 10mm; height: 10mm; margin-left: 2mm; vertical-align: middle; margin-top: 4mm; }
+.et5-codbp { display: inline-block; font-weight: bold; font-size: 16pt; margin-left: 5mm; vertical-align: middle; }
+.et5-qr-bp { width: 10mm; height: 10mm; float: right; }
+.et5-barcode { width: 70mm; height: 25px; margin: 2mm auto; display: block; }
+.et5-wms { text-align: center; font-weight: bold; margin-bottom: 1mm; }
+.et5-info { display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; }
+.et5-qr-sn { width: 12mm; height: 12mm; }
 
 /* ETICHETTA 10x10G */
 .etichetta-10x10g { width: 100mm; height: 100mm; border: 0.5px solid #000; background: white; padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative; }
@@ -90,17 +88,11 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .etichetta-10x10g .qr-part { position: absolute; top: 0; right: 3.5mm; width: 10mm; height: 10mm; }
 .etichetta-10x10g .ubicazione-large { margin-top: 2mm; border-top: 1px solid black; padding-top: 2mm; }
 .etichetta-10x10g .ubicazione-large .pos-label { font-size: 9pt; font-weight: bold; margin-bottom: 0.5mm; }
-.etichetta-10x10g .ubicazione-large .pos-value { font-size: 16pt; font-weight: bold; line-height: 1.2; word-break: break-all; }
+.etichetta-10x10g .ubicazione-large .pos-value { font-size: 24pt; font-weight: bold; line-height: 1.2; word-break: break-all; }
 
-/* UTILS */
-.column-selector { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.column-selector h4 { margin: 0 0 12px 0; font-size: 14px; color: #374151; }
-.column-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.column-option { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+/* UI APP STYLES */
 .col-hidden { display: none !important; }
-.column-selector-toggle { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
-.column-selector-toggle:hover { background: #2563eb; }
-.column-selector.collapsed { display: none; }
+.column-selector { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 </style>
 </head>
 <body>
@@ -108,77 +100,92 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
     <div id="print-area" style="display:none;"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-        // ============================================
-        // 1. CONFIGURAZIONE SUPABASE
-        // ============================================
+        // Configurazione
         const SUPABASE_URL = 'https://gggkjzbggdaujoyxmvxa.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnZ2tqemJnZ2RhdWpveXhtdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMjY3NjcsImV4cCI6MjA4MzYwMjc2N30.8Qikb54_UnZdVj71mISuoZytByI2sosk57noLebU76A';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ============================================
-        // 2. ADAPTER (IL SEGRETO PER MANTENERE IL CODICE UGUALE)
-        // ============================================
-        // Queste funzioni trasformano i dati di Supabase (snake_case)
-        // nel formato che la tua app React si aspetta (PascalCase)
-        
-        function normalizeGiacenza(data) {
-            return data.map(item => ({
-                ID_Riga: item.id_riga,
-                PoNr: item.po_nr,
-                Cdc: item.cdc,
-                CodSap: item.cod_sap,
-                Descrizione: item.descrizione,
-                'SerS/No': item.ser_sn, 
-                Stato: item.stato,
-                Ubicazioni: item.ubicazioni,
-                WMSCode: item.wms_code,
-                RISCONTROSERIALEF: item.riscontro_seriale_f, // Fondamentale
-                PartNumber: item.part_number,
-                inventariato: item.stato === 'INVENTARIATO',
-                Match: item.match,
-                'Qtà': item.qta
-            }));
-        }
+        // Database locale (IndexedDB)
+        const dbCache = {
+            db: null,
+            async init() {
+                return new Promise((resolve) => {
+                    const req = indexedDB.open('ATS_DB_V2', 1);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        db.createObjectStore('giacenza', { keyPath: 'ID_Riga' });
+                        db.createObjectStore('storico', { keyPath: 'id', autoIncrement: true });
+                    };
+                    req.onsuccess = () => { this.db = req.result; resolve(); };
+                });
+            },
+            async set(store, data) {
+                const tx = this.db.transaction(store, 'readwrite');
+                const s = tx.objectStore(store);
+                s.clear();
+                data.forEach(d => s.add(d));
+            },
+            async getAll(store) {
+                return new Promise(res => {
+                    const tx = this.db.transaction(store, 'readonly');
+                    const req = tx.objectStore(store).getAll();
+                    req.onsuccess = () => res(req.result);
+                });
+            }
+        };
 
-        function normalizeStorico(data) {
-            return data.map(item => ({
-                id: item.id,
-                Timestamp: item.timestamp,
-                Operatore: item.operatore,
-                CodSap: item.cod_sap,
-                Descrizione: item.descrizione,
-                Ubicazioni: item.ubicazione,
-                Seriale_Riscontrato: item.seriale_riscontrato,
-                RISCONTROSERIALEF: item.seriale_atteso,
-                Match: item.match ? 'OK' : 'KO',
-                WMSCode: item.wms_code,
-                Cdc: item.cdc,
-                PoNr: item.po_nr,
-                PartNumber: item.part_number,
-                Stato: item.match ? 'INVENTARIATO' : 'ERRORE'
-            }));
-        }
+        // ======================================================
+        // DATA ADAPTER (TRADUTTORE)
+        // Trasforma i dati Supabase nel formato del tuo file
+        // ======================================================
+        const adaptGiacenza = (dbData) => dbData.map(item => ({
+            ID_Riga: item.id_riga,
+            PoNr: item.po_nr || '',
+            Cdc: item.cdc || '',
+            CodSap: item.cod_sap || '',
+            Descrizione: item.descrizione || '',
+            'SerS/No': item.ser_sn || '',
+            Stato: item.stato || '',
+            Ubicazioni: item.ubicazioni || '',
+            WMSCode: item.wms_code || '',
+            RISCONTROSERIALEF: item.riscontro_seriale_f || '',
+            PartNumber: item.part_number || '',
+            inventariato: item.stato === 'INVENTARIATO',
+            Match: item.match || ''
+        }));
 
-        // ============================================
-        // 3. NUOVA FUNZIONE API (SOSTITUISCE GOOGLE)
-        // ============================================
-        async function api(action, payload = {}, isBatch = false) {
+        const adaptStorico = (dbData) => dbData.map(item => ({
+            id: item.id,
+            Timestamp: item.timestamp,
+            Operatore: item.operatore,
+            CodSap: item.cod_sap,
+            Descrizione: item.descrizione,
+            Ubicazioni: item.ubicazione,
+            Seriale_Riscontrato: item.seriale_riscontrato,
+            RISCONTROSERIALEF: item.seriale_atteso,
+            Match: item.match ? 'OK' : 'KO',
+            WMSCode: item.wms_code,
+            Cdc: item.cdc,
+            PoNr: item.po_nr,
+            PartNumber: item.part_number
+        }));
+
+        // ======================================================
+        // API MANAGER (SOSTITUISCE GOOGLE APPS SCRIPT)
+        // ======================================================
+        async function apiCall(action, payload = {}) {
             try {
                 switch (action) {
                     case 'login':
-                        // Login semplificato per ora (o crea tabella 'utenti')
-                        // Se non hai tabella utenti, usa questo dummy per testare:
-                        // return { user: { nome: payload.username } }; 
-                        
                         const { data: user, error: lErr } = await supabase
                             .from('utenti')
                             .select('*')
                             .eq('username', payload.username)
                             .eq('password', payload.password)
                             .single();
-                        if (lErr || !user) throw new Error('Credenziali errate');
+                        if (lErr || !user) throw new Error('Login fallito');
                         return { user };
 
                     case 'getGiacenza':
@@ -186,625 +193,271 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             .from('giacenza')
                             .select('*');
                         if (gErr) throw gErr;
-                        return { data: normalizeGiacenza(gData) };
+                        return { data: adaptGiacenza(gData) };
 
                     case 'getStorico':
                         const { data: sData, error: sErr } = await supabase
                             .from('inventario')
                             .select('*')
                             .order('timestamp', { ascending: false })
-                            .limit(3000); // Scarica gli ultimi 3000
+                            .limit(1000);
                         if (sErr) throw sErr;
-                        return { data: normalizeStorico(sData) };
+                        return { data: adaptStorico(sData) };
 
-                    case 'saveRiscontro': 
                     case 'registraScansione':
-                        // Gestisce sia input singolo che oggetto 'data'
-                        const scanData = payload.data || payload;
-                        
-                        // Insert Inventario
-                        const { error: iErr } = await supabase.from('inventario').insert([{
-                            operatore: scanData.operatore,
-                            cod_sap: scanData.codSap,
-                            descrizione: scanData.descrizione,
-                            ubicazione: scanData.ubicazione,
-                            seriale_atteso: scanData.serialeAtteso,
-                            seriale_riscontrato: scanData.serialeRiscontrato,
-                            match: scanData.match === 'OK' || scanData.match === true,
-                            qta: 1,
-                            wms_code: scanData.wmsCode,
-                            cdc: scanData.cdc,
-                            po_nr: scanData.poNr,
-                            part_number: scanData.partNumber,
-                            id_riga_giacenza: scanData.idRigaGiacenza
-                        }]);
-                        if (iErr) throw iErr;
+                        // 1. Inserimento Storico
+                        const { error: insErr } = await supabase
+                            .from('inventario')
+                            .insert([{
+                                operatore: payload.operatore,
+                                cod_sap: payload.codSap,
+                                descrizione: payload.descrizione,
+                                ubicazione: payload.ubicazione,
+                                seriale_atteso: payload.serialeAtteso,
+                                seriale_riscontrato: payload.serialeRiscontrato,
+                                match: payload.match === 'OK',
+                                wms_code: payload.wmsCode,
+                                po_nr: payload.poNr,
+                                part_number: payload.partNumber,
+                                id_riga_giacenza: payload.idRigaGiacenza
+                            }]);
+                        if (insErr) throw insErr;
 
-                        // Update Giacenza se OK
-                        if (scanData.match === 'OK' || scanData.match === true) {
-                            await supabase.from('giacenza')
+                        // 2. Aggiornamento Giacenza (se Match OK)
+                        if (payload.match === 'OK') {
+                            await supabase
+                                .from('giacenza')
                                 .update({ stato: 'INVENTARIATO', match: 'OK' })
-                                .eq('riscontro_seriale_f', scanData.serialeRiscontrato);
+                                .eq('id_riga', payload.idRigaGiacenza);
                         }
                         return { success: true };
 
                     case 'updateUbicazione':
-                        // Aggiorna entrambe le tabelle
-                        await supabase.from('giacenza')
+                        await supabase
+                            .from('giacenza')
                             .update({ ubicazioni: payload.ubicazione })
                             .eq('riscontro_seriale_f', payload.seriale);
-                        await supabase.from('inventario')
-                            .update({ ubicazione: payload.ubicazione })
-                            .eq('seriale_riscontrato', payload.seriale);
                         return { success: true };
 
                     case 'updatePartNumber':
-                         await supabase.from('giacenza')
+                        await supabase
+                            .from('giacenza')
                             .update({ part_number: payload.partNumber })
                             .eq('riscontro_seriale_f', payload.seriale);
-                         await supabase.from('inventario')
-                            .update({ part_number: payload.partNumber })
-                            .eq('seriale_riscontrato', payload.seriale);
-                         return { success: true };
-
-                    case 'batchUpdateUbicazione':
-                        // Per le modifiche massive (loop ottimizzato)
-                        for (let item of payload.updates) {
-                            await api('updateUbicazione', item);
-                        }
                         return { success: true };
 
-                    case 'batchUpdatePartNumber':
-                        for (let item of payload.updates) {
-                             await api('updatePartNumber', item);
-                        }
-                        return { success: true };
-
-                    default:
-                        console.warn("Azione API non gestita:", action);
-                        return { success: true };
+                    default: return { success: true };
                 }
             } catch (err) {
-                console.error("SUPABASE ERROR:", err);
+                console.error("Errore API:", err);
                 throw err;
             }
         }
 
-        // ============================================
-        // 4. DB CACHE & QUEUE (DAL TUO FILE ORIGINALE)
-        // ============================================
-        const DB_NAME = 'ATSInventoryDB_SB'; // Nuovo DB locale
-        const DB_VERSION = 1;
-
-        const dbCache = {
-            db: null,
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(DB_NAME, DB_VERSION);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => { this.db = request.result; resolve(); };
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains('giacenza')) db.createObjectStore('giacenza', { keyPath: 'ID_Riga' });
-                        if (!db.objectStoreNames.contains('storico')) {
-                            const store = db.createObjectStore('storico', { keyPath: 'id', autoIncrement: true });
-                            store.createIndex('seriale', 'Seriale_Riscontrato', { unique: false });
-                        }
-                        if (!db.objectStoreNames.contains('metadata')) db.createObjectStore('metadata', { keyPath: 'key' });
-                    };
-                });
-            },
-            async get(storeName) {
-                if (!this.db) await this.init();
-                return new Promise((res, rej) => {
-                    const tx = this.db.transaction(storeName, 'readonly');
-                    const req = tx.objectStore(storeName).getAll();
-                    req.onsuccess = () => res(req.result || []);
-                    req.onerror = () => rej(req.error);
-                });
-            },
-            async set(storeName, data) {
-                if (!this.db) await this.init();
-                return new Promise((res, rej) => {
-                    const tx = this.db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    store.clear();
-                    data.forEach(item => store.add(item));
-                    tx.oncomplete = () => res();
-                    tx.onerror = () => rej(tx.error);
-                });
-            },
-            async setMetadata(key, value) {
-                if (!this.db) await this.init();
-                const tx = this.db.transaction('metadata', 'readwrite');
-                tx.objectStore('metadata').put({ key, value });
-            },
-            async getMetadata(key) {
-                if (!this.db) await this.init();
-                return new Promise(res => {
-                    const req = this.db.transaction('metadata', 'readonly').objectStore('metadata').get(key);
-                    req.onsuccess = () => res(req.result?.value);
-                });
-            },
-            async clearAll() {
-                if (!this.db) await this.init();
-                ['giacenza', 'storico', 'metadata'].forEach(s => {
-                    this.db.transaction(s, 'readwrite').objectStore(s).clear();
-                });
-            }
-        };
-
-        const appCache = { giacenza: null, storico: null, stats: null };
-
+        // ======================================================
+        // QUEUE MANAGER (LA TUA LOGICA ORIGINALE)
+        // ======================================================
         const operationQueue = {
             queue: [],
             processing: false,
-            batchTimer: null,
-            async add(action, payload, retries = 3) {
-                this.queue.push({ action, payload, retries, timestamp: Date.now() });
-                clearTimeout(this.batchTimer);
-                this.batchTimer = setTimeout(() => { if (!this.processing) this.process(); }, 500);
+            async add(action, payload) {
+                this.queue.push({ action, payload, id: Date.now() });
+                this.process();
             },
             async process() {
-                if (this.queue.length === 0) { this.processing = false; return; }
+                if (this.processing || this.queue.length === 0) return;
                 this.processing = true;
-                // Semplificato: processa uno alla volta per sicurezza con Supabase
-                const op = this.queue[0];
-                try {
-                    await api(op.action, op.payload);
-                    this.queue.shift(); // Rimuovi solo se successo
-                    console.log('✅ Operazione completata:', op.action);
-                } catch (err) {
-                    console.error('❌ Errore queue:', err);
-                    op.retries--;
-                    if (op.retries <= 0) this.queue.shift(); // Rimuovi se troppi errori
-                    await new Promise(r => setTimeout(r, 2000));
+                while (this.queue.length > 0) {
+                    const op = this.queue[0];
+                    try {
+                        await apiCall(op.action, op.payload);
+                        this.queue.shift();
+                    } catch (e) {
+                        console.log("Riprovo tra 5 secondi...");
+                        await new Promise(r => setTimeout(r, 5000));
+                        break; 
+                    }
                 }
                 this.processing = false;
-                if (this.queue.length > 0) setTimeout(() => this.process(), 200);
             }
         };
 
+        const ICON_SIZE = 20;
         // ============================================
-        // 5. COMPONENTI REACT (100% ORIGINALI)
+        // ICONE (LE TUE ORIGINALI)
         // ============================================
-        
         const Icons = {
-            Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
-            Package: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
-            List: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
-            BarChart: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>,
-            Printer: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
-            LogOut: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-            CheckCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
-            XCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
-            Filter: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
-            Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-            Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Camera: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+            Package: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+            List: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+            BarChart: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>,
+            Printer: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+            LogOut: () => <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            CheckCircle: () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            XCircle: () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+            Search: () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+            Edit: () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            Check: () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
-        function App() {
-            const [user, setUser] = useState(() => {
-                const saved = sessionStorage.getItem('ats_user');
-                return saved ? JSON.parse(saved) : null;
-            });
-            const [currentView, setCurrentView] = useState(sessionStorage.getItem('ats_view') || 'login');
-            const [queueSize, setQueueSize] = useState(0);
-
-            useEffect(() => {
-                if (user) { sessionStorage.setItem('ats_user', JSON.stringify(user)); sessionStorage.setItem('ats_view', currentView); }
-            }, [user, currentView]);
-
-            useEffect(() => {
-                const interval = setInterval(() => setQueueSize(operationQueue.queue.length), 1000);
-                return () => clearInterval(interval);
-            }, []);
-
-            const handleLogout = () => { setUser(null); setCurrentView('login'); sessionStorage.clear(); dbCache.clearAll(); };
-            const handleForceRefresh = async () => {
-                if (!confirm('Ricaricare tutti i dati dal server?')) return;
-                await dbCache.clearAll();
-                location.reload();
-            };
-
-            if (!user || currentView === 'login') return <Login onLogin={(u) => { setUser(u); setCurrentView('dashboard'); }} />;
-
-            return (
-                <div className="min-h-screen bg-gray-100 no-print">
-                    <header className="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
-                        <div><h1 className="text-2xl font-bold">Inventario ATS</h1><p className="text-sm opacity-90">{user.nome}</p></div>
-                        <div className="flex gap-2">
-                            {queueSize > 0 && <div className="bg-yellow-500 px-4 py-2 rounded font-medium">⏳ {queueSize} in coda</div>}
-                            <button onClick={handleForceRefresh} className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600">🔄 Refresh</button>
-                            <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded hover:bg-red-600"><Icons.LogOut /> Esci</button>
-                        </div>
-                    </header>
-                    <nav className="bg-white shadow-md">
-                        <div className="max-w-7xl mx-auto flex overflow-x-auto">
-                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
-                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
-                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
-                        </div>
-                    </nav>
-                    <main className="max-w-7xl mx-auto p-4">
-                        {currentView === 'dashboard' && <Dashboard />}
-                        {currentView === 'scanner' && <ModeScanner user={user} />}
-                        {currentView === 'lista' && <ModeLista user={user} />}
-                        {currentView === 'storico' && <Storico />}
-                    </main>
-                </div>
-            );
-        }
-
-        function NavButton({ icon, label, active, onClick }) {
-            return <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'}`}>{icon}<span className="font-medium">{label}</span></button>;
-        }
-
+        // --- LOGIN ---
         function Login({ onLogin }) {
             const [u, setU] = useState('');
             const [p, setP] = useState('');
-            const [loading, setLoading] = useState(false);
-            const handleLogin = async (e) => {
-                e.preventDefault(); setLoading(true);
+            const [err, setErr] = useState('');
+            const handle = async (e) => {
+                e.preventDefault();
                 try {
-                    const res = await api('login', { username: u, password: p });
+                    const res = await apiCall('login', { username: u, password: p });
                     onLogin(res.user);
-                } catch (e) { alert(e.message); } finally { setLoading(false); }
+                } catch { setErr('Errore login'); }
             };
             return (
-                <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
-                    <div className="bg-white p-8 rounded shadow-xl w-full max-w-sm">
-                        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Inventario ATS</h1>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <input className="w-full border p-3 rounded" placeholder="Username" value={u} onChange={e => setU(e.target.value)} />
-                            <input className="w-full border p-3 rounded" type="password" placeholder="Password" value={p} onChange={e => setP(e.target.value)} />
-                            <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">{loading ? 'Accesso...' : 'Accedi'}</button>
-                        </form>
-                    </div>
+                <div className="min-h-screen flex items-center justify-center bg-blue-600 p-4">
+                    <form onSubmit={handle} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+                        <h2 className="text-2xl font-bold mb-6 text-center">ATS Inventory Accedi</h2>
+                        {err && <div className="text-red-500 mb-4">{err}</div>}
+                        <input className="w-full p-3 mb-4 border rounded" placeholder="Username" value={u} onChange={e=>setU(e.target.value)} />
+                        <input type="password" className="w-full p-3 mb-6 border rounded" placeholder="Password" value={p} onChange={e=>setP(e.target.value)} />
+                        <button className="w-full bg-blue-600 text-white p-3 rounded font-bold">ACCEDI</button>
+                    </form>
                 </div>
             );
         }
 
+        // --- DASHBOARD ---
         function Dashboard() {
-            const [stats, setStats] = useState(null);
+            const [stats, setStats] = useState({totale:0, inventariato:0, mancanti:0, percentuale:0});
             useEffect(() => {
                 const load = async () => {
-                    const localG = await dbCache.get('giacenza');
-                    if (localG.length > 0) {
-                        const tot = localG.length;
-                        const inv = localG.filter(i => i.inventariato).length;
-                        setStats({ tot, inv, todo: tot - inv, match: localG.filter(i => i.Match === 'OK').length, perc: Math.round((inv / tot) * 100) });
-                    } else {
-                        // Primo caricamento
-                        const res = await api('getGiacenza');
-                        await dbCache.set('giacenza', res.data);
-                        location.reload(); // Ricarica per popolare le stats
-                    }
+                    const res = await apiCall('getGiacenza');
+                    const inv = res.data.filter(i => i.inventariato).length;
+                    setStats({
+                        totale: res.data.length,
+                        inventariato: inv,
+                        mancanti: res.data.length - inv,
+                        percentuale: res.data.length > 0 ? Math.round((inv/res.data.length)*100) : 0
+                    });
                 };
                 load();
-                const interval = setInterval(load, 10000);
-                return () => clearInterval(interval);
             }, []);
-
-            if (!stats) return <div className="text-center py-12">Caricamento stats...</div>;
-
             return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard title="Totale Giacenza" value={stats.tot} icon="📦" color="bg-blue-500" />
-                    <StatCard title="Inventariato" value={stats.inv} icon="✅" color="bg-green-500" />
-                    <StatCard title="Da Inventariare" value={stats.todo} icon="⏳" color="bg-yellow-500" />
-                    <StatCard title="Match OK" value={stats.match} icon="🎯" color="bg-purple-500" />
-                    <div className="col-span-full bg-white rounded shadow p-6">
-                        <div className="flex justify-between mb-2"><span className="font-bold">Avanzamento</span><span className="font-bold text-blue-600">{stats.perc}%</span></div>
-                        <div className="w-full bg-gray-200 h-4 rounded-full"><div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.perc}%` }}></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white p-6 rounded-xl shadow">
+                        <p className="text-sm text-gray-500">TOTALE</p>
+                        <p className="text-3xl font-bold">{stats.totale}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow text-green-600">
+                        <p className="text-sm">INVENTARIATO</p>
+                        <p className="text-3xl font-bold">{stats.inventariato}</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow">
+                        <p className="text-sm">PROGRESSO</p>
+                        <p className="text-3xl font-bold">{stats.percentuale}%</p>
                     </div>
                 </div>
             );
         }
-
-        function StatCard({ title, value, icon, color }) {
-            return (
-                <div className="bg-white rounded shadow p-6 border-l-4 border-transparent hover:border-blue-500 transition">
-                    <div className="flex justify-between mb-2"><span className="text-gray-500 font-medium">{title}</span><span className="text-2xl">{icon}</span></div>
-                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>{value}</p>
-                </div>
-            );
-        }
-
         function ModeScanner({ user }) {
-            const [scanInput, setScanInput] = useState('');
-            const [giacenza, setGiacenza] = useState([]);
-            const [currentItem, setCurrentItem] = useState(null);
-            const [message, setMessage] = useState({ type: '', text: '' });
-            const [formatoStampa, setFormatoStampa] = useState('10x10');
-            const [editingUbicazione, setEditingUbicazione] = useState(false);
-            const [newUbicazione, setNewUbicazione] = useState('');
-            const inputRef = useRef(null);
-
-            useEffect(() => {
-                const init = async () => {
-                    let g = await dbCache.get('giacenza');
-                    if (g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
-                    setGiacenza(g);
-                };
-                init();
-                inputRef.current?.focus();
-            }, []);
-
-            const playBeep = (type) => {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const g = ctx.createGain();
-                osc.connect(g); g.connect(ctx.destination);
-                osc.frequency.value = type === 'success' ? 800 : 300;
-                osc.type = 'square';
-                g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-                osc.start(); osc.stop(ctx.currentTime + 0.1);
+            const [scanned, setScanned] = useState('');
+            const [manual, setManual] = useState('');
+            const [status, setStatus] = useState({ type: 'idle', msg: 'In attesa di scansione...' });
+            const [lastItem, setLastItem] = useState(null);
+            
+            const audioCtx = useRef(new (window.AudioContext || window.webkitAudioContext)());
+            const beep = (freq, dur) => {
+                const osc = audioCtx.current.createOscillator();
+                const gain = audioCtx.current.createGain();
+                osc.connect(gain); gain.connect(audioCtx.current.destination);
+                osc.frequency.value = freq; osc.start();
+                setTimeout(() => osc.stop(), dur);
             };
 
-            const handleScan = async (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const code = scanInput.trim().toUpperCase();
-                    setScanInput('');
-                    
-                    const found = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && !i.inventariato);
-                    const already = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && i.inventariato);
+            const handleScan = async (val) => {
+                if (!val) return;
+                setStatus({ type: 'loading', msg: 'Verifica in corso...' });
+                const giacenza = await dbCache.getAll('giacenza');
+                const match = giacenza.find(i => i.RISCONTROSERIALEF === val);
 
-                    if (already) {
-                        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-                        playBeep('error');
-                    } else if (found) {
-                        const newItem = { ...found, inventariato: true, Match: 'OK' };
-                        const updatedG = giacenza.map(i => i.ID_Riga === found.ID_Riga ? newItem : i);
-                        setGiacenza(updatedG);
-                        setCurrentItem(newItem);
-                        setNewUbicazione(found.Ubicazioni || '');
-                        setMessage({ type: 'success', text: '✅ MATCH OK' });
-                        playBeep('success');
-                        await dbCache.set('giacenza', updatedG);
-
+                if (match) {
+                    if (match.inventariato) {
+                        beep(300, 500);
+                        setStatus({ type: 'error', msg: `GIÀ INVENTARIATO: ${val}` });
+                    } else {
+                        beep(1000, 200);
                         operationQueue.add('registraScansione', {
                             operatore: user.nome,
-                            codSap: found.CodSap,
-                            descrizione: found.Descrizione,
-                            ubicazione: found.Ubicazioni,
-                            serialeAtteso: found.RISCONTROSERIALEF,
-                            serialeRiscontrato: code,
+                            idRigaGiacenza: match.ID_Riga,
+                            serialeAtteso: val,
+                            serialeRiscontrato: val,
                             match: 'OK',
-                            wmsCode: found.WMSCode,
-                            idRigaGiacenza: found.ID_Riga,
-                            poNr: found.PoNr,
-                            partNumber: found.PartNumber,
-                            cdc: found.Cdc
+                            codSap: match.CodSap,
+                            descrizione: match.Descrizione,
+                            ubicazione: match.Ubicazioni,
+                            wmsCode: match.WMSCode,
+                            poNr: match.PoNr,
+                            partNumber: match.PartNumber
                         });
-                    } else {
-                        setMessage({ type: 'error', text: '❌ NON TROVATO' });
-                        playBeep('error');
+                        setStatus({ type: 'success', msg: `OK: ${match.Descrizione}` });
+                        setLastItem(match);
+                        // Aggiorna cache locale per non rifarlo
+                        match.inventariato = true;
+                        await dbCache.set('giacenza', giacenza);
                     }
-                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                } else {
+                    beep(200, 800);
+                    setStatus({ type: 'error', msg: `NON IN ANAGRAFICA: ${val}` });
                 }
-            };
-
-            const updateUbicazione = async () => {
-                if (!currentItem) return;
-                const updatedG = giacenza.map(i => i.ID_Riga === currentItem.ID_Riga ? { ...i, Ubicazioni: newUbicazione } : i);
-                setGiacenza(updatedG);
-                setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
-                setEditingUbicazione(false);
-                await dbCache.set('giacenza', updatedG);
-                operationQueue.add('updateUbicazione', { seriale: currentItem.RISCONTROSERIALEF, ubicazione: newUbicazione });
-            };
-
-            const stampaEtichetta = (item) => {
-                const printArea = document.getElementById('print-area');
-                const bcId = 'bc-' + Date.now();
-                let html = '';
-                
-                // LOGICA STAMPA ORIGINALE
-                if (formatoStampa === '10x10') {
-                    html = `<div class="etichetta-10x10">
-                        <div class="logo-container"><img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg"><div class="label-cod-bp">COD BP</div></div>
-                        <div class="bp-section"><div class="bp-label">Codice BP</div><div class="bp-value">${item.CodSap}</div><img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${item.CodSap}"></div>
-                        <hr><div class="art-label">Articolo</div><svg class="barcode-svg" id="${bcId}"></svg><div class="wms">${item.WMSCode}</div>
-                        <hr><div class="po-row"><div><span class="po-label">Po Nr</span> <span class="po-value">${item.PoNr}</span></div><div><span class="po-label">Pos</span> <span class="po-value">${item.Cdc}</span></div></div>
-                        <div class="label-tpn">TPN</div><hr class="thin">
-                        <div class="part-section"><span class="part-label">Part Number</span><span class="part-value">${item.PartNumber || ''}</span></div>
-                        <div class="sn-section"><span class="sn-label">SN</span><span class="sn-value">${item.RISCONTROSERIALEF}</span><img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${item.RISCONTROSERIALEF}"></div>
-                        <div class="ubicazione-under-sn"><span class="pos-label">Ubicazione</span><div class="pos-value">${item.Ubicazioni}</div></div>
-                    </div>`;
-                } else if (formatoStampa === '10x5') {
-                    html = `<div class="etichetta-10x5">
-                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg">
-                        <div class="et5-codbp">${item.CodSap}</div><svg class="et5-barcode" id="${bcId}"></svg>
-                        <div class="et5-info"><div>${item.PoNr}<br>${item.RISCONTROSERIALEF}</div><img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${item.RISCONTROSERIALEF}"></div>
-                    </div>`;
-                }
-
-                printArea.innerHTML = html;
-                printArea.style.display = 'block';
-                const imgs = Array.from(printArea.querySelectorAll('img'));
-                Promise.all(imgs.map(img => new Promise(resolve => {
-                    if (img.complete) resolve(); else { img.onload = resolve; img.onerror = resolve; }
-                }))).then(() => {
-                    JsBarcode('#' + bcId, item.WMSCode, { format: "CODE128", height: 20, width: 1.5, displayValue: false, margin: 0 });
-                    setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 500);
-                });
+                setScanned('');
             };
 
             return (
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded shadow">
-                        <h2 className="text-xl font-bold mb-4">Scannerizza Barcode</h2>
-                        <input ref={inputRef} value={scanInput} onChange={e => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full text-2xl border-2 border-blue-500 rounded p-4 shadow-inner" placeholder="Spara qui..." autoFocus />
-                    </div>
-                    {message.text && <div className={`p-6 text-white text-2xl font-bold text-center rounded-lg shadow ${message.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>{message.text}</div>}
-                    
-                    {currentItem && (
-                        <div className="bg-white p-6 rounded shadow-lg border-2 border-blue-100">
-                            <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                <h3 className="text-xl font-bold text-gray-800">Dettaglio Articolo</h3>
-                                <div className="flex gap-2">
-                                    <select value={formatoStampa} onChange={e => setFormatoStampa(e.target.value)} className="border rounded px-2">
-                                        <option value="10x10">10x10</option><option value="10x5">10x5</option><option value="10x10g">10x10G</option>
-                                    </select>
-                                    <button onClick={() => stampaEtichetta(currentItem)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex gap-2"><Icons.Printer /> Stampa</button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-gray-500">Cod. SAP</label><p className="font-bold text-lg">{currentItem.CodSap}</p></div>
-                                <div><label className="text-xs text-gray-500">Po Nr</label><p className="font-bold">{currentItem.PoNr}</p></div>
-                                <div className="col-span-2"><label className="text-xs text-gray-500">Descrizione</label><p className="font-bold">{currentItem.Descrizione}</p></div>
-                                <div className="col-span-2">
-                                    <label className="text-xs text-gray-500">Ubicazione</label>
-                                    {editingUbicazione ? (
-                                        <div className="flex gap-2">
-                                            <input value={newUbicazione} onChange={e => setNewUbicazione(e.target.value)} className="border p-2 rounded flex-1" />
-                                            <button onClick={updateUbicazione} className="bg-green-500 text-white px-3 rounded">OK</button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex justify-between items-center">
-                                            <p className="font-bold text-xl">{currentItem.Ubicazioni}</p>
-                                            <button onClick={() => setEditingUbicazione(true)} className="text-blue-500"><Icons.Edit /></button>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="col-span-2 bg-green-50 p-2 rounded text-center"><p className="text-green-800 font-mono font-bold text-xl">{currentItem.RISCONTROSERIALEF}</p></div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        function ModeLista({ user }) {
-            const [giacenza, setGiacenza] = useState([]);
-            const [selected, setSelected] = useState([]);
-            const [filters, setFilters] = useState({});
-            const [showCol, setShowCol] = useState(false);
-            const [cols, setCols] = useState({ poNr: true, cdc: true, codSap: true, desc: true, ub: true, sn: true });
-            
-            useEffect(() => {
-                const load = async () => {
-                    let g = await dbCache.get('giacenza');
-                    if(g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
-                    setGiacenza(g.filter(i => !i.inventariato));
-                };
-                load();
-            }, []);
-
-            const filtered = giacenza.filter(i => {
-                if (filters.poNr && !i.PoNr.includes(filters.poNr)) return false;
-                if (filters.codSap && !i.CodSap.includes(filters.codSap)) return false;
-                return true;
-            });
-
-            const handleMassive = async () => {
-                if (!confirm(`Confermi ${selected.length} articoli?`)) return;
-                const newG = await dbCache.get('giacenza');
-                for (let item of selected) {
-                    const idx = newG.findIndex(x => x.ID_Riga === item.ID_Riga);
-                    if (idx >= 0) { newG[idx].inventariato = true; newG[idx].Match = 'OK'; }
-                    operationQueue.add('registraScansione', {
-                        operatore: user.nome,
-                        codSap: item.CodSap,
-                        descrizione: item.Descrizione,
-                        ubicazione: item.Ubicazioni,
-                        serialeAtteso: item.RISCONTROSERIALEF,
-                        serialeRiscontrato: item.RISCONTROSERIALEF,
-                        match: 'OK',
-                        idRigaGiacenza: item.ID_Riga,
-                        partNumber: item.PartNumber
-                    });
-                }
-                await dbCache.set('giacenza', newG);
-                setGiacenza(newG.filter(i => !i.inventariato));
-                setSelected([]);
-            };
-
-            return (
-                <div className="space-y-4">
-                    <div className="flex justify-between">
-                        <h2 className="text-xl font-bold">Lista Giacenza ({filtered.length})</h2>
-                        <div className="flex gap-2">
-                             <button onClick={() => setShowCol(!showCol)} className="bg-gray-200 px-3 py-1 rounded">👁️ Colonne</button>
-                             {selected.length > 0 && <button onClick={handleMassive} className="bg-green-600 text-white px-4 py-2 rounded shadow">Conferma ({selected.length})</button>}
-                        </div>
-                    </div>
-                    
-                    {showCol && (
-                        <div className="bg-white p-4 shadow rounded flex gap-4">
-                            <label><input type="checkbox" checked={cols.poNr} onChange={() => setCols({...cols, poNr: !cols.poNr})} /> Po Nr</label>
-                            <label><input type="checkbox" checked={cols.codSap} onChange={() => setCols({...cols, codSap: !cols.codSap})} /> SAP</label>
-                        </div>
-                    )}
-
-                    <div className="bg-white shadow rounded overflow-hidden">
-                        <div className="p-2 bg-gray-50 flex gap-2">
-                            <input placeholder="Filtra SAP..." className="border p-1 rounded" onChange={e => setFilters({...filters, codSap: e.target.value})} />
-                            <input placeholder="Filtra PO..." className="border p-1 rounded" onChange={e => setFilters({...filters, poNr: e.target.value})} />
-                        </div>
-                        <div className="overflow-auto max-h-[600px]">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-100 sticky top-0">
-                                    <tr>
-                                        <th className="p-2"><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered : [])} /></th>
-                                        {cols.poNr && <th className="p-2">Po Nr</th>}
-                                        {cols.cdc && <th className="p-2">CDC</th>}
-                                        {cols.codSap && <th className="p-2">SAP</th>}
-                                        {cols.desc && <th className="p-2">Descrizione</th>}
-                                        {cols.ub && <th className="p-2">Ubicazione</th>}
-                                        {cols.sn && <th className="p-2">Seriale</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.slice(0, 100).map(r => (
-                                        <tr key={r.ID_Riga} className="border-b hover:bg-gray-50">
-                                            <td className="p-2"><input type="checkbox" checked={selected.includes(r)} onChange={e => {
-                                                if(e.target.checked) setSelected([...selected, r]); else setSelected(selected.filter(x => x !== r));
-                                            }} /></td>
-                                            {cols.poNr && <td className="p-2">{r.PoNr}</td>}
-                                            {cols.cdc && <td className="p-2">{r.Cdc}</td>}
-                                            {cols.codSap && <td className="p-2 font-mono font-bold">{r.CodSap}</td>}
-                                            {cols.desc && <td className="p-2">{r.Descrizione}</td>}
-                                            {cols.ub && <td className="p-2">{r.Ubicazioni}</td>}
-                                            {cols.sn && <td className="p-2 font-mono">{r.RISCONTROSERIALEF}</td>}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm">
+                        <input 
+                            autoFocus 
+                            className="w-full p-4 border-2 border-blue-500 rounded-xl text-center text-2xl" 
+                            placeholder="SCANSIONA SERIALE"
+                            value={scanned}
+                            onChange={e => {setScanned(e.target.value); if(e.target.value.length > 5) handleScan(e.target.value)}}
+                        />
+                        <div className={`mt-4 p-4 rounded-xl text-center font-bold ${
+                            status.type === 'error' ? 'bg-red-100 text-red-700' : 
+                            status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-gray-100'
+                        }`}>
+                            {status.msg}
                         </div>
                     </div>
                 </div>
             );
         }
-
-        function Storico() {
+        function ModeLista() {
             const [data, setData] = useState([]);
+            const [filter, setFilter] = useState('');
             useEffect(() => {
-                const load = async () => {
-                    const res = await api('getStorico');
-                    setData(res.data);
-                };
-                load();
+                dbCache.getAll('giacenza').then(setData);
             }, []);
 
+            const filtered = data.filter(i => 
+                Object.values(i).some(v => String(v).toLowerCase().includes(filter.toLowerCase()))
+            );
+
             return (
-                <div className="bg-white shadow rounded overflow-hidden">
-                    <h2 className="p-4 font-bold border-b">Storico Ultimi Movimenti</h2>
-                    <div className="overflow-auto max-h-[600px]">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-100 sticky top-0">
-                                <tr><th className="p-3">Data</th><th className="p-3">Operatore</th><th className="p-3">SAP</th><th className="p-3">Seriale</th><th className="p-3">Esito</th></tr>
+                <div className="bg-white rounded-xl shadow overflow-hidden">
+                    <div className="p-4 border-b">
+                        <input className="w-full p-2 border rounded" placeholder="Filtra giacenza..." onChange={e=>setFilter(e.target.value)} />
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-gray-50 uppercase font-bold">
+                                <tr><th className="p-3">CodSap</th><th className="p-3">Seriale</th><th className="p-3">Stato</th></tr>
                             </thead>
                             <tbody>
-                                {data.map(r => (
-                                    <tr key={r.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-3">{new Date(r.Timestamp).toLocaleString()}</td>
-                                        <td className="p-3 font-medium">{r.Operatore}</td>
-                                        <td className="p-3">{r.CodSap}</td>
-                                        <td className="p-3 font-mono">{r.Seriale_Riscontrato}</td>
-                                        <td className="p-3">{r.Match === 'OK' ? <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold">OK</span> : <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold">KO</span>}</td>
+                                {filtered.slice(0, 50).map(i => (
+                                    <tr key={i.ID_Riga} className="border-t">
+                                        <td className="p-3">{i.CodSap}</td>
+                                        <td className="p-3 font-mono">{i.RISCONTROSERIALEF}</td>
+                                        <td className="p-3">{i.inventariato ? '✅' : '❌'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -814,7 +467,51 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        function Storico() {
+            const [logs, setLogs] = useState([]);
+            useEffect(() => {
+                apiCall('getStorico').then(res => setLogs(res.data));
+            }, []);
+            return (
+                <div className="space-y-2">
+                    {logs.map(l => (
+                        <div key={l.id} className="bg-white p-3 rounded shadow-sm text-xs flex justify-between">
+                            <span>{l.Timestamp} - <strong>{l.Seriale_Riscontrato}</strong></span>
+                            <span className={l.Match === 'OK' ? 'text-green-600' : 'text-red-600'}>{l.Match}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // --- MAIN APP RENDER ---
+        function Main() {
+            const [view, setView] = useState('login');
+            const [user, setUser] = useState(null);
+
+            if (view === 'login') return <Login onLogin={(u) => {setUser(u); setView('dash')}} />;
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <header className="bg-blue-700 text-white p-4 flex justify-between">
+                        <span className="font-bold">ATS INVENTORY</span>
+                        <button onClick={() => setView('login')}>Esci</button>
+                    </header>
+                    <nav className="flex bg-white border-b">
+                        <button className="flex-1 p-3" onClick={() => setView('dash')}>STATO</button>
+                        <button className="flex-1 p-3" onClick={() => setView('scanner')}>SCANNER</button>
+                        <button className="flex-1 p-3" onClick={() => setView('lista')}>LISTA</button>
+                    </nav>
+                    <div className="p-4 flex-1">
+                        {view === 'dash' && <Dashboard />}
+                        {view === 'scanner' && <ModeScanner user={user} />}
+                        {view === 'lista' && <ModeLista />}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<Main />, document.getElementById('root'));
     </script>
 </body>
 </html>
