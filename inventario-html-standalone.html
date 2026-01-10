@@ -733,123 +733,31 @@ case 'updateNoteStorico':
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
 
-    case 'updateUbicazione':
-    console.log('🔍 DEBUG updateUbicazione - Payload:', payload);
-    
-    const giacUpdateUbic = { ubicazioni: payload.ubicazione };
-    if (payload.note) giacUpdateUbic.note = payload.note;
-    
-    const { error: gErr1 } = await supabaseClient
-        .from('giacenza')
-        .update(giacUpdateUbic)
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    if (gErr1) {
-        console.error('❌ Errore update giacenza:', gErr1);
-        throw gErr1;
-    }
-    
-    // Aggiorna inventario SOLO se esiste (non bloccare se non c'è)
-    const invUpdateUbic = { ubicazione: payload.ubicazione };
-    if (payload.note) invUpdateUbic.note = payload.note;
-    
-    await supabaseClient
-        .from('inventario')
-        .update(invUpdateUbic)
-        .eq('seriale_riscontrato', payload.seriale);
-    
-    console.log('✅ Ubicazione aggiornata');
-    return { success: true };
+   case 'updateUbicazione':
+                        await supabaseClient
+                            .from('giacenza')
+                            .update({ ubicazioni: payload.ubicazione })
+                            .eq('riscontro_seriale_f', payload.seriale);
+                        
+                        await supabaseClient
+                            .from('inventario')
+                            .update({ ubicazione: payload.ubicazione })
+                            .eq('seriale_riscontrato', payload.seriale);
+                        
+                        return { success: true };
 
-case 'updateNote':
-    console.log('🔍 DEBUG updateNote - Payload:', payload);
-    
-    const { count: countNote } = await supabaseClient
-        .from('giacenza')
-        .select('*', { count: 'exact', head: true })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    console.log('🔍 Righe trovate per note:', countNote);
-    
-    if (countNote === 0) {
-        console.error('❌ SERIALE NON TROVATO PER NOTE!');
-        throw new Error(`Seriale ${payload.seriale} non trovato`);
-    }
-    
-    const { error: gErr2, data: gData2 } = await supabaseClient
-        .from('giacenza')
-        .update({ note: payload.note })
-        .eq('riscontro_seriale_f', payload.seriale)
-        .select();
-    
-    if (gErr2) {
-        console.error('❌ Errore update note giacenza:', gErr2);
-        throw gErr2;
-    }
-    
-    console.log('✅ Note giacenza aggiornate:', gData2?.length || 0);
-    
-    const { error: iErr2, data: iData2 } = await supabaseClient
-        .from('inventario')
-        .update({ note: payload.note })
-        .eq('seriale_riscontrato', payload.seriale)
-        .select();
-    
-    if (iErr2) {
-        console.error('❌ Errore update note inventario:', iErr2);
-        throw iErr2;
-    }
-    
-    console.log('✅ Note inventario aggiornate:', iData2?.length || 0);
-    return { success: true };
-
-case 'updatePartNumber':
-    console.log('🔍 DEBUG updatePartNumber - Payload:', payload);
-    
-    const { count: countPN } = await supabaseClient
-        .from('giacenza')
-        .select('*', { count: 'exact', head: true })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    console.log('🔍 Righe trovate per PartNumber:', countPN);
-    
-    if (countPN === 0) {
-        console.error('❌ SERIALE NON TROVATO PER PARTNUMBER!');
-        throw new Error(`Seriale ${payload.seriale} non trovato`);
-    }
-    
-    const giacUpdatePN = { part_number: payload.partNumber };
-    if (payload.note) giacUpdatePN.note = payload.note;
-    
-    const { error: gErr3, data: gData3 } = await supabaseClient
-        .from('giacenza')
-        .update(giacUpdatePN)
-        .eq('riscontro_seriale_f', payload.seriale)
-        .select();
-    
-    if (gErr3) {
-        console.error('❌ Errore update part number giacenza:', gErr3);
-        throw gErr3;
-    }
-    
-    console.log('✅ PartNumber giacenza aggiornato:', gData3?.length || 0);
-    
-    const invUpdatePN = { part_number: payload.partNumber };
-    if (payload.note) invUpdatePN.note = payload.note;
-    
-    const { error: iErr3, data: iData3 } = await supabaseClient
-        .from('inventario')
-        .update(invUpdatePN)
-        .eq('seriale_riscontrato', payload.seriale)
-        .select();
-    
-    if (iErr3) {
-        console.error('❌ Errore update part number inventario:', iErr3);
-        throw iErr3;
-    }
-    
-    console.log('✅ PartNumber inventario aggiornato:', iData3?.length || 0);
-    return { success: true };
+                    case 'updatePartNumber':
+                        await supabaseClient
+                            .from('giacenza')
+                            .update({ part_number: payload.partNumber })
+                            .eq('riscontro_seriale_f', payload.seriale);
+                        
+                        await supabaseClient
+                            .from('inventario')
+                            .update({ part_number: payload.partNumber })
+                            .eq('seriale_riscontrato', payload.seriale);
+                        
+                        return { success: true };
 
                         
                     case 'batchUpdateUbicazione':
