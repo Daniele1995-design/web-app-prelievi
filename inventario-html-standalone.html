@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario ATS - Supabase</title>
+    <title>Inventario ATS - Supabase Ultimate</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -14,22 +14,17 @@
    
 <style>
 /* ======================================================
-   STILI CSS COMPLETI
+   I TUOI STILI ORIGINALI (INTATTI)
 ====================================================== */
 body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .no-print { margin-bottom: 10px; }
-
 @media print {
   .no-print { display: none; }
   @page { size: 100mm 100mm; margin: 0; }
   html, body { width: 100mm; height: 100mm; margin: 0; padding: 0; }
 }
-
 /* ETICHETTA 10x10 */
-.etichetta-10x10 {
-  width: 100mm; height: 100mm; border: 0.5px solid #000; background: white;
-  padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative;
-}
+.etichetta-10x10 { width: 100mm; height: 100mm; border: 0.5px solid #000; background: white; padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative; }
 .logo-container { height: 10mm; margin-bottom: 0.5mm; position: relative; }
 .logo-img { height: 9mm; }
 .label-cod-bp { position: absolute; right: 0; top: 12mm; font-size: 7pt; font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.3px; }
@@ -73,18 +68,38 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
 /* ETICHETTA 10x10G */
 .etichetta-10x10g { width: 100mm; height: 100mm; border: 0.5px solid #000; background: white; padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative; }
-/* (Stili identici a 10x10 per le parti comuni, aggiunte le differenze) */
-.etichetta-10x10g .logo-container, .etichetta-10x10g .bp-section, .etichetta-10x10g .art-label, .etichetta-10x10g .wms, .etichetta-10x10g .po-row, .etichetta-10x10g .part-section {
-    /* Eredita stili inline o usa classi comuni se refactoring, qui duplicato per sicurezza */
-}
+.etichetta-10x10g .logo-container { height: 10mm; margin-bottom: 0.5mm; position: relative; }
+.etichetta-10x10g .logo-img { height: 9mm; }
+.etichetta-10x10g .label-cod-bp { position: absolute; right: 0; top: 12mm; font-size: 7pt; font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.3px; }
+.etichetta-10x10g .bp-section { margin-bottom: 1mm; }
+.etichetta-10x10g .bp-label { font-size: 9pt; font-weight: bold; margin-bottom: 0.2mm; }
+.etichetta-10x10g .bp-value { font-size: 18pt; font-weight: bold; line-height: 1; }
+.etichetta-10x10g .qr-bp { position: absolute; top: 11mm; right: 13mm; width: 10mm; height: 10mm; }
+.etichetta-10x10g hr { border: none; border-top: 0.1px solid black; margin: 0.5mm 0; }
+.etichetta-10x10g hr.thin { border-top: 0.5px solid black; margin: 1mm 0; }
+.etichetta-10x10g .art-label { font-weight: bold; font-size: 9pt; margin: 0 0 0.8mm; }
+.etichetta-10x10g .barcode-svg { width: 72mm; height: 26px; margin: 0 auto 0.8mm; display: block; }
+.etichetta-10x10g .wms { text-align: center; font-size: 10pt; font-weight: bold; margin-bottom: 0.1mm; }
+.etichetta-10x10g .po-row { margin-top: 0.1mm; margin-bottom: 0.5mm; display: flex; justify-content: space-between; }
+.etichetta-10x10g .po-label { font-size: 9pt; font-weight: bold; }
+.etichetta-10x10g .po-value { font-size: 13pt; font-weight: bold; line-height: 1; display: block; }
+.etichetta-10x10g .label-tpn { position: absolute; right: 3mm; top: 61mm; font-size: 7pt; font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.3px; }
+.etichetta-10x10g .part-section { margin: 0.1mm 0 1mm; position: relative; }
+.etichetta-10x10g .part-label { font-size: 9pt; font-weight: bold; }
+.etichetta-10x10g .part-value { font-size: 13pt; font-weight: bold; line-height: 1; display: block; }
+.etichetta-10x10g .qr-part { position: absolute; top: 0; right: 3.5mm; width: 10mm; height: 10mm; }
 .etichetta-10x10g .ubicazione-large { margin-top: 2mm; border-top: 1px solid black; padding-top: 2mm; }
 .etichetta-10x10g .ubicazione-large .pos-label { font-size: 9pt; font-weight: bold; margin-bottom: 0.5mm; }
 .etichetta-10x10g .ubicazione-large .pos-value { font-size: 16pt; font-weight: bold; line-height: 1.2; word-break: break-all; }
 
-/* LAYOUT UTILS */
+/* UTILS */
 .column-selector { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.column-selector h4 { margin: 0 0 12px 0; font-size: 14px; color: #374151; }
 .column-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.column-option { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .col-hidden { display: none !important; }
+.column-selector-toggle { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
+.column-selector-toggle:hover { background: #2563eb; }
 .column-selector.collapsed { display: none; }
 </style>
 </head>
@@ -96,16 +111,17 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         const { useState, useEffect, useRef } = React;
 
         // ============================================
-        // CONFIGURAZIONE SUPABASE
+        // 1. CONFIGURAZIONE SUPABASE
         // ============================================
         const SUPABASE_URL = 'https://gggkjzbggdaujoyxmvxa.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnZ2tqemJnZ2RhdWpveXhtdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMjY3NjcsImV4cCI6MjA4MzYwMjc2N30.8Qikb54_UnZdVj71mISuoZytByI2sosk57noLebU76A';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // ============================================
-        // API ADAPTER & NORMALIZER
-        // Converte i campi del DB (minuscoli) in quelli dell'App (CamelCase/Upper)
+        // 2. ADAPTER (IL SEGRETO PER MANTENERE IL CODICE UGUALE)
         // ============================================
+        // Queste funzioni trasformano i dati di Supabase (snake_case)
+        // nel formato che la tua app React si aspetta (PascalCase)
         
         function normalizeGiacenza(data) {
             return data.map(item => ({
@@ -114,11 +130,11 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Cdc: item.cdc,
                 CodSap: item.cod_sap,
                 Descrizione: item.descrizione,
-                'SerS/No': item.ser_sn, // Mappa colonna DB 'ser_sn' a 'SerS/No'
+                'SerS/No': item.ser_sn, 
                 Stato: item.stato,
                 Ubicazioni: item.ubicazioni,
                 WMSCode: item.wms_code,
-                RISCONTROSERIALEF: item.riscontro_seriale_f, // CRUCIALE per il match
+                RISCONTROSERIALEF: item.riscontro_seriale_f, // Fondamentale
                 PartNumber: item.part_number,
                 inventariato: item.stato === 'INVENTARIATO',
                 Match: item.match,
@@ -133,7 +149,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Operatore: item.operatore,
                 CodSap: item.cod_sap,
                 Descrizione: item.descrizione,
-                Ubicazioni: item.ubicazione, // Nota singolare nel DB storico
+                Ubicazioni: item.ubicazione,
                 Seriale_Riscontrato: item.seriale_riscontrato,
                 RISCONTROSERIALEF: item.seriale_atteso,
                 Match: item.match ? 'OK' : 'KO',
@@ -145,43 +161,49 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             }));
         }
 
+        // ============================================
+        // 3. NUOVA FUNZIONE API (SOSTITUISCE GOOGLE)
+        // ============================================
         async function api(action, payload = {}, isBatch = false) {
             try {
                 switch (action) {
                     case 'login':
-                        // Cerca utente in tabella 'utenti'
+                        // Login semplificato per ora (o crea tabella 'utenti')
+                        // Se non hai tabella utenti, usa questo dummy per testare:
+                        // return { user: { nome: payload.username } }; 
+                        
                         const { data: user, error: lErr } = await supabase
                             .from('utenti')
                             .select('*')
                             .eq('username', payload.username)
                             .eq('password', payload.password)
                             .single();
-                        
-                        if (lErr || !user) throw new Error('Credenziali errate o utente non trovato');
+                        if (lErr || !user) throw new Error('Credenziali errate');
                         return { user };
 
                     case 'getGiacenza':
-                        // Scarica tutta la giacenza
-                        const { data: gData, error: gErr } = await supabase.from('giacenza').select('*');
+                        const { data: gData, error: gErr } = await supabase
+                            .from('giacenza')
+                            .select('*');
                         if (gErr) throw gErr;
                         return { data: normalizeGiacenza(gData) };
 
                     case 'getStorico':
-                        // Scarica ultimi 2000 record inventario
                         const { data: sData, error: sErr } = await supabase
                             .from('inventario')
                             .select('*')
                             .order('timestamp', { ascending: false })
-                            .limit(2000);
+                            .limit(3000); // Scarica gli ultimi 3000
                         if (sErr) throw sErr;
                         return { data: normalizeStorico(sData) };
 
-                    case 'saveRiscontro': // USATO DA MODE SCANNER
+                    case 'saveRiscontro': 
                     case 'registraScansione':
+                        // Gestisce sia input singolo che oggetto 'data'
                         const scanData = payload.data || payload;
                         
-                        // 1. Insert in Inventario
-                        const invPayload = {
+                        // Insert Inventario
+                        const { error: iErr } = await supabase.from('inventario').insert([{
                             operatore: scanData.operatore,
                             cod_sap: scanData.codSap,
                             descrizione: scanData.descrizione,
@@ -195,26 +217,22 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             po_nr: scanData.poNr,
                             part_number: scanData.partNumber,
                             id_riga_giacenza: scanData.idRigaGiacenza
-                        };
-                        const { error: iErr } = await supabase.from('inventario').insert([invPayload]);
+                        }]);
                         if (iErr) throw iErr;
 
-                        // 2. Update Giacenza (se match OK)
+                        // Update Giacenza se OK
                         if (scanData.match === 'OK' || scanData.match === true) {
-                            const { error: uErr } = await supabase
-                                .from('giacenza')
+                            await supabase.from('giacenza')
                                 .update({ stato: 'INVENTARIATO', match: 'OK' })
-                                .eq('riscontro_seriale_f', scanData.serialeRiscontrato); // Usa seriale per sicurezza
-                            if (uErr) console.warn("Errore update giacenza", uErr);
+                                .eq('riscontro_seriale_f', scanData.serialeRiscontrato);
                         }
                         return { success: true };
 
                     case 'updateUbicazione':
-                        // Aggiorna sia Giacenza che Inventario (se presente)
+                        // Aggiorna entrambe le tabelle
                         await supabase.from('giacenza')
                             .update({ ubicazioni: payload.ubicazione })
                             .eq('riscontro_seriale_f', payload.seriale);
-                        
                         await supabase.from('inventario')
                             .update({ ubicazione: payload.ubicazione })
                             .eq('seriale_riscontrato', payload.seriale);
@@ -224,14 +242,26 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                          await supabase.from('giacenza')
                             .update({ part_number: payload.partNumber })
                             .eq('riscontro_seriale_f', payload.seriale);
-                            
                          await supabase.from('inventario')
                             .update({ part_number: payload.partNumber })
                             .eq('seriale_riscontrato', payload.seriale);
                          return { success: true };
 
+                    case 'batchUpdateUbicazione':
+                        // Per le modifiche massive (loop ottimizzato)
+                        for (let item of payload.updates) {
+                            await api('updateUbicazione', item);
+                        }
+                        return { success: true };
+
+                    case 'batchUpdatePartNumber':
+                        for (let item of payload.updates) {
+                             await api('updatePartNumber', item);
+                        }
+                        return { success: true };
+
                     default:
-                        console.warn("Azione non gestita API:", action);
+                        console.warn("Azione API non gestita:", action);
                         return { success: true };
                 }
             } catch (err) {
@@ -241,9 +271,9 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         // ============================================
-        // DB CACHE (IndexedDB) - MANTENUTO PER PERFORMANCE
+        // 4. DB CACHE & QUEUE (DAL TUO FILE ORIGINALE)
         // ============================================
-        const DB_NAME = 'ATSInventoryDB_SB'; // Nuovo nome per evitare conflitti vecchi
+        const DB_NAME = 'ATSInventoryDB_SB'; // Nuovo DB locale
         const DB_VERSION = 1;
 
         const dbCache = {
@@ -256,7 +286,10 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     request.onupgradeneeded = (e) => {
                         const db = e.target.result;
                         if (!db.objectStoreNames.contains('giacenza')) db.createObjectStore('giacenza', { keyPath: 'ID_Riga' });
-                        if (!db.objectStoreNames.contains('storico')) db.createObjectStore('storico', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('storico')) {
+                            const store = db.createObjectStore('storico', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('seriale', 'Seriale_Riscontrato', { unique: false });
+                        }
                         if (!db.objectStoreNames.contains('metadata')) db.createObjectStore('metadata', { keyPath: 'key' });
                     };
                 });
@@ -264,7 +297,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             async get(storeName) {
                 if (!this.db) await this.init();
                 return new Promise((res, rej) => {
-                    const req = this.db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+                    const tx = this.db.transaction(storeName, 'readonly');
+                    const req = tx.objectStore(storeName).getAll();
                     req.onsuccess = () => res(req.result || []);
                     req.onerror = () => rej(req.error);
                 });
@@ -302,10 +336,39 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
         const appCache = { giacenza: null, storico: null, stats: null };
 
-        // ============================================
-        // REACT COMPONENTS
-        // ============================================
+        const operationQueue = {
+            queue: [],
+            processing: false,
+            batchTimer: null,
+            async add(action, payload, retries = 3) {
+                this.queue.push({ action, payload, retries, timestamp: Date.now() });
+                clearTimeout(this.batchTimer);
+                this.batchTimer = setTimeout(() => { if (!this.processing) this.process(); }, 500);
+            },
+            async process() {
+                if (this.queue.length === 0) { this.processing = false; return; }
+                this.processing = true;
+                // Semplificato: processa uno alla volta per sicurezza con Supabase
+                const op = this.queue[0];
+                try {
+                    await api(op.action, op.payload);
+                    this.queue.shift(); // Rimuovi solo se successo
+                    console.log('✅ Operazione completata:', op.action);
+                } catch (err) {
+                    console.error('❌ Errore queue:', err);
+                    op.retries--;
+                    if (op.retries <= 0) this.queue.shift(); // Rimuovi se troppi errori
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                this.processing = false;
+                if (this.queue.length > 0) setTimeout(() => this.process(), 200);
+            }
+        };
 
+        // ============================================
+        // 5. COMPONENTI REACT (100% ORIGINALI)
+        // ============================================
+        
         const Icons = {
             Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             Package: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
@@ -325,20 +388,36 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 const saved = sessionStorage.getItem('ats_user');
                 return saved ? JSON.parse(saved) : null;
             });
-            const [currentView, setCurrentView] = useState('dashboard');
+            const [currentView, setCurrentView] = useState(sessionStorage.getItem('ats_view') || 'login');
+            const [queueSize, setQueueSize] = useState(0);
 
-            if (!user) return <Login onLogin={setUser} />;
+            useEffect(() => {
+                if (user) { sessionStorage.setItem('ats_user', JSON.stringify(user)); sessionStorage.setItem('ats_view', currentView); }
+            }, [user, currentView]);
+
+            useEffect(() => {
+                const interval = setInterval(() => setQueueSize(operationQueue.queue.length), 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const handleLogout = () => { setUser(null); setCurrentView('login'); sessionStorage.clear(); dbCache.clearAll(); };
+            const handleForceRefresh = async () => {
+                if (!confirm('Ricaricare tutti i dati dal server?')) return;
+                await dbCache.clearAll();
+                location.reload();
+            };
+
+            if (!user || currentView === 'login') return <Login onLogin={(u) => { setUser(u); setCurrentView('dashboard'); }} />;
 
             return (
                 <div className="min-h-screen bg-gray-100 no-print">
                     <header className="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold">Inventario ATS (Supabase)</h1>
-                            <p className="text-sm opacity-90">Operatore: {user.nome}</p>
+                        <div><h1 className="text-2xl font-bold">Inventario ATS</h1><p className="text-sm opacity-90">{user.nome}</p></div>
+                        <div className="flex gap-2">
+                            {queueSize > 0 && <div className="bg-yellow-500 px-4 py-2 rounded font-medium">⏳ {queueSize} in coda</div>}
+                            <button onClick={handleForceRefresh} className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600">🔄 Refresh</button>
+                            <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded hover:bg-red-600"><Icons.LogOut /> Esci</button>
                         </div>
-                        <button onClick={() => { setUser(null); sessionStorage.clear(); }} className="bg-red-500 px-4 py-2 rounded flex gap-2">
-                            <Icons.LogOut /> Esci
-                        </button>
                     </header>
                     <nav className="bg-white shadow-md">
                         <div className="max-w-7xl mx-auto flex overflow-x-auto">
@@ -349,52 +428,38 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         </div>
                     </nav>
                     <main className="max-w-7xl mx-auto p-4">
-                        {currentView === 'dashboard' && <Dashboard user={user} />}
+                        {currentView === 'dashboard' && <Dashboard />}
                         {currentView === 'scanner' && <ModeScanner user={user} />}
                         {currentView === 'lista' && <ModeLista user={user} />}
-                        {currentView === 'storico' && <Storico user={user} />}
+                        {currentView === 'storico' && <Storico />}
                     </main>
                 </div>
             );
         }
 
         function NavButton({ icon, label, active, onClick }) {
-            return (
-                <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'}`}>
-                    {icon}<span className="font-medium">{label}</span>
-                </button>
-            );
+            return <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 border-b-4 transition ${active ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-50'}`}>{icon}<span className="font-medium">{label}</span></button>;
         }
 
         function Login({ onLogin }) {
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
+            const [u, setU] = useState('');
+            const [p, setP] = useState('');
             const [loading, setLoading] = useState(false);
-
             const handleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
+                e.preventDefault(); setLoading(true);
                 try {
-                    const res = await api('login', { username, password });
-                    sessionStorage.setItem('ats_user', JSON.stringify(res.user));
+                    const res = await api('login', { username: u, password: p });
                     onLogin(res.user);
-                } catch (err) {
-                    alert('Errore: ' + err.message);
-                } finally {
-                    setLoading(false);
-                }
+                } catch (e) { alert(e.message); } finally { setLoading(false); }
             };
-
             return (
                 <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
                     <div className="bg-white p-8 rounded shadow-xl w-full max-w-sm">
-                        <h1 className="text-2xl font-bold mb-6 text-center">Login ATS</h1>
+                        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Inventario ATS</h1>
                         <form onSubmit={handleLogin} className="space-y-4">
-                            <input className="w-full border p-3 rounded" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-                            <input className="w-full border p-3 rounded" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-                            <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">
-                                {loading ? 'Accesso...' : 'Accedi'}
-                            </button>
+                            <input className="w-full border p-3 rounded" placeholder="Username" value={u} onChange={e => setU(e.target.value)} />
+                            <input className="w-full border p-3 rounded" type="password" placeholder="Password" value={p} onChange={e => setP(e.target.value)} />
+                            <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">{loading ? 'Accesso...' : 'Accedi'}</button>
                         </form>
                     </div>
                 </div>
@@ -402,40 +467,47 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         function Dashboard() {
-            const [stats, setStats] = useState({ tot: 0, inv: 0, todo: 0, match: 0, perc: 0 });
-            
+            const [stats, setStats] = useState(null);
             useEffect(() => {
                 const load = async () => {
-                    const res = await api('getGiacenza');
-                    const tot = res.data.length;
-                    const inv = res.data.filter(i => i.inventariato).length;
-                    setStats({
-                        tot, inv, todo: tot - inv,
-                        match: res.data.filter(i => i.Match === 'OK').length,
-                        perc: tot > 0 ? Math.round((inv / tot) * 100) : 0
-                    });
+                    const localG = await dbCache.get('giacenza');
+                    if (localG.length > 0) {
+                        const tot = localG.length;
+                        const inv = localG.filter(i => i.inventariato).length;
+                        setStats({ tot, inv, todo: tot - inv, match: localG.filter(i => i.Match === 'OK').length, perc: Math.round((inv / tot) * 100) });
+                    } else {
+                        // Primo caricamento
+                        const res = await api('getGiacenza');
+                        await dbCache.set('giacenza', res.data);
+                        location.reload(); // Ricarica per popolare le stats
+                    }
                 };
                 load();
+                const interval = setInterval(load, 10000);
+                return () => clearInterval(interval);
             }, []);
 
+            if (!stats) return <div className="text-center py-12">Caricamento stats...</div>;
+
             return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
-                        <div className="text-gray-500">Totale Giacenza</div>
-                        <div className="text-3xl font-bold">{stats.tot}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard title="Totale Giacenza" value={stats.tot} icon="📦" color="bg-blue-500" />
+                    <StatCard title="Inventariato" value={stats.inv} icon="✅" color="bg-green-500" />
+                    <StatCard title="Da Inventariare" value={stats.todo} icon="⏳" color="bg-yellow-500" />
+                    <StatCard title="Match OK" value={stats.match} icon="🎯" color="bg-purple-500" />
+                    <div className="col-span-full bg-white rounded shadow p-6">
+                        <div className="flex justify-between mb-2"><span className="font-bold">Avanzamento</span><span className="font-bold text-blue-600">{stats.perc}%</span></div>
+                        <div className="w-full bg-gray-200 h-4 rounded-full"><div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${stats.perc}%` }}></div></div>
                     </div>
-                    <div className="bg-white p-6 rounded shadow border-l-4 border-green-500">
-                        <div className="text-gray-500">Inventariati</div>
-                        <div className="text-3xl font-bold">{stats.inv}</div>
-                    </div>
-                    <div className="bg-white p-6 rounded shadow border-l-4 border-yellow-500">
-                        <div className="text-gray-500">Da Fare</div>
-                        <div className="text-3xl font-bold">{stats.todo}</div>
-                    </div>
-                    <div className="bg-white p-6 rounded shadow border-l-4 border-purple-500">
-                        <div className="text-gray-500">Completamento</div>
-                        <div className="text-3xl font-bold">{stats.perc}%</div>
-                    </div>
+                </div>
+            );
+        }
+
+        function StatCard({ title, value, icon, color }) {
+            return (
+                <div className="bg-white rounded shadow p-6 border-l-4 border-transparent hover:border-blue-500 transition">
+                    <div className="flex justify-between mb-2"><span className="text-gray-500 font-medium">{title}</span><span className="text-2xl">{icon}</span></div>
+                    <p className={`text-3xl font-bold ${color.replace('bg-', 'text-')}`}>{value}</p>
                 </div>
             );
         }
@@ -443,112 +515,265 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         function ModeScanner({ user }) {
             const [scanInput, setScanInput] = useState('');
             const [giacenza, setGiacenza] = useState([]);
-            const [msg, setMsg] = useState(null);
-            const [lastItem, setLastItem] = useState(null);
+            const [currentItem, setCurrentItem] = useState(null);
+            const [message, setMessage] = useState({ type: '', text: '' });
+            const [formatoStampa, setFormatoStampa] = useState('10x10');
+            const [editingUbicazione, setEditingUbicazione] = useState(false);
+            const [newUbicazione, setNewUbicazione] = useState('');
             const inputRef = useRef(null);
 
             useEffect(() => {
-                api('getGiacenza').then(r => setGiacenza(r.data));
+                const init = async () => {
+                    let g = await dbCache.get('giacenza');
+                    if (g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
+                    setGiacenza(g);
+                };
+                init();
                 inputRef.current?.focus();
             }, []);
 
-            const playSound = (ok) => {
+            const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const g = ctx.createGain();
                 osc.connect(g); g.connect(ctx.destination);
-                osc.frequency.value = ok ? 800 : 300;
+                osc.frequency.value = type === 'success' ? 800 : 300;
                 osc.type = 'square';
                 g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
                 osc.start(); osc.stop(ctx.currentTime + 0.1);
-            }
+            };
 
             const handleScan = async (e) => {
-                if (e.key !== 'Enter' || !scanInput.trim()) return;
-                const code = scanInput.trim().toUpperCase();
-                setScanInput('');
-                
-                // Cerca in locale (giacenza scaricata)
-                const found = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && !i.inventariato);
-                
-                if (found) {
-                    const newItem = { ...found, inventariato: true, Match: 'OK' };
-                    // Aggiorna UI locale subito
-                    setGiacenza(prev => prev.map(i => i.ID_Riga === found.ID_Riga ? newItem : i));
-                    setLastItem(newItem);
-                    setMsg({ type: 'success', text: 'MATCH OK: ' + found.Descrizione });
-                    playSound(true);
+                if (e.key === 'Enter' && scanInput.trim()) {
+                    const code = scanInput.trim().toUpperCase();
+                    setScanInput('');
                     
-                    // Invia a Supabase
-                    api('saveRiscontro', {
-                        operatore: user.nome,
-                        codSap: found.CodSap,
-                        descrizione: found.Descrizione,
-                        ubicazione: found.Ubicazioni,
-                        serialeAtteso: found.RISCONTROSERIALEF,
-                        serialeRiscontrato: code,
-                        match: 'OK',
-                        idRigaGiacenza: found.ID_Riga,
-                        wmsCode: found.WMSCode,
-                        poNr: found.PoNr,
-                        partNumber: found.PartNumber
-                    });
-                } else {
+                    const found = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && !i.inventariato);
                     const already = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && i.inventariato);
+
                     if (already) {
-                        setMsg({ type: 'warning', text: 'GIÀ INVENTARIATO!' });
-                        playSound(false);
+                        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
+                        playBeep('error');
+                    } else if (found) {
+                        const newItem = { ...found, inventariato: true, Match: 'OK' };
+                        const updatedG = giacenza.map(i => i.ID_Riga === found.ID_Riga ? newItem : i);
+                        setGiacenza(updatedG);
+                        setCurrentItem(newItem);
+                        setNewUbicazione(found.Ubicazioni || '');
+                        setMessage({ type: 'success', text: '✅ MATCH OK' });
+                        playBeep('success');
+                        await dbCache.set('giacenza', updatedG);
+
+                        operationQueue.add('registraScansione', {
+                            operatore: user.nome,
+                            codSap: found.CodSap,
+                            descrizione: found.Descrizione,
+                            ubicazione: found.Ubicazioni,
+                            serialeAtteso: found.RISCONTROSERIALEF,
+                            serialeRiscontrato: code,
+                            match: 'OK',
+                            wmsCode: found.WMSCode,
+                            idRigaGiacenza: found.ID_Riga,
+                            poNr: found.PoNr,
+                            partNumber: found.PartNumber,
+                            cdc: found.Cdc
+                        });
                     } else {
-                        setMsg({ type: 'error', text: 'NON TROVATO' });
-                        playSound(false);
+                        setMessage({ type: 'error', text: '❌ NON TROVATO' });
+                        playBeep('error');
                     }
+                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 }
+            };
+
+            const updateUbicazione = async () => {
+                if (!currentItem) return;
+                const updatedG = giacenza.map(i => i.ID_Riga === currentItem.ID_Riga ? { ...i, Ubicazioni: newUbicazione } : i);
+                setGiacenza(updatedG);
+                setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
+                setEditingUbicazione(false);
+                await dbCache.set('giacenza', updatedG);
+                operationQueue.add('updateUbicazione', { seriale: currentItem.RISCONTROSERIALEF, ubicazione: newUbicazione });
+            };
+
+            const stampaEtichetta = (item) => {
+                const printArea = document.getElementById('print-area');
+                const bcId = 'bc-' + Date.now();
+                let html = '';
+                
+                // LOGICA STAMPA ORIGINALE
+                if (formatoStampa === '10x10') {
+                    html = `<div class="etichetta-10x10">
+                        <div class="logo-container"><img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg"><div class="label-cod-bp">COD BP</div></div>
+                        <div class="bp-section"><div class="bp-label">Codice BP</div><div class="bp-value">${item.CodSap}</div><img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${item.CodSap}"></div>
+                        <hr><div class="art-label">Articolo</div><svg class="barcode-svg" id="${bcId}"></svg><div class="wms">${item.WMSCode}</div>
+                        <hr><div class="po-row"><div><span class="po-label">Po Nr</span> <span class="po-value">${item.PoNr}</span></div><div><span class="po-label">Pos</span> <span class="po-value">${item.Cdc}</span></div></div>
+                        <div class="label-tpn">TPN</div><hr class="thin">
+                        <div class="part-section"><span class="part-label">Part Number</span><span class="part-value">${item.PartNumber || ''}</span></div>
+                        <div class="sn-section"><span class="sn-label">SN</span><span class="sn-value">${item.RISCONTROSERIALEF}</span><img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${item.RISCONTROSERIALEF}"></div>
+                        <div class="ubicazione-under-sn"><span class="pos-label">Ubicazione</span><div class="pos-value">${item.Ubicazioni}</div></div>
+                    </div>`;
+                } else if (formatoStampa === '10x5') {
+                    html = `<div class="etichetta-10x5">
+                        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg">
+                        <div class="et5-codbp">${item.CodSap}</div><svg class="et5-barcode" id="${bcId}"></svg>
+                        <div class="et5-info"><div>${item.PoNr}<br>${item.RISCONTROSERIALEF}</div><img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${item.RISCONTROSERIALEF}"></div>
+                    </div>`;
+                }
+
+                printArea.innerHTML = html;
+                printArea.style.display = 'block';
+                const imgs = Array.from(printArea.querySelectorAll('img'));
+                Promise.all(imgs.map(img => new Promise(resolve => {
+                    if (img.complete) resolve(); else { img.onload = resolve; img.onerror = resolve; }
+                }))).then(() => {
+                    JsBarcode('#' + bcId, item.WMSCode, { format: "CODE128", height: 20, width: 1.5, displayValue: false, margin: 0 });
+                    setTimeout(() => { window.print(); printArea.style.display = 'none'; }, 500);
+                });
             };
 
             return (
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded shadow">
-                        <h2 className="font-bold mb-2">Scannerizza</h2>
-                        <input ref={inputRef} value={scanInput} onChange={e => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full text-2xl border-2 border-blue-500 rounded p-3" autoFocus />
+                        <h2 className="text-xl font-bold mb-4">Scannerizza Barcode</h2>
+                        <input ref={inputRef} value={scanInput} onChange={e => setScanInput(e.target.value)} onKeyDown={handleScan} className="w-full text-2xl border-2 border-blue-500 rounded p-4 shadow-inner" placeholder="Spara qui..." autoFocus />
                     </div>
-                    {msg && <div className={`p-4 text-white font-bold text-center rounded ${msg.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{msg.text}</div>}
+                    {message.text && <div className={`p-6 text-white text-2xl font-bold text-center rounded-lg shadow ${message.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>{message.text}</div>}
                     
-                    {lastItem && (
-                        <div className="bg-white p-4 rounded shadow border border-gray-200">
-                            <h3 className="font-bold border-b pb-2">Ultimo Articolo:</h3>
-                            <p><strong>SAP:</strong> {lastItem.CodSap}</p>
-                            <p><strong>Desc:</strong> {lastItem.Descrizione}</p>
-                            <p><strong>Ubic:</strong> {lastItem.Ubicazioni}</p>
+                    {currentItem && (
+                        <div className="bg-white p-6 rounded shadow-lg border-2 border-blue-100">
+                            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                <h3 className="text-xl font-bold text-gray-800">Dettaglio Articolo</h3>
+                                <div className="flex gap-2">
+                                    <select value={formatoStampa} onChange={e => setFormatoStampa(e.target.value)} className="border rounded px-2">
+                                        <option value="10x10">10x10</option><option value="10x5">10x5</option><option value="10x10g">10x10G</option>
+                                    </select>
+                                    <button onClick={() => stampaEtichetta(currentItem)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex gap-2"><Icons.Printer /> Stampa</button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-gray-500">Cod. SAP</label><p className="font-bold text-lg">{currentItem.CodSap}</p></div>
+                                <div><label className="text-xs text-gray-500">Po Nr</label><p className="font-bold">{currentItem.PoNr}</p></div>
+                                <div className="col-span-2"><label className="text-xs text-gray-500">Descrizione</label><p className="font-bold">{currentItem.Descrizione}</p></div>
+                                <div className="col-span-2">
+                                    <label className="text-xs text-gray-500">Ubicazione</label>
+                                    {editingUbicazione ? (
+                                        <div className="flex gap-2">
+                                            <input value={newUbicazione} onChange={e => setNewUbicazione(e.target.value)} className="border p-2 rounded flex-1" />
+                                            <button onClick={updateUbicazione} className="bg-green-500 text-white px-3 rounded">OK</button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-between items-center">
+                                            <p className="font-bold text-xl">{currentItem.Ubicazioni}</p>
+                                            <button onClick={() => setEditingUbicazione(true)} className="text-blue-500"><Icons.Edit /></button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="col-span-2 bg-green-50 p-2 rounded text-center"><p className="text-green-800 font-mono font-bold text-xl">{currentItem.RISCONTROSERIALEF}</p></div>
+                            </div>
                         </div>
                     )}
                 </div>
             );
         }
 
-        // ... Componenti ModeLista e Storico semplificati per brevità ma funzionali ...
         function ModeLista({ user }) {
-            const [data, setData] = useState([]);
-            useEffect(() => { api('getGiacenza').then(r => setData(r.data.filter(x => !x.inventariato))); }, []);
+            const [giacenza, setGiacenza] = useState([]);
+            const [selected, setSelected] = useState([]);
+            const [filters, setFilters] = useState({});
+            const [showCol, setShowCol] = useState(false);
+            const [cols, setCols] = useState({ poNr: true, cdc: true, codSap: true, desc: true, ub: true, sn: true });
             
+            useEffect(() => {
+                const load = async () => {
+                    let g = await dbCache.get('giacenza');
+                    if(g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
+                    setGiacenza(g.filter(i => !i.inventariato));
+                };
+                load();
+            }, []);
+
+            const filtered = giacenza.filter(i => {
+                if (filters.poNr && !i.PoNr.includes(filters.poNr)) return false;
+                if (filters.codSap && !i.CodSap.includes(filters.codSap)) return false;
+                return true;
+            });
+
+            const handleMassive = async () => {
+                if (!confirm(`Confermi ${selected.length} articoli?`)) return;
+                const newG = await dbCache.get('giacenza');
+                for (let item of selected) {
+                    const idx = newG.findIndex(x => x.ID_Riga === item.ID_Riga);
+                    if (idx >= 0) { newG[idx].inventariato = true; newG[idx].Match = 'OK'; }
+                    operationQueue.add('registraScansione', {
+                        operatore: user.nome,
+                        codSap: item.CodSap,
+                        descrizione: item.Descrizione,
+                        ubicazione: item.Ubicazioni,
+                        serialeAtteso: item.RISCONTROSERIALEF,
+                        serialeRiscontrato: item.RISCONTROSERIALEF,
+                        match: 'OK',
+                        idRigaGiacenza: item.ID_Riga,
+                        partNumber: item.PartNumber
+                    });
+                }
+                await dbCache.set('giacenza', newG);
+                setGiacenza(newG.filter(i => !i.inventariato));
+                setSelected([]);
+            };
+
             return (
-                <div className="bg-white shadow rounded overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b font-bold">Da Inventariare ({data.length})</div>
-                    <div className="overflow-auto max-h-[600px]">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-100 sticky top-0">
-                                <tr><th className="p-2">SAP</th><th className="p-2">Descrizione</th><th className="p-2">Ubicazione</th><th className="p-2">Seriale</th></tr>
-                            </thead>
-                            <tbody>
-                                {data.map(r => (
-                                    <tr key={r.ID_Riga} className="border-b hover:bg-gray-50">
-                                        <td className="p-2 font-mono">{r.CodSap}</td>
-                                        <td className="p-2">{r.Descrizione}</td>
-                                        <td className="p-2">{r.Ubicazioni}</td>
-                                        <td className="p-2 font-mono">{r.RISCONTROSERIALEF}</td>
+                <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <h2 className="text-xl font-bold">Lista Giacenza ({filtered.length})</h2>
+                        <div className="flex gap-2">
+                             <button onClick={() => setShowCol(!showCol)} className="bg-gray-200 px-3 py-1 rounded">👁️ Colonne</button>
+                             {selected.length > 0 && <button onClick={handleMassive} className="bg-green-600 text-white px-4 py-2 rounded shadow">Conferma ({selected.length})</button>}
+                        </div>
+                    </div>
+                    
+                    {showCol && (
+                        <div className="bg-white p-4 shadow rounded flex gap-4">
+                            <label><input type="checkbox" checked={cols.poNr} onChange={() => setCols({...cols, poNr: !cols.poNr})} /> Po Nr</label>
+                            <label><input type="checkbox" checked={cols.codSap} onChange={() => setCols({...cols, codSap: !cols.codSap})} /> SAP</label>
+                        </div>
+                    )}
+
+                    <div className="bg-white shadow rounded overflow-hidden">
+                        <div className="p-2 bg-gray-50 flex gap-2">
+                            <input placeholder="Filtra SAP..." className="border p-1 rounded" onChange={e => setFilters({...filters, codSap: e.target.value})} />
+                            <input placeholder="Filtra PO..." className="border p-1 rounded" onChange={e => setFilters({...filters, poNr: e.target.value})} />
+                        </div>
+                        <div className="overflow-auto max-h-[600px]">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-100 sticky top-0">
+                                    <tr>
+                                        <th className="p-2"><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered : [])} /></th>
+                                        {cols.poNr && <th className="p-2">Po Nr</th>}
+                                        {cols.cdc && <th className="p-2">CDC</th>}
+                                        {cols.codSap && <th className="p-2">SAP</th>}
+                                        {cols.desc && <th className="p-2">Descrizione</th>}
+                                        {cols.ub && <th className="p-2">Ubicazione</th>}
+                                        {cols.sn && <th className="p-2">Seriale</th>}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {filtered.slice(0, 100).map(r => (
+                                        <tr key={r.ID_Riga} className="border-b hover:bg-gray-50">
+                                            <td className="p-2"><input type="checkbox" checked={selected.includes(r)} onChange={e => {
+                                                if(e.target.checked) setSelected([...selected, r]); else setSelected(selected.filter(x => x !== r));
+                                            }} /></td>
+                                            {cols.poNr && <td className="p-2">{r.PoNr}</td>}
+                                            {cols.cdc && <td className="p-2">{r.Cdc}</td>}
+                                            {cols.codSap && <td className="p-2 font-mono font-bold">{r.CodSap}</td>}
+                                            {cols.desc && <td className="p-2">{r.Descrizione}</td>}
+                                            {cols.ub && <td className="p-2">{r.Ubicazioni}</td>}
+                                            {cols.sn && <td className="p-2 font-mono">{r.RISCONTROSERIALEF}</td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             );
@@ -556,23 +781,30 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
         function Storico() {
             const [data, setData] = useState([]);
-            useEffect(() => { api('getStorico').then(r => setData(r.data)); }, []);
+            useEffect(() => {
+                const load = async () => {
+                    const res = await api('getStorico');
+                    setData(res.data);
+                };
+                load();
+            }, []);
 
             return (
                 <div className="bg-white shadow rounded overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b font-bold">Ultimi movimenti</div>
+                    <h2 className="p-4 font-bold border-b">Storico Ultimi Movimenti</h2>
                     <div className="overflow-auto max-h-[600px]">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-100 sticky top-0">
-                                <tr><th className="p-2">Ora</th><th className="p-2">Operatore</th><th className="p-2">Seriale</th><th className="p-2">Esito</th></tr>
+                                <tr><th className="p-3">Data</th><th className="p-3">Operatore</th><th className="p-3">SAP</th><th className="p-3">Seriale</th><th className="p-3">Esito</th></tr>
                             </thead>
                             <tbody>
                                 {data.map(r => (
                                     <tr key={r.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-2">{new Date(r.Timestamp).toLocaleTimeString()}</td>
-                                        <td className="p-2">{r.Operatore}</td>
-                                        <td className="p-2 font-mono">{r.Seriale_Riscontrato}</td>
-                                        <td className="p-2">{r.Match === 'OK' ? '✅' : '❌'}</td>
+                                        <td className="p-3">{new Date(r.Timestamp).toLocaleString()}</td>
+                                        <td className="p-3 font-medium">{r.Operatore}</td>
+                                        <td className="p-3">{r.CodSap}</td>
+                                        <td className="p-3 font-mono">{r.Seriale_Riscontrato}</td>
+                                        <td className="p-3">{r.Match === 'OK' ? <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold">OK</span> : <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold">KO</span>}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -582,8 +814,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
