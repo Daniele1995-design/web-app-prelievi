@@ -578,7 +578,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Cdc: item.cdc || '',
                 PoNr: item.po_nr || '',
                 PartNumber: item.part_number || '',
-                Stato: item.match ? 'INVENTARIATO' : 'ERRORE'
+                Stato: item.match ? 'INVENTARIATO' : 'ERRORE',
+                Note: item.note || ''
             }));
         }
         // ============================================
@@ -689,7 +690,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                                 cdc: sd.cdc,
                                 po_nr: sd.poNr,
                                 part_number: sd.partNumber,
-                                id_riga_giacenza: sd.idRigaGiacenza
+                                id_riga_giacenza: sd.idRigaGiacenza,
+                                note: sd.note || ''
                             }]);
                         
                         if (iErr) throw iErr;
@@ -699,7 +701,6 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             await supabaseClient
                                 .from('giacenza')
                                 .update({ 
-                                    stato: 'INVENTARIATO', 
                                     match: 'OK',
                                     ubicazioni: sd.ubicazione,
                                     part_number: sd.partNumber,
@@ -716,6 +717,31 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             .from('giacenza')
                             .update({ ubicazioni: payload.ubicazione })
                             .eq('riscontro_seriale_f', payload.seriale);
+                        const updateData = { ubicazione: payload.ubicazione };
+    if (payload.note) updateData.note = payload.note;
+    
+    await supabaseClient
+        .from('inventario')
+        .update(updateData)
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    return { success: true };
+
+case 'updatePartNumber':
+    await supabaseClient
+        .from('giacenza')
+        .update({ part_number: payload.partNumber })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    const updateDataPN = { part_number: payload.partNumber };
+    if (payload.note) updateDataPN.note = payload.note;
+    
+    await supabaseClient
+        .from('inventario')
+        .update(updateDataPN)
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    return { success: true };
                         
                         await supabaseClient
                             .from('inventario')
@@ -1518,7 +1544,8 @@ const [newItemData, setNewItemData] = useState({
                                     cdc: found.Cdc || '',
                                     poNr: found.PoNr || '',
                                     partNumber: found.PartNumber || '',
-                                    idRigaGiacenza: found.ID_Riga || ''
+                                    idRigaGiacenza: found.ID_Riga || '',
+                                    note: ''
                                 }
                             });
                             console.log('✅ Salvato su Supabase');
@@ -1590,7 +1617,8 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     try {
         await api('updateUbicazione', { 
             seriale: currentItem.RISCONTROSERIALEF, 
-            ubicazione: newUbicazione 
+            ubicazione: newUbicazione,
+            note: note 
         });
         console.log('✅ Ubicazione salvata su Supabase');
     } catch (err) {
@@ -1628,7 +1656,8 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     try {
         await api('updatePartNumber', { 
             seriale: currentItem.RISCONTROSERIALEF, 
-            partNumber: newPartNumber 
+            partNumber: newPartNumber,
+            note: note
         });
         console.log('✅ PartNumber salvato su Supabase');
     } catch (err) {
@@ -2249,7 +2278,8 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 stato: true,
                 ubicazione: true,
                 partNumber: true,
-                seriale: true
+                seriale: true,
+                note: true 
             });
 
             useEffect(() => {
@@ -2690,6 +2720,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                 <label htmlFor="col-partNumber">Part Number</label>
                             </div>
                             <div className="column-option">
+    <input type="checkbox" id="col-note" checked={visibleColumns.note} onChange={() => toggleColumn('note')} />
+    <label htmlFor="col-note">Note</label>
+</div>
+                            <div className="column-option">
                                 <input type="checkbox" id="col-seriale" checked={visibleColumns.seriale} onChange={() => toggleColumn('seriale')} />
                                 <label htmlFor="col-seriale">Seriale</label>
                             </div>
@@ -2764,6 +2798,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>Ubicazione</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>Seriale</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.note ? 'col-hidden' : ''}`}>Note</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2790,6 +2825,29 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                                 {item.Stato}
                                             </span>
                                         </td>
+                                        <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
+    {editingNote[item.Seriale_Riscontrato] ? (
+        <div className="flex gap-1">
+            <textarea 
+                defaultValue={item.Note} 
+                onBlur={(e) => updateNoteStorico(item, e.target.value)} 
+                className="px-2 py-1 border rounded text-xs w-full" 
+                rows="2"
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span className="text-xs italic">{item.Note || '-'}</span>
+            <button 
+                onClick={() => setEditingNote(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>
                                             {editingUbicazione[item.RISCONTROSERIALEF] ? (
                                                 <div className="flex gap-1">
@@ -2886,6 +2944,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         const [showFilters, setShowFilters] = useState(false);
         const [editingItems, setEditingItems] = useState({});
         const [editingPartNumber, setEditingPartNumber] = useState({});
+        const [editingNote, setEditingNote] = useState({});
         const [selected, setSelected] = useState([]);
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
@@ -3053,6 +3112,37 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 alert('⚠️ PartNumber aggiornato localmente, errore sync server');
             }
         };
+        const updateNoteStorico = async (item, newNote) => {
+    const updated = storico.map(i => 
+        i.Seriale_Riscontrato === item.Seriale_Riscontrato 
+            ? { ...i, Note: newNote } 
+            : i
+    );
+    setStorico(updated);
+    setFilteredData(updated.filter(i => {
+        let match = true;
+        if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
+        if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
+        if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
+        if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
+        if (filters.match) match = match && i.Match === filters.match;
+        if (filters.codSap) match = match && (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase();
+        return match;
+    }));
+    appCache.storico = updated;
+    setEditingNote(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    
+    try {
+        await supabaseClient
+            .from('inventario')
+            .update({ note: newNote })
+            .eq('seriale_riscontrato', item.Seriale_Riscontrato);
+        console.log('✅ Note salvate su Supabase');
+    } catch (err) {
+        console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Note aggiornate localmente, errore sync server');
+    }
+};
 
         const updateBulkUbicazione = async () => {
             if (selected.length === 0 || !bulkUbicazione.trim()) return;
