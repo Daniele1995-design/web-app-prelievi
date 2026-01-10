@@ -748,6 +748,53 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             await api('updatePartNumber', item);
                         }
                         return { success: true };
+                     case 'batchSaveRiscontro':
+    const items = payload.items || [];
+    
+    // Insert multipli in inventario (batch)
+    const inventarioRecords = items.map(item => ({
+        operatore: item.operatore,
+        cod_sap: item.codSap,
+        descrizione: item.descrizione,
+        ubicazione: item.ubicazione,
+        seriale_atteso: item.serialeAtteso,
+        seriale_riscontrato: item.serialeRiscontrato,
+        match: true, // sempre OK per verifica massiva
+        qta: item.qta || 1,
+        wms_code: item.wmsCode,
+        cdc: item.cdc,
+        po_nr: item.poNr,
+        part_number: item.partNumber,
+        id_riga_giacenza: item.idRigaGiacenza
+    }));
+    
+    const { error: batchInvErr } = await supabaseClient
+        .from('inventario')
+        .insert(inventarioRecords);
+    
+    if (batchInvErr) throw batchInvErr;
+    
+    // Update multipli in giacenza (batch)
+    const updates = items.map(item => ({
+        riscontro_seriale_f: item.serialeRiscontrato,
+        stato: 'INVENTARIATO',
+        match: 'OK',
+        ubicazioni: item.ubicazione,
+        part_number: item.partNumber,
+        seriale_riscontrato: item.serialeRiscontrato,
+        operatore: item.operatore,
+        timestamp: new Date().toISOString()
+    }));
+    
+    // Esegui update per ogni item
+    for (const update of updates) {
+        await supabaseClient
+            .from('giacenza')
+            .update(update)
+            .eq('riscontro_seriale_f', update.riscontro_seriale_f);
+    }
+    
+    return { success: true };   
 
                     default:
                         return { success: true };
@@ -1305,6 +1352,18 @@ operations: groups[action]
             const [editingPartNumber, setEditingPartNumber] = useState(false);
             const [newPartNumber, setNewPartNumber] = useState('');
             const inputRef = useRef(null);
+            // Stati per modal nuovo item
+const [showAddModal, setShowAddModal] = useState(false);
+const [newItemData, setNewItemData] = useState({
+    serialeScansionato: '',
+    codSap: '',
+    ubicazione: '',
+    cdc: '',
+    stato: '',
+    partNumber: '',
+    serSN: 'No',
+    descrizione: ''
+});
 
            useEffect(() => {
     async function loadData() {
@@ -1485,11 +1544,22 @@ operations: groups[action]
                             alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
                         }
                     } else {
-                        setMessage({ type: 'error', text: '❌ NON TROVATO' });
-                        playBeep('error');
-                    }
+    // NON TROVATO - chiedi se vuole aggiungere
+    playBeep('error');
+    setNewItemData({
+        serialeScansionato: scanned,
+        codSap: '',
+        ubicazione: '',
+        cdc: '',
+        stato: '',
+        partNumber: '',
+        serSN: 'No',
+        descrizione: ''
+    });
+    setShowAddModal(true);
+}
 
-                    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 }
             };
             const handleUpdateUbicazione = async () => {
@@ -1563,6 +1633,126 @@ operations: groups[action]
         console.log('✅ PartNumber salvato su Supabase');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
+    }
+};
+            const handleSaveNewItem = async () => {
+    // Validazione campi obbligatori
+    if (!newItemData.codSap.trim()) {
+        alert('⚠️ Cod. SAP obbligatorio!');
+        return;
+    }
+    if (!newItemData.ubicazione.trim()) {
+        alert('⚠️ Ubicazione obbligatoria!');
+        return;
+    }
+    if (!newItemData.cdc) {
+        alert('⚠️ CDC obbligatorio!');
+        return;
+    }
+    if (!newItemData.stato) {
+        alert('⚠️ Stato obbligatorio!');
+        return;
+    }
+    
+    try {
+        // 1. Inserisci in giacenza
+        const { data: newRow, error: giacErr } = await supabaseClient
+            .from('giacenza')
+            .insert([{
+                riscontro_seriale_f: newItemData.serialeScansionato,
+                cod_sap: newItemData.codSap,
+                descrizione: newItemData.descrizione || `Articolo ${newItemData.codSap}`,
+                ubicazioni: newItemData.ubicazione,
+                cdc: newItemData.cdc,
+                stato: 'INVENTARIATO',
+                match: 'OK',
+                part_number: newItemData.partNumber || '',
+                ser_sn: newItemData.serSN,
+                qta: 1,
+                wms_code: '',
+                po_nr: '',
+                seriale_riscontrato: newItemData.serialeScansionato,
+                operatore: user.nome || user.username,
+                timestamp: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        
+        if (giacErr) throw giacErr;
+        
+        // 2. Inserisci in inventario
+        await api('saveRiscontro', {
+            data: {
+                operatore: user.nome || user.username,
+                codSap: newItemData.codSap,
+                descrizione: newItemData.descrizione || `Articolo ${newItemData.codSap}`,
+                ubicazione: newItemData.ubicazione,
+                serialeAtteso: newItemData.serialeScansionato,
+                serialeRiscontrato: newItemData.serialeScansionato,
+                match: 'OK',
+                qta: 1,
+                wmsCode: '',
+                cdc: newItemData.cdc,
+                poNr: '',
+                partNumber: newItemData.partNumber || '',
+                idRigaGiacenza: newRow.id_riga
+            }
+        });
+        
+        // 3. Aggiorna cache locale
+        const newGiacenzaItem = {
+            ID_Riga: newRow.id_riga,
+            PoNr: '',
+            Cdc: newItemData.cdc,
+            CodSap: newItemData.codSap,
+            Descrizione: newItemData.descrizione || `Articolo ${newItemData.codSap}`,
+            'SerS/No': newItemData.serSN,
+            Stato: newItemData.stato,
+            Ubicazioni: newItemData.ubicazione,
+            WMSCode: '',
+            RISCONTROSERIALEF: newItemData.serialeScansionato,
+            PartNumber: newItemData.partNumber || '',
+            inventariato: true,
+            Match: 'OK',
+            'Qtà': 1
+        };
+        
+        const newStoricoItem = {
+            id: Date.now() + Math.random(),
+            Timestamp: new Date().toISOString(),
+            Operatore: user.nome || user.username,
+            Seriale_Riscontrato: newItemData.serialeScansionato,
+            Match: 'OK',
+            CodSap: newItemData.codSap,
+            Descrizione: newItemData.descrizione || `Articolo ${newItemData.codSap}`,
+            Cdc: newItemData.cdc,
+            Stato: newItemData.stato,
+            Ubicazioni: newItemData.ubicazione,
+            RISCONTROSERIALEF: newItemData.serialeScansionato,
+            WMSCode: '',
+            PoNr: '',
+            PartNumber: newItemData.partNumber || ''
+        };
+        
+        const updatedGiacenza = [...giacenza, newGiacenzaItem];
+        const updatedStorico = [newStoricoItem, ...storico];
+        
+        setGiacenza(updatedGiacenza);
+        setStorico(updatedStorico);
+        appCache.giacenza = updatedGiacenza;
+        appCache.storico = updatedStorico;
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        }));
+        
+        setShowAddModal(false);
+        setMessage({ type: 'success', text: '✅ NUOVO ITEM AGGIUNTO!' });
+        playBeep('success');
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore durante l\'inserimento: ' + err.message);
     }
 };
 
@@ -1703,7 +1893,153 @@ operations: groups[action]
 
             return (
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
+                    return (
+    <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
+        
+        {/* MODAL NUOVO ITEM */}
+        {showAddModal && (
+            <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+                <div className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4 text-red-600">⚠️ Seriale NON TROVATO</h3>
+                    <p className="mb-4 text-gray-700">
+                        Il seriale <strong className="text-blue-600">{newItemData.serialeScansionato}</strong> non è presente in giacenza.
+                        <br/>Vuoi aggiungerlo manualmente?
+                    </p>
+                    
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Cod. SAP <span className="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                value={newItemData.codSap}
+                                onChange={(e) => setNewItemData({...newItemData, codSap: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                placeholder="es. 12345678"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Ubicazione <span className="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                value={newItemData.ubicazione}
+                                onChange={(e) => setNewItemData({...newItemData, ubicazione: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                placeholder="es. A-01-02-03"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                CDC <span className="text-red-500">*</span>
+                            </label>
+                            <select 
+                                value={newItemData.cdc}
+                                onChange={(e) => setNewItemData({...newItemData, cdc: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Seleziona --</option>
+                                <option value="IWT-SPARE">IWT-SPARE</option>
+                                <option value="IWT-PASSIVE">IWT-PASSIVE</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Stato <span className="text-red-500">*</span>
+                            </label>
+                            <select 
+                                value={newItemData.stato}
+                                onChange={(e) => setNewItemData({...newItemData, stato: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Seleziona --</option>
+                                <option value="NUOVO">NUOVO</option>
+                                <option value="USATO">USATO</option>
+                                <option value="ROTTAME">ROTTAME</option>
+                                <option value="IN ATTESA ISTRUZIONI">IN ATTESA ISTRUZIONI</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Part Number <span className="text-gray-400">(opzionale)</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                value={newItemData.partNumber}
+                                onChange={(e) => setNewItemData({...newItemData, partNumber: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                placeholder="es. PN12345"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Serializzato? <span className="text-gray-400">(opzionale)</span>
+                            </label>
+                            <select 
+                                value={newItemData.serSN}
+                                onChange={(e) => setNewItemData({...newItemData, serSN: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="No">No</option>
+                                <option value="Sì">Sì</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Descrizione <span className="text-gray-400">(opzionale)</span>
+                            </label>
+                            <textarea 
+                                value={newItemData.descrizione}
+                                onChange={(e) => setNewItemData({...newItemData, descrizione: e.target.value})}
+                                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                rows="2"
+                                placeholder="Descrizione articolo..."
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-3 mt-6">
+                        <button 
+                            onClick={handleSaveNewItem}
+                            className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700"
+                        >
+                            ✅ Conferma e Aggiungi
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setShowAddModal(false);
+                                setMessage({ type: 'error', text: '❌ NON TROVATO - Inserimento annullato' });
+                            }}
+                            className="flex-1 bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
+                        >
+                            ❌ Annulla
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        
+        <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex justify-between items-center">
+    <h2 className="text-2xl font-bold text-gray-800">Modalità Scanner</h2>
+    
+    {/* ULTIMO SERIALE SCANSIONATO */}
+    {currentItem && (
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg px-4 py-2">
+            <p className="text-xs text-blue-600 font-semibold">Ultimo Seriale Scansionato:</p>
+            <p className="text-lg font-bold text-blue-800">{currentItem.RISCONTROSERIALEF || '-'}</p>
+        </div>
+    )}
+</div>
                     <div className="bg-white rounded-lg shadow p-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Icons.Camera /> Scansiona Seriale
@@ -2130,32 +2466,30 @@ operations: groups[action]
                 alert('Verifica completata localmente!');
                 
                 (async () => {
-                    try {
-                        for (const item of selected) {
-                            await api('saveRiscontro', {
-                                data: {
-                                    operatore: user.nome || user.username,
-                                    codSap: item.CodSap,
-                                    descrizione: item.Descrizione,
-                                    ubicazione: ubicazioneFinale,
-                                    serialeAtteso: item.RISCONTROSERIALEF,
-                                    serialeRiscontrato: item.RISCONTROSERIALEF,
-                                    match: 'OK',
-                                    qta: item['Qtà'] || 1,
-                                    wmsCode: item.WMSCode || '',
-                                    cdc: item.Cdc || '',
-                                    poNr: item.PoNr || '',
-                                    partNumber: partNumberFinale,
-                                    idRigaGiacenza: item.ID_Riga || ''
-                                }
-                            });
-                        }
-                        console.log('✅ Verifica massiva salvata su Supabase');
-                    } catch (err) {
-                        console.error('❌ Errore Supabase:', err);
-                        alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
-                    }
-                })();
+    try {
+        // NUOVO: usa batch API invece di loop
+        await api('batchSaveRiscontro', {
+            items: selected.map(item => ({
+                operatore: user.nome || user.username,
+                codSap: item.CodSap,
+                descrizione: item.Descrizione,
+                ubicazione: ubicazioneFinale,
+                serialeAtteso: item.RISCONTROSERIALEF,
+                serialeRiscontrato: item.RISCONTROSERIALEF,
+                qta: item['Qtà'] || 1,
+                wmsCode: item.WMSCode || '',
+                cdc: item.Cdc || '',
+                poNr: item.PoNr || '',
+                partNumber: partNumberFinale,
+                idRigaGiacenza: item.ID_Riga || ''
+            }))
+        });
+        console.log('✅ Verifica massiva salvata su Supabase');
+    } catch (err) {
+        console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
+    }
+})();
             };
 
             const stampaSelezionati = () => {
