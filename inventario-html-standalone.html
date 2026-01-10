@@ -703,6 +703,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                                 .from('giacenza')
                                 .update({ 
                                     match: 'OK',
+                                    stato: sd.stato,
                                     ubicazioni: sd.ubicazione,
                                     part_number: sd.partNumber,
                                     seriale_riscontrato: sd.serialeRiscontrato,
@@ -735,7 +736,9 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 case 'updateNote':
     await supabaseClient
         .from('giacenza')
-        .update({ note: payload.note })
+        .update({ 
+            note: payload.note
+        })
         .eq('riscontro_seriale_f', payload.seriale);
     
     await supabaseClient
@@ -804,7 +807,7 @@ case 'updatePartNumber':
     // Update multipli in giacenza (batch)
     const updates = items.map(item => ({
         riscontro_seriale_f: item.serialeRiscontrato,
-        stato: 'INVENTARIATO',
+        stato: item.note,
         match: 'OK',
         ubicazioni: item.ubicazione,
         part_number: item.partNumber,
