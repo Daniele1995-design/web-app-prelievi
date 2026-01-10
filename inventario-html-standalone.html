@@ -733,87 +733,176 @@ case 'updateNoteStorico':
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
 
-           case 'updateUbicazione':
+          case 'updateUbicazione':
+    console.log('🔍 DEBUG updateUbicazione - Payload:', payload);
+    console.log('🔍 Seriale ricevuto:', payload.seriale);
+    console.log('🔍 Ubicazione nuova:', payload.ubicazione);
+    
+    // PRIMA: Conta quante righe ci sono con questo seriale
+    const { count, error: countErr } = await supabaseClient
+        .from('giacenza')
+        .select('*', { count: 'exact', head: true })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    console.log('🔍 Righe trovate in giacenza:', count);
+    
+    if (countErr) {
+        console.error('❌ Errore count giacenza:', countErr);
+    }
+    
+    if (count === 0) {
+        console.error('❌ NESSUNA RIGA TROVATA CON QUESTO SERIALE!');
+        
+        // Cerca con LIKE per vedere se ci sono match parziali
+        const { data: similarData } = await supabaseClient
+            .from('giacenza')
+            .select('riscontro_seriale_f')
+            .ilike('riscontro_seriale_f', `%${payload.seriale}%`)
+            .limit(5);
+        
+        console.log('🔍 Seriali simili trovati:', similarData);
+        throw new Error(`Seriale ${payload.seriale} non trovato nel database`);
+    }
+    
+    // Aggiorna giacenza
     const giacUpdateUbic = { ubicazioni: payload.ubicazione };
     if (payload.note) giacUpdateUbic.note = payload.note;
     
-    const { error: gErr1 } = await supabaseClient
+    console.log('🔍 Dati da aggiornare giacenza:', giacUpdateUbic);
+    
+    const { error: gErr1, data: gData1 } = await supabaseClient
         .from('giacenza')
         .update(giacUpdateUbic)
-        .eq('riscontro_seriale_f', payload.seriale);
+        .eq('riscontro_seriale_f', payload.seriale)
+        .select();
     
     if (gErr1) {
         console.error('❌ Errore update giacenza:', gErr1);
+        console.error('❌ Dettagli errore:', JSON.stringify(gErr1, null, 2));
         throw gErr1;
     }
     
+    console.log('✅ Righe aggiornate in giacenza:', gData1?.length || 0);
+    console.log('✅ Dati aggiornati giacenza:', gData1);
+    
+    // Aggiorna inventario
     const invUpdateUbic = { ubicazione: payload.ubicazione };
     if (payload.note) invUpdateUbic.note = payload.note;
     
-    const { error: iErr1 } = await supabaseClient
+    console.log('🔍 Dati da aggiornare inventario:', invUpdateUbic);
+    
+    const { error: iErr1, data: iData1 } = await supabaseClient
         .from('inventario')
         .update(invUpdateUbic)
-        .eq('seriale_riscontrato', payload.seriale);
+        .eq('seriale_riscontrato', payload.seriale)
+        .select();
     
     if (iErr1) {
         console.error('❌ Errore update inventario:', iErr1);
+        console.error('❌ Dettagli errore:', JSON.stringify(iErr1, null, 2));
         throw iErr1;
     }
     
+    console.log('✅ Righe aggiornate in inventario:', iData1?.length || 0);
+    console.log('✅ Dati aggiornati inventario:', iData1);
     console.log('✅ Ubicazione aggiornata su DB');
     return { success: true };
 
 case 'updateNote':
-    const { error: gErr2 } = await supabaseClient
+    console.log('🔍 DEBUG: Cerco seriale per note:', payload.seriale);
+    
+    // Trova seriale esatto
+    const { data: checkNote } = await supabaseClient
+        .from('giacenza')
+        .select('riscontro_seriale_f')
+        .ilike('riscontro_seriale_f', `${payload.seriale}%`)
+        .limit(1);
+    
+    if (!checkNote || checkNote.length === 0) {
+        console.error('❌ SERIALE NON TROVATO PER NOTE!');
+        throw new Error(`Seriale ${payload.seriale} non trovato`);
+    }
+    
+    const serialeEsatto = checkNote[0].riscontro_seriale_f;
+    console.log('✅ Seriale esatto per note:', serialeEsatto);
+    
+    const { error: gErr2, data: gData2 } = await supabaseClient
         .from('giacenza')
         .update({ note: payload.note })
-        .eq('riscontro_seriale_f', payload.seriale);
+        .eq('riscontro_seriale_f', serialeEsatto)
+        .select();
     
     if (gErr2) {
         console.error('❌ Errore update note giacenza:', gErr2);
         throw gErr2;
     }
     
-    const { error: iErr2 } = await supabaseClient
+    console.log('✅ Note giacenza aggiornate:', gData2?.length || 0);
+    
+    const { error: iErr2, data: iData2 } = await supabaseClient
         .from('inventario')
         .update({ note: payload.note })
-        .eq('seriale_riscontrato', payload.seriale);
+        .ilike('seriale_riscontrato', `${payload.seriale}%`)
+        .select();
     
     if (iErr2) {
         console.error('❌ Errore update note inventario:', iErr2);
         throw iErr2;
     }
     
+    console.log('✅ Note inventario aggiornate:', iData2?.length || 0);
     console.log('✅ Note aggiornate su DB');
     return { success: true };
 
 case 'updatePartNumber':
+    console.log('🔍 DEBUG: Cerco seriale per PartNumber:', payload.seriale);
+    
+    // Trova seriale esatto
+    const { data: checkPN } = await supabaseClient
+        .from('giacenza')
+        .select('riscontro_seriale_f')
+        .ilike('riscontro_seriale_f', `${payload.seriale}%`)
+        .limit(1);
+    
+    if (!checkPN || checkPN.length === 0) {
+        console.error('❌ SERIALE NON TROVATO PER PARTNUMBER!');
+        throw new Error(`Seriale ${payload.seriale} non trovato`);
+    }
+    
+    const serialeEsatto = checkPN[0].riscontro_seriale_f;
+    console.log('✅ Seriale esatto per PartNumber:', serialeEsatto);
+    
     const giacUpdatePN = { part_number: payload.partNumber };
     if (payload.note) giacUpdatePN.note = payload.note;
     
-    const { error: gErr3 } = await supabaseClient
+    const { error: gErr3, data: gData3 } = await supabaseClient
         .from('giacenza')
         .update(giacUpdatePN)
-        .eq('riscontro_seriale_f', payload.seriale);
+        .eq('riscontro_seriale_f', serialeEsatto)
+        .select();
     
     if (gErr3) {
         console.error('❌ Errore update part number giacenza:', gErr3);
         throw gErr3;
     }
     
+    console.log('✅ PartNumber giacenza aggiornato:', gData3?.length || 0);
+    
     const invUpdatePN = { part_number: payload.partNumber };
     if (payload.note) invUpdatePN.note = payload.note;
     
-    const { error: iErr3 } = await supabaseClient
+    const { error: iErr3, data: iData3 } = await supabaseClient
         .from('inventario')
         .update(invUpdatePN)
-        .eq('seriale_riscontrato', payload.seriale);
+        .ilike('seriale_riscontrato', `${payload.seriale}%`)
+        .select();
     
     if (iErr3) {
         console.error('❌ Errore update part number inventario:', iErr3);
         throw iErr3;
     }
     
+    console.log('✅ PartNumber inventario aggiornato:', iData3?.length || 0);
     console.log('✅ Part Number aggiornato su DB');
     return { success: true };
                         
