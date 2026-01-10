@@ -795,40 +795,6 @@ case 'updatePartNumber':
     if (iErr3) throw iErr3;
     
     return { success: true };
-
-case 'updateNote':
-    await supabaseClient
-        .from('giacenza')
-        .update({ 
-            note: payload.note
-        })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    await supabaseClient
-        .from('inventario')
-        .update({ note: payload.note })
-        .eq('seriale_riscontrato', payload.seriale);
-    
-    return { success: true };
-                        
-case 'updatePartNumber':
-    const giacUpdatePN = { part_number: payload.partNumber };
-    if (payload.note) giacUpdatePN.note = payload.note;
-    
-    await supabaseClient
-        .from('giacenza')
-        .update(giacUpdatePN)
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    const invUpdatePN = { part_number: payload.partNumber };
-    if (payload.note) invUpdatePN.note = payload.note;
-    
-    await supabaseClient
-        .from('inventario')
-        .update(invUpdatePN)
-        .eq('seriale_riscontrato', payload.seriale);
-    
-    return { success: true };
                         
                     case 'batchUpdateUbicazione':
                         for (let item of payload.updates) {
@@ -3609,10 +3575,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     <input type="checkbox" id="col-note" checked={visibleColumns.note} onChange={() => toggleColumn('note')} />
     <label htmlFor="col-note">Note</label>
 </div>
-                        <div className="column-option">
-                            <input type="checkbox" id="col-match" checked={visibleColumns.match} onChange={() => toggleColumn('match')} />
-                            <label htmlFor="col-match">Match</label>
-                        </div>
+        
                     </div>
                 </div>
 
