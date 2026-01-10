@@ -692,7 +692,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                                 po_nr: sd.poNr,
                                 part_number: sd.partNumber,
                                 id_riga_giacenza: sd.idRigaGiacenza,
-                                note: sd.note || ''
+                                note: sd.note || '',
+                                stato: sd.stato
                             }]);
                         
                         if (iErr) throw iErr;
@@ -708,6 +709,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                                     part_number: sd.partNumber,
                                     seriale_riscontrato: sd.serialeRiscontrato,
                                     operatore: sd.operatore,
+                                    note: sd.note,
                                     timestamp: new Date().toISOString()
                                 })
                                 .eq('riscontro_seriale_f', sd.serialeRiscontrato);
@@ -795,7 +797,8 @@ case 'updatePartNumber':
         cdc: item.cdc,
         po_nr: item.poNr,
         part_number: item.partNumber,
-        id_riga_giacenza: item.idRigaGiacenza
+        id_riga_giacenza: item.idRigaGiacenza,
+        note: item.note
     }));
     
     const { error: batchInvErr } = await supabaseClient
@@ -807,7 +810,8 @@ case 'updatePartNumber':
     // Update multipli in giacenza (batch)
     const updates = items.map(item => ({
         riscontro_seriale_f: item.serialeRiscontrato,
-        stato: item.note,
+        stato: item.stato,
+        note: item.note
         match: 'OK',
         ubicazioni: item.ubicazione,
         part_number: item.partNumber,
