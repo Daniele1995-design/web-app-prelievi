@@ -733,7 +733,7 @@ case 'updateNoteStorico':
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
 
-          case 'updateUbicazione':
+    case 'updateUbicazione':
     console.log('🔍 DEBUG updateUbicazione - Payload:', payload);
     console.log('🔍 Seriale ricevuto:', payload.seriale);
     console.log('🔍 Ubicazione nuova:', payload.ubicazione);
@@ -809,27 +809,24 @@ case 'updateNoteStorico':
     return { success: true };
 
 case 'updateNote':
-    console.log('🔍 DEBUG: Cerco seriale per note:', payload.seriale);
+    console.log('🔍 DEBUG updateNote - Payload:', payload);
     
-    // Trova seriale esatto
-    const { data: checkNote } = await supabaseClient
+    const { count: countNote } = await supabaseClient
         .from('giacenza')
-        .select('riscontro_seriale_f')
-        .ilike('riscontro_seriale_f', `${payload.seriale}%`)
-        .limit(1);
+        .select('*', { count: 'exact', head: true })
+        .eq('riscontro_seriale_f', payload.seriale);
     
-    if (!checkNote || checkNote.length === 0) {
+    console.log('🔍 Righe trovate per note:', countNote);
+    
+    if (countNote === 0) {
         console.error('❌ SERIALE NON TROVATO PER NOTE!');
         throw new Error(`Seriale ${payload.seriale} non trovato`);
     }
     
-    const serialeEsatto = checkNote[0].riscontro_seriale_f;
-    console.log('✅ Seriale esatto per note:', serialeEsatto);
-    
     const { error: gErr2, data: gData2 } = await supabaseClient
         .from('giacenza')
         .update({ note: payload.note })
-        .eq('riscontro_seriale_f', serialeEsatto)
+        .eq('riscontro_seriale_f', payload.seriale)
         .select();
     
     if (gErr2) {
@@ -842,7 +839,7 @@ case 'updateNote':
     const { error: iErr2, data: iData2 } = await supabaseClient
         .from('inventario')
         .update({ note: payload.note })
-        .ilike('seriale_riscontrato', `${payload.seriale}%`)
+        .eq('seriale_riscontrato', payload.seriale)
         .select();
     
     if (iErr2) {
@@ -851,26 +848,22 @@ case 'updateNote':
     }
     
     console.log('✅ Note inventario aggiornate:', iData2?.length || 0);
-    console.log('✅ Note aggiornate su DB');
     return { success: true };
 
 case 'updatePartNumber':
-    console.log('🔍 DEBUG: Cerco seriale per PartNumber:', payload.seriale);
+    console.log('🔍 DEBUG updatePartNumber - Payload:', payload);
     
-    // Trova seriale esatto
-    const { data: checkPN } = await supabaseClient
+    const { count: countPN } = await supabaseClient
         .from('giacenza')
-        .select('riscontro_seriale_f')
-        .ilike('riscontro_seriale_f', `${payload.seriale}%`)
-        .limit(1);
+        .select('*', { count: 'exact', head: true })
+        .eq('riscontro_seriale_f', payload.seriale);
     
-    if (!checkPN || checkPN.length === 0) {
+    console.log('🔍 Righe trovate per PartNumber:', countPN);
+    
+    if (countPN === 0) {
         console.error('❌ SERIALE NON TROVATO PER PARTNUMBER!');
         throw new Error(`Seriale ${payload.seriale} non trovato`);
     }
-    
-    const serialeEsatto = checkPN[0].riscontro_seriale_f;
-    console.log('✅ Seriale esatto per PartNumber:', serialeEsatto);
     
     const giacUpdatePN = { part_number: payload.partNumber };
     if (payload.note) giacUpdatePN.note = payload.note;
@@ -878,7 +871,7 @@ case 'updatePartNumber':
     const { error: gErr3, data: gData3 } = await supabaseClient
         .from('giacenza')
         .update(giacUpdatePN)
-        .eq('riscontro_seriale_f', serialeEsatto)
+        .eq('riscontro_seriale_f', payload.seriale)
         .select();
     
     if (gErr3) {
@@ -894,7 +887,7 @@ case 'updatePartNumber':
     const { error: iErr3, data: iData3 } = await supabaseClient
         .from('inventario')
         .update(invUpdatePN)
-        .ilike('seriale_riscontrato', `${payload.seriale}%`)
+        .eq('seriale_riscontrato', payload.seriale)
         .select();
     
     if (iErr3) {
@@ -903,8 +896,8 @@ case 'updatePartNumber':
     }
     
     console.log('✅ PartNumber inventario aggiornato:', iData3?.length || 0);
-    console.log('✅ Part Number aggiornato su DB');
     return { success: true };
+
                         
                     case 'batchUpdateUbicazione':
                         for (let item of payload.updates) {
