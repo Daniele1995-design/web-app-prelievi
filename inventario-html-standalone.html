@@ -735,37 +735,37 @@ case 'updateNoteStorico':
 
   case 'updateNote':
     console.log('🔍 DEBUG updateNote - payload:', payload);
-    console.log('🔍 Cerco seriale:', payload.seriale);
+    const serialeNote = String(payload.seriale || '').trim().toUpperCase();
+    console.log('🔍 Cerco seriale normalizzato:', serialeNote);
     
     try {
         // Update inventario
-        const { data: invData, error: invError, count: invCount } = await supabaseClient
+        const { data: invData, error: invError } = await supabaseClient
             .from('inventario')
             .update({ note: payload.note })
-            .eq('seriale_riscontrato', payload.seriale)
+            .ilike('seriale_riscontrato', serialeNote)  // ← USA ilike invece di eq
             .select();
         
         console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
         console.log('📊 Inventario - Dati:', invData);
-        console.log('📊 Inventario - Errore:', invError);
         
         if (invError) throw invError;
         
         // Update giacenza
-        const { data: giacData, error: giacError, count: giacCount } = await supabaseClient
+        const { data: giacData, error: giacError } = await supabaseClient
             .from('giacenza')
             .update({ note: payload.note })
-            .eq('riscontro_seriale_f', payload.seriale)
+            .ilike('riscontro_seriale_f', serialeNote)  // ← USA ilike invece di eq
             .select();
         
         console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
         console.log('📊 Giacenza - Dati:', giacData);
-        console.log('📊 Giacenza - Errore:', giacError);
         
         if (giacError) throw giacError;
         
         if ((invData?.length || 0) === 0 && (giacData?.length || 0) === 0) {
             console.warn('⚠️ ATTENZIONE: Nessuna riga aggiornata! Seriale non trovato?');
+            console.warn('🔍 Seriale cercato:', serialeNote);
         }
         
         console.log('✅ Note - Query completate');
@@ -775,16 +775,16 @@ case 'updateNoteStorico':
         console.error('💥 ERRORE updateNote:', err);
         throw err;
     }
-
 case 'updateUbicazione':
     console.log('🔍 DEBUG updateUbicazione - payload:', payload);
-    console.log('🔍 Cerco seriale:', payload.seriale);
+    const serialeUbic = String(payload.seriale || '').trim().toUpperCase();
+    console.log('🔍 Cerco seriale normalizzato:', serialeUbic);
     
     try {
         const { data: invData, error: invError } = await supabaseClient
             .from('inventario')
             .update({ ubicazione: payload.ubicazione })
-            .eq('seriale_riscontrato', payload.seriale)
+            .ilike('seriale_riscontrato', serialeUbic)
             .select();
         
         console.log('📊 Inventario ubicazione - Righe:', invData?.length || 0, 'Dati:', invData);
@@ -793,7 +793,7 @@ case 'updateUbicazione':
         const { data: giacData, error: giacError } = await supabaseClient
             .from('giacenza')
             .update({ ubicazioni: payload.ubicazione })
-            .eq('riscontro_seriale_f', payload.seriale)
+            .ilike('riscontro_seriale_f', serialeUbic)
             .select();
         
         console.log('📊 Giacenza ubicazioni - Righe:', giacData?.length || 0, 'Dati:', giacData);
@@ -811,13 +811,14 @@ case 'updateUbicazione':
 
 case 'updatePartNumber':
     console.log('🔍 DEBUG updatePartNumber - payload:', payload);
-    console.log('🔍 Cerco seriale:', payload.seriale);
+    const serialePN = String(payload.seriale || '').trim().toUpperCase();
+    console.log('🔍 Cerco seriale normalizzato:', serialePN);
     
     try {
         const { data: invData, error: invError } = await supabaseClient
             .from('inventario')
             .update({ part_number: payload.partNumber })
-            .eq('seriale_riscontrato', payload.seriale)
+            .ilike('seriale_riscontrato', serialePN)
             .select();
         
         console.log('📊 Inventario part_number - Righe:', invData?.length || 0, 'Dati:', invData);
@@ -826,7 +827,7 @@ case 'updatePartNumber':
         const { data: giacData, error: giacError } = await supabaseClient
             .from('giacenza')
             .update({ part_number: payload.partNumber })
-            .eq('riscontro_seriale_f', payload.seriale)
+            .ilike('riscontro_seriale_f', serialePN)
             .select();
         
         console.log('📊 Giacenza part_number - Righe:', giacData?.length || 0, 'Dati:', giacData);
@@ -1502,7 +1503,7 @@ operations: groups[action]
 
             // Prepara dati per Excel
             const excelData = daInventariare.map(item => ({
-                'ID Riga': item.id || '',
+                'ID Riga': item.id_riga_giacenza || '',
                 'Po Nr': item.PoNr || '',
                 'CDC': item.Cdc || '',
                 'Cod. SAP': item.CodSap || '',
@@ -3290,22 +3291,35 @@ const updateNoteLista = async (item, newNote) => {
                                             {item.RISCONTROSERIALEF}
                                         </td>
                                        <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
-    {editingNote[item.Seriale_Riscontrato] ? (
+    {editingNote[item.RISCONTROSERIALEF] ? (
         <div className="flex gap-1">
             <textarea 
                 defaultValue={item.Note} 
-                onBlur={(e) => updateNoteLista(item, e.target.value)} 
+                onBlur={(e) => {
+                    updateNoteLista(item, e.target.value);
+                    setEditingNote(prev => {
+                        const n = {...prev};
+                        delete n[item.RISCONTROSERIALEF];
+                        return n;
+                    });
+                }}
                 className="px-2 py-1 border rounded text-xs w-full" 
                 rows="2"
                 autoFocus 
             />
         </div>
     ) : (
-        <div className="flex gap-1 items-center">
-            <span className="text-xs italic">{item.Note || '-'}</span>
+        <div className="flex gap-1 items-center max-w-xs">
+            <span 
+                className="text-xs italic truncate block" 
+                style={{ maxWidth: '150px' }}
+                title={item.Note || '-'}
+            >
+                {item.Note || '-'}
+            </span>
             <button 
-                onClick={() => setEditingNote(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
-                className="text-blue-500 hover:text-blue-700"
+                onClick={() => setEditingNote(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                className="text-blue-500 hover:text-blue-700 flex-shrink-0"
             >
                 <Icons.Edit />
             </button>
