@@ -714,16 +714,20 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         return { success: true };
 
                     case 'updateUbicazione':
-                        await supabaseClient
-                            .from('giacenza')
-                            .update({ ubicazioni: payload.ubicazione })
-                            .eq('riscontro_seriale_f', payload.seriale);
-                        const updateData = { ubicazione: payload.ubicazione };
-    if (payload.note) updateData.note = payload.note;
+    const giacUpdateUbic = { ubicazioni: payload.ubicazione };
+    if (payload.note) giacUpdateUbic.note = payload.note;
+    
+    await supabaseClient
+        .from('giacenza')
+        .update(giacUpdateUbic)
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    const invUpdateUbic = { ubicazione: payload.ubicazione };
+    if (payload.note) invUpdateUbic.note = payload.note;
     
     await supabaseClient
         .from('inventario')
-        .update(updateData)
+        .update(invUpdateUbic)
         .eq('seriale_riscontrato', payload.seriale);
     
     return { success: true };
@@ -742,17 +746,20 @@ case 'updateNote':
     return { success: true };
                         
 case 'updatePartNumber':
+    const giacUpdatePN = { part_number: payload.partNumber };
+    if (payload.note) giacUpdatePN.note = payload.note;
+    
     await supabaseClient
         .from('giacenza')
-        .update({ part_number: payload.partNumber })
+        .update(giacUpdatePN)
         .eq('riscontro_seriale_f', payload.seriale);
     
-    const updateDataPN = { part_number: payload.partNumber };
-    if (payload.note) updateDataPN.note = payload.note;
+    const invUpdatePN = { part_number: payload.partNumber };
+    if (payload.note) invUpdatePN.note = payload.note;
     
     await supabaseClient
         .from('inventario')
-        .update(updateDataPN)
+        .update(invUpdatePN)
         .eq('seriale_riscontrato', payload.seriale);
     
     return { success: true };
@@ -1594,10 +1601,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         : '';
     
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
-            : i
-    );
+    i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
+        ? { ...i, Ubicazioni: newUbicazione, Note: note } 
+        : i
+);
     setGiacenza(updatedGiacenza);
     setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
     setEditingUbicazione(false);
@@ -1635,10 +1642,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         : '';
     
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
+    i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
+        ? { ...i, PartNumber: newPartNumber, Note: note } 
+        : i
+);
     setGiacenza(updatedGiacenza);
     setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
     setEditingPartNumber(false);
@@ -3000,15 +3007,15 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                             {item.RISCONTROSERIALEF}
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
-    {editingNote[item.RISCONTROSERIALEF] ? (
+    {editingNote[item.Seriale_Riscontrato] ? (
         <div className="flex gap-1">
             <textarea 
                 defaultValue={item.Note} 
                 onBlur={(e) => {
-                    updateNoteLista(item, e.target.value);
+                    updateNoteStorico(item, e.target.value);
                     setEditingNote(prev => {
                         const n = {...prev};
-                        delete n[item.RISCONTROSERIALEF];
+                        delete n[item.Seriale_Riscontrato];
                         return n;
                     });
                 }}
@@ -3249,7 +3256,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         return match;
     }));
     appCache.storico = updated;
-    setEditingNote(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    //setEditingNote(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
     
     try {
     await api('updateNote', { 
