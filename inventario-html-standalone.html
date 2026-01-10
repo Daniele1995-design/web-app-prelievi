@@ -558,216 +558,11 @@ body {
     <div id="print-area" style="display:none;"></div>
 
     <script type="text/babel">
+        const SUPABASE_URL = 'https://gggkjzbggdaujoyxmvxa.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnZ2tqemJnZ2RhdWpveXhtdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMjY3NjcsImV4cCI6MjA4MzYwMjc2N30.8Qikb54_UnZdVj71mISuoZytByI2sosk57noLebU76A';
         const { useState, useEffect, useRef } = React;
 
-        const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
-
-        // ============================================
-// INDEXEDDB CACHE MANAGER
-// ============================================
-const DB_NAME = 'ATSInventoryDB';
-const DB_VERSION = 1;
-
-const dbCache = {
-    db: null,
-    
-    async init() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-                this.db = request.result;
-                resolve();
-            };
-            
-            request.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                
-                if (!db.objectStoreNames.contains('giacenza')) {
-                    db.createObjectStore('giacenza', { keyPath: 'ID_Riga' });
-                }
-                if (!db.objectStoreNames.contains('storico')) {
-                    const store = db.createObjectStore('storico', { keyPath: 'id', autoIncrement: true });
-                    store.createIndex('seriale', 'Seriale_Riscontrato', { unique: false });
-                    store.createIndex('timestamp', 'Timestamp', { unique: false });
-                }
-                if (!db.objectStoreNames.contains('metadata')) {
-                    db.createObjectStore('metadata', { keyPath: 'key' });
-                }
-            };
-        });
-    },
-    
-    async get(storeName) {
-        if (!this.db) await this.init();
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readonly');
-            const store = tx.objectStore(storeName);
-            const request = store.getAll();
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject(request.error);
-        });
-    },
-    
-    async set(storeName, data) {
-        if (!this.db) await this.init();
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, 'readwrite');
-            const store = tx.objectStore(storeName);
-            
-            store.clear();
-            data.forEach(item => store.add(item));
-            
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-        });
-    },
-    
-    async getMetadata(key) {
-        if (!this.db) await this.init();
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction('metadata', 'readonly');
-            const store = tx.objectStore('metadata');
-            const request = store.get(key);
-            request.onsuccess = () => resolve(request.result?.value);
-            request.onerror = () => reject(request.error);
-        });
-    },
-    
-    async setMetadata(key, value) {
-        if (!this.db) await this.init();
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction('metadata', 'readwrite');
-            const store = tx.objectStore('metadata');
-            const request = store.put({ key, value });
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
-    },
-    
-    async clearAll() {
-        if (!this.db) await this.init();
-        const stores = ['giacenza', 'storico', 'metadata'];
-        for (const store of stores) {
-            await new Promise((resolve, reject) => {
-                const tx = this.db.transaction(store, 'readwrite');
-                const request = tx.objectStore(store).clear();
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-        }
-    }
-};
-
-const appCache = { 
-    giacenza: null, 
-    storico: null, 
-    stats: null
-};
-
-// Durata cache in millisecondi
-const CACHE_TIME = 3 * 60 * 1000; // 3 minuti
-
-// Controlla se cache è valida
-function isCacheValid(key) {
-    if (!appCache[key] || !appCache.lastUpdate[key]) return false;
-    return (Date.now() - appCache.lastUpdate[key]) < CACHE_TIME;
-}
-
-// ============================================
-// QUEUE MANAGER PER OPERAZIONI FALLITE
-// ============================================
-const operationQueue = {
-    queue: [],
-    processing: false,
-    batchTimer: null,
-    
-    async add(action, payload, retries = 3) {
-        this.queue.push({ action, payload, retries, timestamp: Date.now() });
         
-        if (action.includes('Bulk') || action === 'saveRiscontro') {
-            clearTimeout(this.batchTimer);
-            this.batchTimer = setTimeout(() => this.processBatch(), 2000);
-        } else {
-            if (!this.processing) this.process();
-        }
-    },
-    
-    async processBatch() {
-        const groups = {};
-        this.queue.forEach(op => {
-            if (!groups[op.action]) groups[op.action] = [];
-            groups[op.action].push(op);
-        });
-        
-        for (const [action, ops] of Object.entries(groups)) {
-            if (ops.length > 5) {
-                console.log(`📦 Batch di ${ops.length} operazioni per ${action}`);
-            }
-        }
-        
-        this.process();
-    },
-    
-    async process() {
-        if (this.queue.length === 0) {
-            this.processing = false;
-            return;
-        }
-        
-        this.processing = true;
-        const operation = this.queue[0];
-        
-        try {
-            await api(operation.action, operation.payload, false);
-            this.queue.shift();
-            console.log('✅ Operazione completata:', operation.action);
-        } catch (err) {
-            operation.retries--;
-            if (operation.retries <= 0) {
-                console.error('❌ Operazione fallita:', operation.action);
-                this.queue.shift();
-            } else {
-                console.warn(`⚠️ Retry ${3 - operation.retries}/3:`, operation.action);
-            }
-        }
-        
-        setTimeout(() => this.process(), 500);
-    }
-};
-
-async function api(action, payload = {}, useQueue = true) {
-    try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action, ...payload })
-        });
-        
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        
-        if (!data.success) {
-            if (useQueue && data.shouldRetry === true) {
-                console.warn('⏳ Operazione messa in coda:', action);
-                await operationQueue.add(action, payload);
-                return { success: true, queued: true };
-            }
-            throw new Error(data.error || 'Errore API');
-        }
-        
-        return data;
-    } catch (err) {
-        if (useQueue && err.message.includes('Failed to fetch')) {
-            console.warn('📡 Errore rete, coda:', action);
-            await operationQueue.add(action, payload);
-            return { success: true, queued: true };
-        }
-        throw err;
-    }
-}
 
         const Icons = {
             Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
@@ -888,19 +683,32 @@ useEffect(() => {
             const [error, setError] = useState('');
 
             const handleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError('');
-                try {
-                    const result = await api('login', { username, password });
-                    onLogin(result.user);
-                } catch (err) {
-                    setError(err.message || 'Errore di login');
-                } finally {
-                    setLoading(false);
-                }
-            };
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+        const { data, error } = await supabase
+            .from('utenti')
+            .select('*')
+            .eq('username', username)
+            .eq('password', password)
+            .eq('attivo', true)
+            .single();
 
+        if (error) throw new Error('Credenziali non valide');
+        
+        onLogin({ 
+            username: data.username, 
+            nome: data.nome_completo, 
+            ruolo: data.ruolo 
+        });
+    } catch (err) {
+        setError(err.message || 'Errore di login');
+    } finally {
+        setLoading(false);
+    }
+};
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
@@ -929,63 +737,23 @@ useEffect(() => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function load() {
-            try {
-                // Calcola stats dai dati locali in cache
-                await dbCache.init();
-                const [giacenzaLocal, storicoLocal] = await Promise.all([
-                    dbCache.get('giacenza'),
-                    dbCache.get('storico')
-                ]);
-
-                if (giacenzaLocal.length > 0) {
-                    // Calcola statistiche locali
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
-
-                    const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
-
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                }
-
-                // Opzionale: ricarica dal server ogni 2 minuti
-                setLoading(false);
-            } catch (err) {
-                console.error(err);
-                // Fallback: prova a caricare dal server
-                try {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                } catch (serverErr) {
-                    console.error('Errore caricamento stats:', serverErr);
-                }
-                setLoading(false);
-            }
+   useEffect(() => {
+    async function loadStats() {
+        try {
+            const { data, error } = await supabase.rpc('get_stats');
+            if (error) throw error;
+            setStats(data);
+        } catch (err) {
+            console.error('Errore stats:', err);
+        } finally {
+            setLoading(false);
         }
-        
-        load();
-        
-        // Auto-refresh ogni 30 secondi per aggiornare le stats
-        const interval = setInterval(() => {
-            load();
-        }, 30000);
-        
-        return () => clearInterval(interval);
-    },[]);// Listener per aggiornamenti real-time
+    }
+    
+    loadStats();
+    const interval = setInterval(loadStats, 30000); // aggiorna ogni 30s
+    return () => clearInterval(interval);
+}, []);// Listener per aggiornamenti real-time
 useEffect(() => {
     const handleUpdate = async () => {
         try {
@@ -1077,70 +845,27 @@ useEffect(() => {
     const [newPartNumber, setNewPartNumber] = useState('');        
 
     useEffect(() => {
-        async function loadData() {
-            try {
-                await dbCache.init();
-                
-                const lastSync = await dbCache.getMetadata('lastSync');
-                const now = Date.now();
-                const ONE_DAY = 24 * 60 * 60 * 1000;
-                
-                if (lastSync && (now - lastSync < ONE_DAY)) {
-                    setLoadingProgress('Caricamento da cache...');
-                    const [cachedGiac, cachedStor] = await Promise.all([
-                        dbCache.get('giacenza'),
-                        dbCache.get('storico')
-                    ]);
-                    
-                    if (cachedGiac.length > 0) {
-                        setGiacenza(cachedGiac);
-                        setStorico(cachedStor);
-                        appCache.giacenza = cachedGiac;
-                        appCache.storico = cachedStor;
-                        setLoading(false);
-                        setLoadingProgress('');
-                        return;
-                    }
-                }
-                
-                setLoadingProgress('Download dal server...');
-                const [resGiac, resStor] = await Promise.all([
-                    api('getGiacenza', { filters: {} }),
-                    api('getStorico', { filters: {} })
-                ]);
-                
-                setLoadingProgress('Salvataggio cache...');
-                const giacenzaData = resGiac.data.map(item => ({ 
-                    ...item, 
-                    inventariato: false,
-                    ID_Riga: item.ID_Riga || `temp_${Date.now()}_${Math.random()}`
-                }));
-                
-                await Promise.all([
-                    dbCache.set('giacenza', giacenzaData),
-                    dbCache.set('storico', resStor.data.map((item, idx) => ({
-                        ...item,
-                        id: item.id || idx
-                    }))),
-                    dbCache.setMetadata('lastSync', now)
-                ]);
-                
-                setGiacenza(giacenzaData);
-                setStorico(resStor.data);
-                appCache.giacenza = giacenzaData;
-                appCache.storico = resStor.data;
-            } catch (err) {
-                console.error(err);
-                alert('Errore caricamento: ' + err.message);
-            } finally {
-                setLoading(false);
-                setLoadingProgress('');
-            }
+    async function loadData() {
+        try {
+            const { data, error } = await supabase
+                .from('giacenza')
+                .select('*')
+                .eq('inventariato', false)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            
+            setGiacenza(data);
+        } catch (err) {
+            console.error('Errore caricamento giacenza:', err);
+            alert('Errore: ' + err.message);
+        } finally {
+            setLoading(false);
         }
-        
-        loadData();
-        if (inputRef.current) inputRef.current.focus();
-    }, []);
+    }
+    
+    loadData();
+}, []);
 
     const playBeep = (type) => {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1159,226 +884,150 @@ useEffect(() => {
     const handleScan = async (e) => {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
-        // ✅ RESET IMMEDIATO DELL'INPUT
         setScanInput('');
-        setTimeout(() => {
-            if (inputRef.current) inputRef.current.focus();
-        }, 100);
-
-        // Controlla SUBITO nella cache locale (giacenza e storico)
-        const alreadyInStorico = storico.find(item => 
-            String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
-        );
         
-        if (alreadyInStorico) {
-            setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO IN STORICO' });
-            playBeep('error');
-            setScanInput('');
-            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            return;
-        }
-
-        const alreadyInGiacenza = giacenza.find(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && item.inventariato
-        );
-        
-        if (alreadyInGiacenza) {
-            setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-            playBeep('error');
-            setScanInput('');
-            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            return;
-        }
-
-        const found = giacenza.find(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato
-        );
-
-        if (found) {
-            const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+        try {
+            // 1. Verifica se già inventariato
+            const { data: existing } = await supabase
+                .from('inventario')
+                .select('id')
+                .ilike('seriale_riscontrato', scanned)
+                .single();
             
-            // 1. AGGIORNA SUBITO LA UI LOCALE
-            const updatedGiacenza = giacenza.map(item =>
-                item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-                    ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
-                    : item
-            );
+            if (existing) {
+                setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO' });
+                playBeep('error');
+                return;
+            }
             
-            const newEntry = { 
-                id: Date.now() + Math.random(),
-                Timestamp: new Date().toISOString(), 
-                Operatore: user.nome, 
-                Seriale_Riscontrato: scanned, 
-                Match: match ? 'OK' : 'KO',
-                CodSap: found.CodSap,
-                Descrizione: found.Descrizione,
-                Cdc: found.Cdc,
-                Stato: found.Stato,
-                Ubicazioni: found.Ubicazioni,
-                RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                WMSCode: found.WMSCode,
-                PoNr: found.PoNr,
-                PartNumber: found.PartNumber || ''
-            };
+            // 2. Cerca in giacenza
+            const { data: found, error: searchError } = await supabase
+                .from('giacenza')
+                .select('*')
+                .ilike('riscontro_seriale_f', scanned)
+                .eq('inventariato', false)
+                .single();
             
-            const updatedStorico = [newEntry, ...storico];
+            if (searchError || !found) {
+                setMessage({ type: 'error', text: '❌ NON TROVATO' });
+                playBeep('error');
+                return;
+            }
             
-            // Aggiorna UI immediata
-            setGiacenza(updatedGiacenza);
-            setStorico(updatedStorico);
+            const match = found.riscontro_seriale_f.toUpperCase() === scanned;
+            
+            // 3. Salva in inventario
+            const { error: insertError } = await supabase
+                .from('inventario')
+                .insert({
+                    operatore: user.nome,
+                    cod_sap: found.cod_sap,
+                    descrizione: found.descrizione,
+                    ubicazione: found.ubicazioni,
+                    seriale_atteso: found.riscontro_seriale_f,
+                    seriale_riscontrato: scanned,
+                    match: match ? 'OK' : 'KO',
+                    qta: found.qta || 1,
+                    wms_code: found.wms_code,
+                    cdc: found.cdc,
+                    po_nr: found.po_nr,
+                    part_number: found.part_number,
+                    id_riga_giacenza: found.id_riga
+                });
+            
+            if (insertError) throw insertError;
+            
+            // 4. Aggiorna giacenza
+            const { error: updateError } = await supabase
+                .from('giacenza')
+                .update({
+                    inventariato: true,
+                    match: match ? 'OK' : 'KO',
+                    timestamp: new Date().toISOString(),
+                    operatore: user.nome
+                })
+                .eq('id_riga', found.id_riga);
+            
+            if (updateError) throw updateError;
+            
+            // 5. Aggiorna UI
             setCurrentItem(found);
-            setNewUbicazione(found.Ubicazioni || '');
             setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
             playBeep(match ? 'success' : 'error');
             
-            // Salva in cache locale
-            appCache.giacenza = updatedGiacenza;
-            appCache.storico = updatedStorico;
-            appCache.stats = null; // Invalida stats
+            // Ricarica giacenza
+            const { data: refreshed } = await supabase
+                .from('giacenza')
+                .select('*')
+                .eq('inventariato', false);
+            setGiacenza(refreshed || []);
             
-            await Promise.all([
-                dbCache.set('giacenza', updatedGiacenza),
-                dbCache.set('storico', updatedStorico)
-            ]);
-            
-            // 2. NOTIFICA ALTRI COMPONENTI
-            window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-            }));
-
-            // 3. INVIA AL SERVER IN BACKGROUND
-            try {
-                await api('saveRiscontro', {
-                    data: {
-                        operatore: user.nome,
-                        codSap: found.CodSap,
-                        descrizione: found.Descrizione,
-                        ubicazione: found.Ubicazioni,
-                        serialeAtteso: found.RISCONTROSERIALEF,
-                        serialeRiscontrato: scanned,
-                        match: match,
-                        qta: found['Qtà'] || 1,
-                        wmsCode: found.WMSCode || '',
-                        cdc: found.Cdc || '',
-                        poNr: found.PoNr || '',
-                        partNumber: found.PartNumber || '',
-                        idRigaGiacenza: found.ID_Riga || ''
-                    }
-                });
-                console.log('✅ Salvato sul server');
-            } catch (err) {
-                console.error('❌ Errore invio server:', err);
-                
-                // ROLLBACK se il server fallisce
-                setGiacenza(giacenza);
-                setStorico(storico);
-                appCache.giacenza = giacenza;
-                appCache.storico = storico;
-                
-                await Promise.all([
-                    dbCache.set('giacenza', giacenza),
-                    dbCache.set('storico', storico)
-                ]);
-                
-                window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                    detail: { giacenza: giacenza, storico: storico }
-                }));
-                
-                setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
-                alert('⚠️ Errore comunicazione con il server.\nL\'operazione è stata annullata.\n\n' + err.message);
-            }
-        } else {
-            setMessage({ type: 'error', text: '❌ NON TROVATO' });
+        } catch (err) {
+            console.error('Errore scan:', err);
+            setMessage({ type: 'error', text: '❌ ERRORE: ' + err.message });
             playBeep('error');
         }
-
-        setScanInput('');
-        if (inputRef.current) inputRef.current.focus();
+        
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
 };
     const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // 1. AGGIORNA GIACENZA
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
-    setEditingUbicazione(false);
-    appCache.giacenza = updatedGiacenza;
-    await dbCache.set('giacenza', updatedGiacenza);
-    
-    // 2. AGGIORNA STORICO
-    const updatedStorico = storico.map(i => 
-        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
-            : i
-    );
-    setStorico(updatedStorico);
-    appCache.storico = updatedStorico;
-    await dbCache.set('storico', updatedStorico);
-    
-    // 3. NOTIFICA ALTRI COMPONENTI
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
-    
-    // 4. INVIA AL SERVER IN BACKGROUND
     try {
-        await api('updateUbicazione', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            ubicazione: newUbicazione 
-        });
-        console.log('✅ Ubicazione salvata sul server');
+        // Aggiorna giacenza
+        const { error: giacError } = await supabase
+            .from('giacenza')
+            .update({ ubicazioni: newUbicazione })
+            .eq('riscontro_seriale_f', currentItem.riscontro_seriale_f);
+        
+        if (giacError) throw giacError;
+        
+        // Aggiorna inventario
+        const { error: invError } = await supabase
+            .from('inventario')
+            .update({ ubicazione: newUbicazione })
+            .eq('seriale_riscontrato', currentItem.riscontro_seriale_f);
+        
+        if (invError) throw invError;
+        
+        setCurrentItem({ ...currentItem, ubicazioni: newUbicazione });
+        setEditingUbicazione(false);
+        alert('✅ Ubicazione aggiornata');
+        
     } catch (err) {
-        console.error('❌ Errore invio server:', err);
-        alert('⚠️ Ubicazione aggiornata localmente, ma errore sincronizzazione server');
+        console.error('Errore aggiornamento:', err);
+        alert('Errore: ' + err.message);
     }
 };
 
-// ✅ NUOVA FUNZIONE SEPARATA (fuori da handleUpdateUbicazione)
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
     
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
-    setEditingPartNumber(false);
-    appCache.giacenza = updatedGiacenza;
-    await dbCache.set('giacenza', updatedGiacenza);
-    
-    const updatedStorico = storico.map(i => 
-        i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
-    setStorico(updatedStorico);
-    appCache.storico = updatedStorico;
-    await dbCache.set('storico', updatedStorico);
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
-    
     try {
-        await api('updatePartNumber', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            partNumber: newPartNumber 
-        });
-        console.log('✅ PartNumber salvato sul server');
+        const { error: giacError } = await supabase
+            .from('giacenza')
+            .update({ part_number: newPartNumber })
+            .eq('riscontro_seriale_f', currentItem.riscontro_seriale_f);
+        
+        if (giacError) throw giacError;
+        
+        const { error: invError } = await supabase
+            .from('inventario')
+            .update({ part_number: newPartNumber })
+            .eq('seriale_riscontrato', currentItem.riscontro_seriale_f);
+        
+        if (invError) throw invError;
+        
+        setCurrentItem({ ...currentItem, part_number: newPartNumber });
+        setEditingPartNumber(false);
+        alert('✅ Part Number aggiornato');
+        
     } catch (err) {
-        console.error('❌ Errore invio server:', err);
-        alert('⚠️ PartNumber aggiornato localmente, ma errore sincronizzazione server');
+        console.error('Errore:', err);
+        alert('Errore: ' + err.message);
     }
-};
+};;
     const stampaEtichetta = (item, formato) => {
         const printArea = document.getElementById('print-area');
         const bcId = 'bc-print-' + Date.now();
@@ -1669,60 +1318,27 @@ const handleUpdatePartNumber = async () => {
     }
 };
 
-    useEffect(() => {
-        async function load() {
-            try {
-                await dbCache.init();
-                
-                const lastSync = await dbCache.getMetadata('lastSync');
-                const now = Date.now();
-                const ONE_DAY = 24 * 60 * 60 * 1000;
-                
-                if (lastSync && (now - lastSync < ONE_DAY)) {
-                    setLoadingProgress('Caricamento da cache...');
-                    const cachedGiac = await dbCache.get('giacenza');
-                    
-                    if (cachedGiac.length > 0) {
-                        setGiacenza(cachedGiac);
-                        const notInventoried = cachedGiac.filter(i => !i.inventariato);
-                        setFilteredData(notInventoried);
-                        setHasMore(notInventoried.length > 50);
-                        appCache.giacenza = cachedGiac;
-                        setLoading(false);
-                        setLoadingProgress('');
-                        return;
-                    }
-                }
-                
-                setLoadingProgress('Download dal server...');
-                const res = await api('getGiacenza', { filters: {} });
-                
-                setLoadingProgress('Salvataggio cache...');
-                const data = res.data.map(i => ({ 
-                    ...i, 
-                    inventariato: false,
-                    ID_Riga: i.ID_Riga || `temp_${Date.now()}_${Math.random()}`
-                }));
-                
-                await Promise.all([
-                    dbCache.set('giacenza', data),
-                    dbCache.setMetadata('lastSync', now)
-                ]);
-                
-                setGiacenza(data);
-                const notInventoried = data.filter(i => !i.inventariato);
-                setFilteredData(notInventoried);
-                setHasMore(notInventoried.length > 50);
-                appCache.giacenza = data;
-            } catch (err) {
-                alert('Errore caricamento: ' + err.message);
-            } finally {
-                setLoading(false);
-                setLoadingProgress('');
-            }
+  useEffect(() => {
+    async function load() {
+        try {
+            const { data, error } = await supabase
+                .from('giacenza')
+                .select('*')
+                .eq('inventariato', false)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            
+            setGiacenza(data);
+            setFilteredData(data);
+        } catch (err) {
+            alert('Errore caricamento: ' + err.message);
+        } finally {
+            setLoading(false);
         }
-        load();
-    }, []);
+    }
+    load();
+}, []);
 
     useEffect(() => {
         const handleUpdate = async (event) => {
@@ -1779,84 +1395,65 @@ const handleUpdatePartNumber = async () => {
 
     const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
-    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
-    if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}?`)) return;
     
-    // 1. AGGIORNA SUBITO IN LOCALE
-    const updatedGiacenza = giacenza.map(i => 
-        selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
-            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale } 
-            : i
-    );
+    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].ubicazioni;
+    if (!window.confirm(`Verificare ${selected.length} articoli?`)) return;
     
-    const newEntries = selected.map(item => ({
-        id: Date.now() + Math.random(),
-        Timestamp: new Date().toISOString(),
-        Operatore: user.nome,
-        Seriale_Riscontrato: item.RISCONTROSERIALEF,
-        Match: 'OK',
-        CodSap: item.CodSap,
-        Descrizione: item.Descrizione,
-        Cdc: item.Cdc,
-        Stato: item.Stato,
-        Ubicazioni: ubicazioneFinale,
-        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
-        WMSCode: item.WMSCode,
-        PoNr: item.PoNr,
-        PartNumber: item.PartNumber || ''
-    }));
-    
-    // Prendi lo storico esistente dalla cache o inizializza vuoto
-    const currentStorico = appCache.storico || [];
-    const updatedStorico = [...newEntries, ...currentStorico];
-    
-    setGiacenza(updatedGiacenza);
-    appCache.giacenza = updatedGiacenza;
-    appCache.storico = updatedStorico;
-    
-    await Promise.all([
-        dbCache.set('giacenza', updatedGiacenza),
-        dbCache.set('storico', updatedStorico)
-    ]);
-    
-    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-    setSelected([]);
-    setBulkUbicazione('');
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
-    
-    alert('Verifica completata localmente!');
-    
-    // 2. INVIA AL SERVER IN BACKGROUND
-    (async () => {
-        try {
-            for (const item of selected) {
-                await api('saveRiscontro', {
-                    data: {
-                        operatore: user.nome,
-                        codSap: item.CodSap,
-                        descrizione: item.Descrizione,
-                        ubicazione: ubicazioneFinale,
-                        serialeAtteso: item.RISCONTROSERIALEF,
-                        serialeRiscontrato: item.RISCONTROSERIALEF,
-                        match: true,
-                        qta: item['Qtà'] || 1,
-                        wmsCode: item.WMSCode || '',
-                        cdc: item.Cdc || '',
-                        poNr: item.PoNr || '',
-                        partNumber: item.PartNumber || '',
-                        idRigaGiacenza: item.ID_Riga || ''
-                    }
-                });
-            }
-            console.log('✅ Verifica massiva salvata sul server');
-        } catch (err) {
-            console.error('❌ Errore invio server:', err);
-            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati con il server');
-        }
-    })();
+    try {
+        // Inserisci tutti in inventario
+        const inventarioRecords = selected.map(item => ({
+            operatore: user.nome,
+            cod_sap: item.cod_sap,
+            descrizione: item.descrizione,
+            ubicazione: ubicazioneFinale,
+            seriale_atteso: item.riscontro_seriale_f,
+            seriale_riscontrato: item.riscontro_seriale_f,
+            match: 'OK',
+            qta: item.qta || 1,
+            wms_code: item.wms_code,
+            cdc: item.cdc,
+            po_nr: item.po_nr,
+            part_number: item.part_number,
+            id_riga_giacenza: item.id_riga
+        }));
+        
+        const { error: insertError } = await supabase
+            .from('inventario')
+            .insert(inventarioRecords);
+        
+        if (insertError) throw insertError;
+        
+        // Aggiorna giacenza
+        const idRighe = selected.map(i => i.id_riga);
+        const { error: updateError } = await supabase
+            .from('giacenza')
+            .update({
+                inventariato: true,
+                match: 'OK',
+                ubicazioni: ubicazioneFinale,
+                timestamp: new Date().toISOString(),
+                operatore: user.nome
+            })
+            .in('id_riga', idRighe);
+        
+        if (updateError) throw updateError;
+        
+        alert(`✅ ${selected.length} articoli verificati!`);
+        
+        // Ricarica
+        const { data } = await supabase
+            .from('giacenza')
+            .select('*')
+            .eq('inventariato', false);
+        setGiacenza(data || []);
+        setFilteredData(data || []);
+        setSelected([]);
+        setBulkUbicazione('');
+        
+    } catch (err) {
+        console.error('Errore verifica massiva:', err);
+        alert('Errore: ' + err.message);
+    }
 };
  const updateBulkPartNumber = async () => {
     if (selected.length === 0 || !bulkPartNumber.trim()) return;
@@ -2343,57 +1940,26 @@ const handleUpdatePartNumber = async () => {
     })();
 };
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                await dbCache.init();
-                
-                const lastSync = await dbCache.getMetadata('lastSync');
-                const now = Date.now();
-                const ONE_DAY = 24 * 60 * 60 * 1000;
-                
-                if (lastSync && (now - lastSync < ONE_DAY)) {
-                    setLoadingProgress('Caricamento da cache...');
-                    const cachedStor = await dbCache.get('storico');
-                    
-                    if (cachedStor.length > 0) {
-                        setStorico(cachedStor);
-                        setFilteredData(cachedStor);
-                        appCache.storico = cachedStor;
-                        setLoading(false);
-                        setLoadingProgress('');
-                        return;
-                    }
-                }
-                
-                setLoadingProgress('Download dal server...');
-                const res = await api('getStorico', { filters: {} });
-                
-                setLoadingProgress('Salvataggio cache...');
-                const storicoData = res.data.map((item, idx) => ({
-                    ...item,
-                    id: item.id || idx
-                }));
-                
-                await Promise.all([
-                    dbCache.set('storico', storicoData),
-                    dbCache.setMetadata('lastSync', now)
-                ]);
-                
-                setStorico(storicoData);
-                setFilteredData(storicoData);
-                appCache.storico = storicoData;
-            } catch (err) {
-                console.error(err);
-                alert('Errore caricamento: ' + err.message);
-            } finally {
-                setLoading(false);
-                setLoadingProgress('');
-            }
+   useEffect(() => {
+    async function loadData() {
+        try {
+            const { data, error } = await supabase
+                .from('inventario')
+                .select('*')
+                .order('timestamp', { ascending: false });
+
+            if (error) throw error;
+            
+            setStorico(data);
+            setFilteredData(data);
+        } catch (err) {
+            alert('Errore caricamento storico: ' + err.message);
+        } finally {
+            setLoading(false);
         }
-        
-        loadData();
-    }, []);
+    }
+    loadData();
+}, []);
 
     useEffect(() => {
     const handleUpdate = async (event) => {
@@ -2523,32 +2089,33 @@ const handleUpdatePartNumber = async () => {
     if (selected.length === 0 || !bulkUbicazione.trim()) return;
     if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
     
-    const updated = storico.map(i => 
-        selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
-            ? { ...i, Ubicazioni: bulkUbicazione } 
-            : i
-    );
-    setStorico(updated);
-    setFilteredData(updated);
-    appCache.storico = updated;
-    await dbCache.set('storico', updated);
-    setSelected([]);
-    setBulkUbicazione('');
-    
-    alert(`✅ ${selected.length} ubicazioni aggiornate localmente!`);
-    
-    (async () => {
-        try {
-            const serialiBatch = selected.map(i => i.Seriale_Riscontrato);
-            await api('updateBulkUbicazione', { 
-                seriali: serialiBatch, 
-                ubicazione: bulkUbicazione 
-            });
-            console.log('✅ Batch ubicazioni sincronizzato con server');
-        } catch (err) {
-            console.error('❌ Errore batch server:', err);
-        }
-    })();
+    try {
+        const seriali = selected.map(i => i.seriale_riscontrato);
+        
+        const { error } = await supabase
+            .from('inventario')
+            .update({ ubicazione: bulkUbicazione })
+            .in('seriale_riscontrato', seriali);
+        
+        if (error) throw error;
+        
+        // Ricarica storico
+        const { data } = await supabase
+            .from('inventario')
+            .select('*')
+            .order('timestamp', { ascending: false });
+        
+        setStorico(data || []);
+        setFilteredData(data || []);
+        setSelected([]);
+        setBulkUbicazione('');
+        
+        alert(`✅ ${selected.length} ubicazioni aggiornate!`);
+        
+    } catch (err) {
+        console.error('Errore batch:', err);
+        alert('Errore: ' + err.message);
+    }
 };
 
     const stampaSelezionati = () => {
