@@ -675,18 +675,39 @@ function isCacheValid(key) {
     return (Date.now() - appCache.lastUpdate[key]) < CACHE_TIME;
 }
 
-        // ============================================
+// ============================================
 // QUEUE MANAGER PER OPERAZIONI FALLITE
 // ============================================
 const operationQueue = {
     queue: [],
     processing: false,
+    batchTimer: null,
     
     async add(action, payload, retries = 3) {
-        this.queue.push({ action, payload, retries });
-        if (!this.processing) {
-            this.process();
+        this.queue.push({ action, payload, retries, timestamp: Date.now() });
+        
+        if (action.includes('Bulk') || action === 'saveRiscontro') {
+            clearTimeout(this.batchTimer);
+            this.batchTimer = setTimeout(() => this.processBatch(), 2000);
+        } else {
+            if (!this.processing) this.process();
         }
+    },
+    
+    async processBatch() {
+        const groups = {};
+        this.queue.forEach(op => {
+            if (!groups[op.action]) groups[op.action] = [];
+            groups[op.action].push(op);
+        });
+        
+        for (const [action, ops] of Object.entries(groups)) {
+            if (ops.length > 5) {
+                console.log(`📦 Batch di ${ops.length} operazioni per ${action}`);
+            }
+        }
+        
+        this.process();
     },
     
     async process() {
@@ -699,21 +720,20 @@ const operationQueue = {
         const operation = this.queue[0];
         
         try {
-            await api(operation.action, operation.payload, false); // Non rientrare in coda
-            this.queue.shift(); // Rimuovi se successo
-            console.log('✅ Operazione dalla coda completata:', operation.action);
+            await api(operation.action, operation.payload, false);
+            this.queue.shift();
+            console.log('✅ Operazione completata:', operation.action);
         } catch (err) {
             operation.retries--;
             if (operation.retries <= 0) {
-                console.error('❌ Operazione fallita definitivamente:', operation.action);
-                this.queue.shift(); // Rimuovi dopo 3 tentativi
+                console.error('❌ Operazione fallita:', operation.action);
+                this.queue.shift();
             } else {
-                console.warn(`⚠️ Retry ${3 - operation.retries}/3 per:`, operation.action);
+                console.warn(`⚠️ Retry ${3 - operation.retries}/3:`, operation.action);
             }
         }
         
-        // Attendi 2 secondi prima di processare la prossima
-        setTimeout(() => this.process(), 2000);
+        setTimeout(() => this.process(), 500);
     }
 };
 
@@ -730,27 +750,18 @@ async function api(action, payload = {}, useQueue = true) {
         const data = await res.json();
         
         if (!data.success) {
-            // ✅ CONTROLLO INTELLIGENTE: mette in coda se è un errore di lock/timeout
-            if (useQueue && (
-                data.shouldRetry === true || // Flag esplicito dal backend
-                data.error.includes('timeout') || 
-                data.error.includes('Timeout') ||
-                data.error.includes('lock') || 
-                data.error.includes('blocco') ||
-                data.error.includes('attesa')
-            )) {
-                console.warn('⚠️ Timeout/Lock rilevato, metto in coda:', action);
+            if (useQueue && data.shouldRetry === true) {
+                console.warn('⏳ Operazione messa in coda:', action);
                 await operationQueue.add(action, payload);
-                return { success: true, queued: true }; // Ritorna successo locale
+                return { success: true, queued: true };
             }
             throw new Error(data.error || 'Errore API');
         }
         
         return data;
     } catch (err) {
-        // Se fallisce per problemi di rete, metti in coda
         if (useQueue && err.message.includes('Failed to fetch')) {
-            console.warn('⚠️ Errore rete, metto in coda:', action);
+            console.warn('📡 Errore rete, coda:', action);
             await operationQueue.add(action, payload);
             return { success: true, queued: true };
         }
@@ -1851,43 +1862,33 @@ const handleUpdatePartNumber = async () => {
     if (selected.length === 0 || !bulkPartNumber.trim()) return;
     if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
     
-    // 1. AGGIORNA LOCALE
-    const updated = giacenza.map(i => 
-        selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
+    const updated = storico.map(i => 
+        selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
             ? { ...i, PartNumber: bulkPartNumber } 
             : i
     );
-    setGiacenza(updated);
-    appCache.giacenza = updated;
-    await dbCache.set('giacenza', updated);
-    
-    setFilteredData(updated.filter(i => !i.inventariato));
+    setStorico(updated);
+    setFilteredData(updated);
+    appCache.storico = updated;
+    await dbCache.set('storico', updated);
     setSelected([]);
     setBulkPartNumber('');
     
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updated }
-    }));
+    alert(`✅ ${selected.length} Part Number aggiornati localmente!`);
     
-    alert('Part Number aggiornati localmente!');
-    
-    // 2. INVIA AL SERVER IN BACKGROUND
     (async () => {
         try {
-            for (const item of selected) {
-                await api('updatePartNumber', { 
-                    seriale: item.RISCONTROSERIALEF, 
-                    partNumber: bulkPartNumber 
-                });
-            }
-            console.log('✅ Part Number aggiornati sul server');
+            const serialiBatch = selected.map(i => i.Seriale_Riscontrato);
+            await api('updateBulkPartNumber', { 
+                seriali: serialiBatch, 
+                partNumber: bulkPartNumber 
+            });
+            console.log('✅ Batch Part Number sincronizzato con server');
         } catch (err) {
-            console.error('❌ Errore invio server:', err);
-            alert('⚠️ Alcuni Part Number potrebbero non essere sincronizzati con il server');
+            console.error('❌ Errore batch server:', err);
         }
     })();
-};           
-
+};
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
@@ -2309,28 +2310,37 @@ const handleUpdatePartNumber = async () => {
     if (selected.length === 0 || !bulkPartNumber.trim()) return;
     if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
     
-    try {
-        for (const item of selected) {
-            await api('updatePartNumber', { 
-                seriale: item.Seriale_Riscontrato, 
+    const updated = giacenza.map(i => 
+        selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
+            ? { ...i, PartNumber: bulkPartNumber } 
+            : i
+    );
+    setGiacenza(updated);
+    appCache.giacenza = updated;
+    await dbCache.set('giacenza', updated);
+    
+    setFilteredData(updated.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkPartNumber('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updated }
+    }));
+    
+    alert(`✅ ${selected.length} Part Number aggiornati localmente!`);
+    
+    (async () => {
+        try {
+            const serialiBatch = selected.map(i => i.RISCONTROSERIALEF);
+            await api('updateBulkPartNumber', { 
+                seriali: serialiBatch, 
                 partNumber: bulkPartNumber 
             });
+            console.log('✅ Batch Part Number sincronizzato con server');
+        } catch (err) {
+            console.error('❌ Errore batch server:', err);
         }
-        const updated = storico.map(i => 
-            selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
-                ? { ...i, PartNumber: bulkPartNumber } 
-                : i
-        );
-        setStorico(updated);
-        setFilteredData(updated);
-        appCache.storico = updated;
-        await dbCache.set('storico', updated);
-        setSelected([]);
-        setBulkPartNumber('');
-        alert('Part Number aggiornati');
-    } catch (err) {
-        alert('Errore aggiornamento');
-    }
+    })();
 };
 
     useEffect(() => {
@@ -2510,25 +2520,36 @@ const handleUpdatePartNumber = async () => {
     }
 };
     const updateBulkUbicazione = async () => {
-        if (selected.length === 0 || !bulkUbicazione.trim()) return;
-        if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
-        
+    if (selected.length === 0 || !bulkUbicazione.trim()) return;
+    if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
+    
+    const updated = storico.map(i => 
+        selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
+            ? { ...i, Ubicazioni: bulkUbicazione } 
+            : i
+    );
+    setStorico(updated);
+    setFilteredData(updated);
+    appCache.storico = updated;
+    await dbCache.set('storico', updated);
+    setSelected([]);
+    setBulkUbicazione('');
+    
+    alert(`✅ ${selected.length} ubicazioni aggiornate localmente!`);
+    
+    (async () => {
         try {
-            for (const item of selected) {
-                await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: bulkUbicazione });
-            }
-            const updated = storico.map(i => selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) ? { ...i, Ubicazioni: bulkUbicazione } : i);
-            setStorico(updated);
-            setFilteredData(updated);
-            appCache.storico = updated;
-            await dbCache.set('storico', updated);
-            setSelected([]);
-            setBulkUbicazione('');
-            alert('Ubicazioni aggiornate');
+            const serialiBatch = selected.map(i => i.Seriale_Riscontrato);
+            await api('updateBulkUbicazione', { 
+                seriali: serialiBatch, 
+                ubicazione: bulkUbicazione 
+            });
+            console.log('✅ Batch ubicazioni sincronizzato con server');
         } catch (err) {
-            alert('Errore aggiornamento');
+            console.error('❌ Errore batch server:', err);
         }
-    };
+    })();
+};
 
     const stampaSelezionati = () => {
         if (selected.length === 0) return alert('Seleziona almeno un articolo');
