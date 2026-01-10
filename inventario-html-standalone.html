@@ -3321,7 +3321,7 @@ const updateNoteLista = async (item, newNote) => {
                                                 <div className="flex gap-1 items-center">
                                                     <span>{item.Ubicazioni}</span>
                                                     <button 
-                                                        onClick={() => 
+                                                        onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
                                                         className="text-blue-500 hover:text-blue-700"
                                                     >
                                                         <Icons.Edit />
