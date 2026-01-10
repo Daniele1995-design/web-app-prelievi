@@ -619,370 +619,296 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             return allData;
         }
 
-        async function api(action, payload = {}) {
-            try {
-                switch (action) {
-
-                    case 'login':
-                        const { data: user, error: lErr } = await supabaseClient
-                            .from('utenti')
-                            .select('*')
-                            .eq('username', payload.username)
-                            .eq('password', payload.password)
-                            .single();
-                        
-                        if (lErr || !user) throw new Error('Credenziali errate');
-                        return { user };
-
-                    case 'getGiacenza':
-                        const gData = await fetchAllRows('giacenza');
-                        return { data: normalizeGiacenza(gData) };
-
-                    case 'getStats':
-                        const { count: tot } = await supabaseClient
-                            .from('giacenza')
-                            .select('*', { count: 'exact', head: true });
-                        
-                        const { count: inv } = await supabaseClient
-                            .from('giacenza')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('stato', 'INVENTARIATO');
-                        
-                        const { count: matchOk } = await supabaseClient
-                            .from('giacenza')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('match', 'OK');
-                        
-                        return { 
-                            stats: {
-                                totaleGiacenza: tot || 0,
-                                totaleInventariato: inv || 0,
-                                daInventariare: (tot || 0) - (inv || 0),
-                                matchOk: matchOk || 0,
-                                percentualeCompletamento: tot > 0 ? Math.round((inv/tot)*100) : 0
-                            }
-                        };
-
-                    case 'getStorico':
-                        const { data: sData, error: sErr } = await supabaseClient
-                            .from('inventario')
-                            .select('*')
-                            .order('timestamp', { ascending: false })
-                            .limit(5000);
-                        
-                        if (sErr) throw sErr;
-                        return { data: normalizeStorico(sData) };
-
-                    case 'saveRiscontro': 
-                    case 'registraScansione':
-                        const sd = payload.data || payload;
-                        
-                        // Insert Inventario
-                        const { error: iErr } = await supabaseClient
-                            .from('inventario')
-                            .insert([{
-                                operatore: sd.operatore,
-                                cod_sap: sd.codSap || sd.CodSap,
-                                descrizione: sd.descrizione,
-                                ubicazione: sd.ubicazione,
-                                seriale_atteso: sd.serialeAtteso,
-                                seriale_riscontrato: sd.serialeRiscontrato,
-                                match: sd.match === 'OK' || sd.match === true,
-                                qta: sd.qta || 1,
-                                wms_code: sd.wmsCode,
-                                cdc: sd.cdc,
-                                po_nr: sd.poNr,
-                                part_number: sd.partNumber,
-                                id_riga_giacenza: sd.idRigaGiacenza,
-                                note: sd.note || '',
-                                stato: sd.stato
-                            }]);
-                        
-                        if (iErr) throw iErr;
-
-                        // Update Giacenza
-                        if (sd.match === 'OK' || sd.match === true) {
-                            await supabaseClient
-                                .from('giacenza')
-                                .update({ 
-                                    match: 'OK',
-                                    stato: sd.stato,
-                                    ubicazioni: sd.ubicazione,
-                                    part_number: sd.partNumber,
-                                    seriale_riscontrato: sd.serialeRiscontrato,
-                                    operatore: sd.operatore,
-                                    note: sd.note,
-                                    timestamp: new Date().toISOString()
-                                })
-                                .eq('riscontro_seriale_f', sd.serialeRiscontrato);
-                        }
-                        return { success: true };
-
-    case 'updateGiacenza':
-    return await supabaseClient
-        .from('giacenza')
-        .update({ 
-            ubicazioni: data.ubicazione, 
-            part_number: data.partNumber,
-            stato: 'INVENTARIATO' 
-        })
-        .eq('riscontro_seriale_f', data.seriale);
-
-case 'updateNoteStorico':
-    return await supabaseClient
-        .from('inventario')
-        .update({ Note: data.note })
-        .eq('Seriale_Riscontrato', data.seriale);
-
-  case 'updateNote':
-    console.log('🔍 updateNote - payload:', payload);
-    
-    if (!payload.id_riga_giacenza) {
-        throw new Error('id_riga_giacenza mancante');
-    }
-    
+      async function api(action, payload = {}) {
     try {
-        // Update inventario (cerca con id_riga_giacenza)
-        const { data: invData, error: invError } = await supabaseClient
-            .from('inventario')
-            .update({ note: payload.note })
-            .eq('id_riga_giacenza', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-        if (invError) throw invError;
-        
-        // Update giacenza (cerca con id_riga)
-        const { data: giacData, error: giacError } = await supabaseClient
-            .from('giacenza')
-            .update({ note: payload.note })
-            .eq('id_riga', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-        if (giacError) throw giacError;
-        
-        console.log('✅ Note aggiornate su entrambe le tabelle');
-        return { success: true };
-        
-    } catch (err) {
-        console.error('💥 ERRORE updateNote:', err);
-        throw err;
-    }
-🎯 HAI RAGIONE! Usiamo SOLO id_riga_giacenza
-Sì, hai perfettamente ragione! L'id_riga_giacenza è sempre univoco e collega perfettamente le due tabelle. Non serve cercare per seriale che può creare confusione.
+        switch (action) {
 
-📋 STRATEGIA CORRETTA:
+            case 'login':
+                const { data: user, error: lErr } = await supabaseClient
+                    .from('utenti')
+                    .select('*')
+                    .eq('username', payload.username)
+                    .eq('password', payload.password)
+                    .single();
+                
+                if (lErr || !user) throw new Error('Credenziali errate');
+                return { user };
 
-Tabella INVENTARIO: ha id_riga_giacenza che punta alla riga in giacenza
-Tabella GIACENZA: ha id_riga come chiave primaria
+            case 'getGiacenza':
+                const gData = await fetchAllRows('giacenza');
+                return { data: normalizeGiacenza(gData) };
 
-Quando devi aggiornare:
+            case 'getStats':
+                const { count: tot } = await supabaseClient
+                    .from('giacenza')
+                    .select('*', { count: 'exact', head: true });
+                
+                const { count: inv } = await supabaseClient
+                    .from('giacenza')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('stato', 'INVENTARIATO');
+                
+                const { count: matchOk } = await supabaseClient
+                    .from('giacenza')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('match', 'OK');
+                
+                return { 
+                    stats: {
+                        totaleGiacenza: tot || 0,
+                        totaleInventariato: inv || 0,
+                        daInventariare: (tot || 0) - (inv || 0),
+                        matchOk: matchOk || 0,
+                        percentualeCompletamento: tot > 0 ? Math.round((inv/tot)*100) : 0
+                    }
+                };
 
-INVENTARIO: cerca con id_riga_giacenza = X
-GIACENZA: cerca con id_riga = X
+            case 'getStorico':
+                const { data: sData, error: sErr } = await supabaseClient
+                    .from('inventario')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(5000);
+                
+                if (sErr) throw sErr;
+                return { data: normalizeStorico(sData) };
 
+            case 'saveRiscontro': 
+            case 'registraScansione':
+                const sd = payload.data || payload;
+                
+                // Insert Inventario
+                const { error: iErr } = await supabaseClient
+                    .from('inventario')
+                    .insert([{
+                        operatore: sd.operatore,
+                        cod_sap: sd.codSap || sd.CodSap,
+                        descrizione: sd.descrizione,
+                        ubicazione: sd.ubicazione,
+                        seriale_atteso: sd.serialeAtteso,
+                        seriale_riscontrato: sd.serialeRiscontrato,
+                        match: sd.match === 'OK' || sd.match === true,
+                        qta: sd.qta || 1,
+                        wms_code: sd.wmsCode,
+                        cdc: sd.cdc,
+                        po_nr: sd.poNr,
+                        part_number: sd.partNumber,
+                        id_riga_giacenza: sd.idRigaGiacenza,
+                        note: sd.note || '',
+                        stato: sd.stato
+                    }]);
+                
+                if (iErr) throw iErr;
 
-✅ MODIFICHE DA FARE:
-1. Nella funzione normalizeStorico() (riga ~135)
-javascriptfunction normalizeStorico(data) {
-    if (!data) return [];
-    return data.map(item => ({
-        id: item.id,
-        id_riga_giacenza: item.id_riga_giacenza || '', // ← AGGIUNGI QUESTA RIGA
-        Timestamp: item.timestamp,
-        Operatore: item.operatore || '',
-        CodSap: item.cod_sap || '',
-        Descrizione: item.descrizione || '',
-        Ubicazioni: item.ubicazione || '',
-        Seriale_Riscontrato: item.seriale_riscontrato || '',
-        RISCONTROSERIALEF: item.seriale_atteso || '',
-        Match: item.match ? 'OK' : 'KO',
-        WMSCode: item.wms_code || '',
-        Cdc: item.cdc || '',
-        PoNr: item.po_nr || '',
-        PartNumber: item.part_number || '',
-        Stato: item.stato || '',
-        Note: item.note || ''
-    }));
-}
-
-2. Modifica case updateNote (riga ~450)
-SOSTITUISCI TUTTO IL BLOCCO con:
-javascriptcase 'updateNote':
-    console.log('🔍 updateNote - payload:', payload);
-    
-    if (!payload.id_riga_giacenza) {
-        throw new Error('id_riga_giacenza mancante');
-    }
-    
-    try {
-        // Update inventario (cerca con id_riga_giacenza)
-        const { data: invData, error: invError } = await supabaseClient
-            .from('inventario')
-            .update({ note: payload.note })
-            .eq('id_riga_giacenza', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-        if (invError) throw invError;
-        
-        // Update giacenza (cerca con id_riga)
-        const { data: giacData, error: giacError } = await supabaseClient
-            .from('giacenza')
-            .update({ note: payload.note })
-            .eq('id_riga', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-        if (giacError) throw giacError;
-        
-        console.log('✅ Note aggiornate su entrambe le tabelle');
-        return { success: true };
-        
-    } catch (err) {
-        console.error('💥 ERRORE updateNote:', err);
-        throw err;
-    }
-
-3. Modifica case updateUbicazione (riga ~480)
-javascriptcase 'updateUbicazione':
-    console.log('🔍 updateUbicazione - payload:', payload);
-    
-    if (!payload.id_riga_giacenza) {
-        throw new Error('id_riga_giacenza mancante');
-    }
-    
-    try {
-        // Update inventario
-        const { data: invData, error: invError } = await supabaseClient
-            .from('inventario')
-            .update({ ubicazione: payload.ubicazione })
-            .eq('id_riga_giacenza', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-        if (invError) throw invError;
-        
-        // Update giacenza
-        const { data: giacData, error: giacError } = await supabaseClient
-            .from('giacenza')
-            .update({ ubicazioni: payload.ubicazione })
-            .eq('id_riga', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-        if (giacError) throw giacError;
-        
-        return { success: true };
-    } catch (err) {
-        console.error('💥 ERRORE updateUbicazione:', err);
-        throw err;
-    }
-
-case 'updatePartNumber':
-    console.log('🔍 updatePartNumber - payload:', payload);
-    
-    if (!payload.id_riga_giacenza) {
-        throw new Error('id_riga_giacenza mancante');
-    }
-    
-    try {
-        // Update inventario
-        const { data: invData, error: invError } = await supabaseClient
-            .from('inventario')
-            .update({ part_number: payload.partNumber })
-            .eq('id_riga_giacenza', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-        if (invError) throw invError;
-        
-        // Update giacenza
-        const { data: giacData, error: giacError } = await supabaseClient
-            .from('giacenza')
-            .update({ part_number: payload.partNumber })
-            .eq('id_riga', payload.id_riga_giacenza)
-            .select();
-        
-        console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-        if (giacError) throw giacError;
-        
-        return { success: true };
-    } catch (err) {
-        console.error('💥 ERRORE updatePartNumber:', err);
-        throw err;
-    }
-
-                    case 'batchUpdateUbicazione':
-                        for (let item of payload.updates) {
-                            await api('updateUbicazione', item);
-                        }
-                        return { success: true };
-
-                    case 'batchUpdatePartNumber':
-                        for (let item of payload.updates) {
-                            await api('updatePartNumber', item);
-                        }
-                        return { success: true };
-                     case 'batchSaveRiscontro':
-    const items = payload.items || [];
-    
-    // Insert multipli in inventario (batch)
-    const inventarioRecords = items.map(item => ({
-        operatore: item.operatore,
-        cod_sap: item.codSap,
-        descrizione: item.descrizione,
-        ubicazione: item.ubicazione,
-        seriale_atteso: item.serialeAtteso,
-        seriale_riscontrato: item.serialeRiscontrato,
-        match: true, // sempre OK per verifica massiva
-        qta: item.qta || 1,
-        wms_code: item.wmsCode,
-        cdc: item.cdc,
-        po_nr: item.poNr,
-        part_number: item.partNumber,
-        id_riga_giacenza: item.idRigaGiacenza,
-        note: item.note
-    }));
-    
-    const { error: batchInvErr } = await supabaseClient
-        .from('inventario')
-        .insert(inventarioRecords);
-    
-    if (batchInvErr) throw batchInvErr;
-    
-    // Update multipli in giacenza (batch)
-    const updates = items.map(item => ({
-        riscontro_seriale_f: item.serialeRiscontrato,
-        stato: item.stato,
-        note: item.note,
-        match: 'OK',
-        ubicazioni: item.ubicazione,
-        part_number: item.partNumber,
-        seriale_riscontrato: item.serialeRiscontrato,
-        operatore: item.operatore,
-        timestamp: new Date().toISOString()
-    }));
-    
-    // Esegui update per ogni item
-    for (const update of updates) {
-        await supabaseClient
-            .from('giacenza')
-            .update(update)
-            .eq('riscontro_seriale_f', update.riscontro_seriale_f);
-    }
-    
-    return { success: true };   
-
-                    default:
-                        return { success: true };
+                // Update Giacenza
+                if (sd.match === 'OK' || sd.match === true) {
+                    await supabaseClient
+                        .from('giacenza')
+                        .update({ 
+                            match: 'OK',
+                            stato: sd.stato,
+                            ubicazioni: sd.ubicazione,
+                            part_number: sd.partNumber,
+                            seriale_riscontrato: sd.serialeRiscontrato,
+                            operatore: sd.operatore,
+                            note: sd.note,
+                            timestamp: new Date().toISOString()
+                        })
+                        .eq('riscontro_seriale_f', sd.serialeRiscontrato);
                 }
-            } catch (err) {
-                console.error("SUPABASE ERROR:", err);
-                throw err;
-            }
+                return { success: true };
+
+            case 'updateGiacenza':
+                return await supabaseClient
+                    .from('giacenza')
+                    .update({ 
+                        ubicazioni: payload.ubicazione, 
+                        part_number: payload.partNumber,
+                        stato: 'INVENTARIATO' 
+                    })
+                    .eq('riscontro_seriale_f', payload.seriale);
+
+            case 'updateNoteStorico':
+                return await supabaseClient
+                    .from('inventario')
+                    .update({ note: payload.note })
+                    .eq('seriale_riscontrato', payload.seriale);
+
+            case 'updateNote':
+                console.log('🔍 updateNote - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
+                }
+                
+                try {
+                    // Update inventario (cerca con id_riga_giacenza)
+                    const { data: invData, error: invError } = await supabaseClient
+                        .from('inventario')
+                        .update({ note: payload.note })
+                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
+                    if (invError) throw invError;
+                    
+                    // Update giacenza (cerca con id_riga)
+                    const { data: giacData, error: giacError } = await supabaseClient
+                        .from('giacenza')
+                        .update({ note: payload.note })
+                        .eq('id_riga', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
+                    if (giacError) throw giacError;
+                    
+                    console.log('✅ Note aggiornate su entrambe le tabelle');
+                    return { success: true };
+                    
+                } catch (err) {
+                    console.error('💥 ERRORE updateNote:', err);
+                    throw err;
+                }
+
+            case 'updateUbicazione':
+                console.log('🔍 updateUbicazione - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
+                }
+                
+                try {
+                    // Update inventario
+                    const { data: invData, error: invError } = await supabaseClient
+                        .from('inventario')
+                        .update({ ubicazione: payload.ubicazione })
+                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
+                    if (invError) throw invError;
+                    
+                    // Update giacenza
+                    const { data: giacData, error: giacError } = await supabaseClient
+                        .from('giacenza')
+                        .update({ ubicazioni: payload.ubicazione })
+                        .eq('id_riga', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
+                    if (giacError) throw giacError;
+                    
+                    return { success: true };
+                } catch (err) {
+                    console.error('💥 ERRORE updateUbicazione:', err);
+                    throw err;
+                }
+
+            case 'updatePartNumber':
+                console.log('🔍 updatePartNumber - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
+                }
+                
+                try {
+                    // Update inventario
+                    const { data: invData, error: invError } = await supabaseClient
+                        .from('inventario')
+                        .update({ part_number: payload.partNumber })
+                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
+                    if (invError) throw invError;
+                    
+                    // Update giacenza
+                    const { data: giacData, error: giacError } = await supabaseClient
+                        .from('giacenza')
+                        .update({ part_number: payload.partNumber })
+                        .eq('id_riga', payload.id_riga_giacenza)
+                        .select();
+                    
+                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
+                    if (giacError) throw giacError;
+                    
+                    return { success: true };
+                } catch (err) {
+                    console.error('💥 ERRORE updatePartNumber:', err);
+                    throw err;
+                }
+
+            case 'batchUpdateUbicazione':
+                for (let item of payload.updates) {
+                    await api('updateUbicazione', item);
+                }
+                return { success: true };
+
+            case 'batchUpdatePartNumber':
+                for (let item of payload.updates) {
+                    await api('updatePartNumber', item);
+                }
+                return { success: true };
+
+            case 'batchSaveRiscontro':
+                const items = payload.items || [];
+                
+                // Insert multipli in inventario (batch)
+                const inventarioRecords = items.map(item => ({
+                    operatore: item.operatore,
+                    cod_sap: item.codSap,
+                    descrizione: item.descrizione,
+                    ubicazione: item.ubicazione,
+                    seriale_atteso: item.serialeAtteso,
+                    seriale_riscontrato: item.serialeRiscontrato,
+                    match: true, // sempre OK per verifica massiva
+                    qta: item.qta || 1,
+                    wms_code: item.wmsCode,
+                    cdc: item.cdc,
+                    po_nr: item.poNr,
+                    part_number: item.partNumber,
+                    id_riga_giacenza: item.idRigaGiacenza,
+                    note: item.note,
+                    stato: item.stato
+                }));
+                
+                const { error: batchInvErr } = await supabaseClient
+                    .from('inventario')
+                    .insert(inventarioRecords);
+                
+                if (batchInvErr) throw batchInvErr;
+                
+                // Update multipli in giacenza (batch)
+                const updates = items.map(item => ({
+                    riscontro_seriale_f: item.serialeRiscontrato,
+                    stato: item.stato,
+                    note: item.note,
+                    match: 'OK',
+                    ubicazioni: item.ubicazione,
+                    part_number: item.partNumber,
+                    seriale_riscontrato: item.serialeRiscontrato,
+                    operatore: item.operatore,
+                    timestamp: new Date().toISOString()
+                }));
+                
+                // Esegui update per ogni item
+                for (const update of updates) {
+                    await supabaseClient
+                        .from('giacenza')
+                        .update(update)
+                        .eq('riscontro_seriale_f', update.riscontro_seriale_f);
+                }
+                
+                return { success: true };   
+
+            default:
+                return { success: true };
         }
+    } catch (err) {
+        console.error("SUPABASE ERROR:", err);
+        throw err;
+    }
+}
         // ============================================
         // INDEXEDDB CACHE MANAGER
         // ============================================
