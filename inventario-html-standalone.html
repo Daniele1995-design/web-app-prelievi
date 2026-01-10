@@ -3029,6 +3029,18 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 autoFocus 
             />
         </div>
+                                        ) : (
+        <div className="flex gap-1 items-center">
+            <span className="text-xs italic">{item.Note || '-'}</span>
+            <button 
+                onClick={() => setEditingNote(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                     </tr>
                                 ))}
                             </tbody>
