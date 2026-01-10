@@ -744,26 +744,6 @@ case 'updatePartNumber':
     
     return { success: true };
                         
-                        await supabaseClient
-                            .from('inventario')
-                            .update({ ubicazione: payload.ubicazione })
-                            .eq('seriale_riscontrato', payload.seriale);
-                        
-                        return { success: true };
-
-                    case 'updatePartNumber':
-                        await supabaseClient
-                            .from('giacenza')
-                            .update({ part_number: payload.partNumber })
-                            .eq('riscontro_seriale_f', payload.seriale);
-                        
-                        await supabaseClient
-                            .from('inventario')
-                            .update({ part_number: payload.partNumber })
-                            .eq('seriale_riscontrato', payload.seriale);
-                        
-                        return { success: true };
-
                     case 'batchUpdateUbicazione':
                         for (let item of payload.updates) {
                             await api('updateUbicazione', item);
@@ -1592,6 +1572,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             };
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
+                const oldUbicazione = currentItem.Ubicazioni;
+    const note = oldUbicazione !== newUbicazione 
+        ? `Ubicazione modificata: ${oldUbicazione} → ${newUbicazione}`
+        : '';
     
     const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
@@ -1605,7 +1589,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
+            ? { ...i, Ubicazioni: newUbicazione , Note: note } 
             : i
     );
     setStorico(updatedStorico);
@@ -1629,6 +1613,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 
             const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
+                const oldPartNumber = currentItem.PartNumber;
+    const note = oldPartNumber !== newPartNumber 
+        ? `Part Number modificato: ${oldPartNumber || 'vuoto'} → ${newPartNumber}`
+        : '';
     
     const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
@@ -1643,7 +1631,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
+            ? { ...i, PartNumber: newPartNumber, Note: note } 
             : i
     );
     setStorico(updatedStorico);
@@ -2996,7 +2984,8 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             serialeAtteso: true,
             partNumber: true,
             serialeRiscontrato: true,
-            match: false
+            match: false,
+            note: true
         });
 
         useEffect(() => {
@@ -3436,6 +3425,14 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                             <label htmlFor="col-serialeRiscontrato">Seriale Riscontrato</label>
                         </div>
                         <div className="column-option">
+    <input type="checkbox" id="col-match" checked={visibleColumns.match} onChange={() => toggleColumn('match')} />
+    <label htmlFor="col-match">Match</label>
+</div>
+<div className="column-option">
+    <input type="checkbox" id="col-note" checked={visibleColumns.note} onChange={() => toggleColumn('note')} />
+    <label htmlFor="col-note">Note</label>
+</div>
+                        <div className="column-option">
                             <input type="checkbox" id="col-match" checked={visibleColumns.match} onChange={() => toggleColumn('match')} />
                             <label htmlFor="col-match">Match</label>
                         </div>
@@ -3516,6 +3513,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>Seriale Atteso</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>Seriale Riscontrato</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.note ? 'col-hidden' : ''}`}>Note</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.match ? 'col-hidden' : ''}`}>Match</th>
                                 </tr>
                             </thead>
@@ -3575,6 +3573,29 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                             )}
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF || '-'}</td>
+                                        <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
+    {editingNote[item.Seriale_Riscontrato] ? (
+        <div className="flex gap-1">
+            <textarea 
+                defaultValue={item.Note} 
+                onBlur={(e) => updateNoteStorico(item, e.target.value)} 
+                className="px-2 py-1 border rounded text-xs w-full" 
+                rows="2"
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span className="text-xs italic">{item.Note || '-'}</span>
+            <button 
+                onClick={() => setEditingNote(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
                                             {editingPartNumber[item.Seriale_Riscontrato] ? (
                                                 <div className="flex gap-1">
