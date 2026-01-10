@@ -734,35 +734,26 @@ case 'updateNoteStorico':
         .eq('Seriale_Riscontrato', data.seriale);
 
   case 'updateNote':
-    // Note SOLO in inventario
+    // Note in ENTRAMBE le tabelle
     await supabaseClient
         .from('inventario')
         .update({ note: payload.note })
         .eq('seriale_riscontrato', payload.seriale);
     
+    await supabaseClient
+        .from('giacenza')
+        .update({ note: payload.note })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
     return { success: true };
 
 case 'updateUbicazione':
-    // Ubicazione SOLO in inventario
+    // Ubicazione in ENTRAMBE le tabelle
     await supabaseClient
         .from('inventario')
         .update({ ubicazione: payload.ubicazione })
         .eq('seriale_riscontrato', payload.seriale);
     
-    return { success: true };
-
-case 'updatePartNumber':
-    // Part Number SOLO in inventario
-    await supabaseClient
-        .from('inventario')
-        .update({ part_number: payload.partNumber })
-        .eq('seriale_riscontrato', payload.seriale);
-    
-    return { success: true };
-
-// NUOVI CASE PER GIACENZA
-case 'updateGiacenzaUbicazione':
-    // Ubicazione SOLO in giacenza
     await supabaseClient
         .from('giacenza')
         .update({ ubicazioni: payload.ubicazione })
@@ -770,26 +761,20 @@ case 'updateGiacenzaUbicazione':
     
     return { success: true };
 
-case 'updateGiacenzaPartNumber':
-    // Part Number SOLO in giacenza
+case 'updatePartNumber':
+    // Part Number in ENTRAMBE le tabelle
+    await supabaseClient
+        .from('inventario')
+        .update({ part_number: payload.partNumber })
+        .eq('seriale_riscontrato', payload.seriale);
+    
     await supabaseClient
         .from('giacenza')
         .update({ part_number: payload.partNumber })
         .eq('riscontro_seriale_f', payload.seriale);
     
     return { success: true };
-
-case 'updateGiacenzaNote':
-    // Note SOLO in giacenza
-    await supabaseClient
-        .from('giacenza')
-        .update({ note: payload.note })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    return { success: true };
-
-
-                        
+  
                     case 'batchUpdateUbicazione':
                         for (let item of payload.updates) {
                             await api('updateUbicazione', item);
@@ -2492,11 +2477,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-        await api('updateGiacenzaUbicazione', { 
-            seriale: item.RISCONTROSERIALEF, 
-            ubicazione: newUbic 
-        });
-        console.log('✅ Ubicazione salvata su Supabase (giacenza)');
+    await api('updateUbicazione', { 
+        seriale: item.RISCONTROSERIALEF, 
+        ubicazione: newUbic 
+    });
+    console.log('✅ Ubicazione salvata su Supabase (entrambe le tabelle)');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -2530,11 +2515,11 @@ const updatePartNumberLista = async (item, newPN) => {
     }));
     
     try {
-        await api('updateGiacenzaPartNumber', { 
-            seriale: item.RISCONTROSERIALEF, 
-            partNumber: newPN 
-        });
-        console.log('✅ PartNumber salvato su Supabase (giacenza)');
+    await api('updatePartNumber', { 
+        seriale: item.RISCONTROSERIALEF, 
+        partNumber: newPN 
+    });
+    console.log('✅ PartNumber salvato su Supabase (entrambe le tabelle)');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -2571,11 +2556,11 @@ const updateNoteLista = async (item, newNote) => {
     }));
     
     try {
-        await api('updateGiacenzaNote', { 
-            seriale: item.RISCONTROSERIALEF, 
-            note: newNote 
-        });
-        console.log('✅ Note salvate su Supabase (giacenza)');
+    await api('updateNote', { 
+        seriale: item.RISCONTROSERIALEF, 
+        note: newNote 
+    });
+    console.log('✅ Note salvate su Supabase (entrambe le tabelle)');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
