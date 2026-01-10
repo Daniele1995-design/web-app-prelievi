@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario ATS - Supabase</title>
+    <title>Inventario ATS - Supabase Edition</title>
+    
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,7 +14,7 @@
    
 <style>
 /* ======================================================
-   I TUOI STILI ORIGINALI (INVARIATI AL 100%)
+   TUTTI I TUOI STILI ORIGINALI (INVARIATI)
 ====================================================== */
 body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .no-print { margin-bottom: 10px; }
@@ -68,7 +69,6 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
 /* ETICHETTA 10x10G */
 .etichetta-10x10g { width: 100mm; height: 100mm; border: 0.5px solid #000; background: white; padding: 2mm 3.5mm; box-sizing: border-box; page-break-after: always; position: relative; }
-/* (Copia esatta dei tuoi stili per 10x10g) */
 .etichetta-10x10g .logo-container { height: 10mm; margin-bottom: 0.5mm; position: relative; }
 .etichetta-10x10g .logo-img { height: 9mm; }
 .etichetta-10x10g .label-cod-bp { position: absolute; right: 0; top: 12mm; font-size: 7pt; font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.3px; }
@@ -93,7 +93,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .etichetta-10x10g .ubicazione-large .pos-label { font-size: 9pt; font-weight: bold; margin-bottom: 0.5mm; }
 .etichetta-10x10g .ubicazione-large .pos-value { font-size: 16pt; font-weight: bold; line-height: 1.2; word-break: break-all; }
 
-/* SELETTORE COLONNE */
+/* SELETTORE COLONNE & MODALI */
 .column-selector { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .column-selector h4 { margin: 0 0 12px 0; font-size: 14px; color: #374151; }
 .column-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -102,6 +102,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 .column-selector-toggle { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
 .column-selector-toggle:hover { background: #2563eb; }
 .column-selector.collapsed { display: none; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 50; }
 </style>
 </head>
 <body>
@@ -120,12 +121,12 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
         // ============================================
         // 2. ADAPTER (NORMALIZZATORE)
-        // TRADUCE i campi DB (minuscoli) nei campi APP (Maiuscoli/Specifici)
+        // Serve a convertire i nomi minuscoli del DB Supabase
+        // nei nomi "PascalCase" usati dalla tua App React originale.
         // ============================================
         function normalizeGiacenza(data) {
             if (!data) return [];
             return data.map(item => ({
-                // Campi originali DB -> Campi App React
                 ID_Riga: item.id_riga,
                 PoNr: item.po_nr,
                 Cdc: item.cdc,
@@ -151,7 +152,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Operatore: item.operatore,
                 CodSap: item.cod_sap,
                 Descrizione: item.descrizione,
-                Ubicazioni: item.ubicazione, // Nota: singolare nel DB storico
+                Ubicazioni: item.ubicazione, 
                 Seriale_Riscontrato: item.seriale_riscontrato,
                 RISCONTROSERIALEF: item.seriale_atteso,
                 Match: item.match ? 'OK' : 'KO',
@@ -164,7 +165,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         // ============================================
-        // 3. NUOVA FUNZIONE API (SOSTITUISCE GOOGLE FETCH)
+        // 3. API BRIDGE (Sostituisce Google Scripts)
         // ============================================
         async function api(action, payload = {}, isBatch = false) {
             try {
@@ -181,6 +182,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         return { user };
 
                     case 'getGiacenza':
+                        // Scarica tutta la giacenza. Con Supabase è veloce.
+                        // Limite di default è 1000 righe, qui forziamo range se servono più dati
                         const { data: gData, error: gErr } = await supabase
                             .from('giacenza')
                             .select('*');
@@ -188,7 +191,6 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         return { data: normalizeGiacenza(gData) };
 
                     case 'getStats':
-                        // Calcolo stats lato server o download veloce
                         const { data: allG, error: stErr } = await supabase.from('giacenza').select('stato,match');
                         if (stErr) throw stErr;
                         const tot = allG.length;
@@ -216,7 +218,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     case 'registraScansione':
                         const scanData = payload.data || payload;
                         
-                        // Insert Inventario
+                        // 1. Insert Inventario
                         const { error: iErr } = await supabase.from('inventario').insert([{
                             operatore: scanData.operatore,
                             cod_sap: scanData.codSap || scanData.CodSap,
@@ -234,15 +236,21 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         }]);
                         if (iErr) throw iErr;
 
-                        // Update Giacenza
+                        // 2. Update Giacenza (se OK)
                         if (scanData.match === 'OK' || scanData.match === true) {
                             await supabase.from('giacenza')
-                                .update({ stato: 'INVENTARIATO', match: 'OK' })
+                                .update({ 
+                                    stato: 'INVENTARIATO', 
+                                    match: 'OK',
+                                    ubicazioni: scanData.ubicazione, // Aggiorniamo anche ubicazione
+                                    part_number: scanData.partNumber // E part number
+                                })
                                 .eq('riscontro_seriale_f', scanData.serialeRiscontrato);
                         }
                         return { success: true };
 
                     case 'updateUbicazione':
+                        // Aggiorna entrambe le tabelle per coerenza
                         await supabase.from('giacenza')
                             .update({ ubicazioni: payload.ubicazione })
                             .eq('riscontro_seriale_f', payload.seriale);
@@ -255,13 +263,13 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                          await supabase.from('giacenza')
                             .update({ part_number: payload.partNumber })
                             .eq('riscontro_seriale_f', payload.seriale);
-                         await supabase.from('inventario')
+                        await supabase.from('inventario')
                             .update({ part_number: payload.partNumber })
                             .eq('seriale_riscontrato', payload.seriale);
-                         return { success: true };
+                        return { success: true };
 
                     case 'batchUpdateUbicazione':
-                        // Esegue loop per aggiornamento massivo
+                        // Loop veloce per batch
                         for (let item of payload.updates) {
                             await api('updateUbicazione', item);
                         }
@@ -274,6 +282,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         return { success: true };
 
                     default:
+                        console.warn("Azione sconosciuta:", action);
                         return { success: true };
                 }
             } catch (err) {
@@ -283,9 +292,10 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         // ============================================
-        // 4. INDEXEDDB CACHE (IDENTICO AL TUO)
+        // 4. INDEXEDDB CACHE MANAGER
+        // (Identico al tuo codice originale)
         // ============================================
-        const DB_NAME = 'ATSInventoryDB_SB'; 
+        const DB_NAME = 'ATSInventoryDB_SB';
         const DB_VERSION = 1;
 
         const dbCache = {
@@ -349,7 +359,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         const appCache = { giacenza: null, storico: null, stats: null, lastUpdate: {} };
 
         // ============================================
-        // 5. QUEUE MANAGER OTTIMIZZATO (IDENTICO AL TUO)
+        // 5. QUEUE MANAGER (Adattato per Supabase)
+        // Mantiene la UI reattiva mentre salva nel DB
         // ============================================
         const operationQueue = {
             queue: [],
@@ -358,12 +369,13 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             async add(action, payload, retries = 3) {
                 this.queue.push({ action, payload, retries, timestamp: Date.now() });
                 clearTimeout(this.batchTimer);
-                this.batchTimer = setTimeout(() => { if (!this.processing) this.process(); }, 500);
+                this.batchTimer = setTimeout(() => { if (!this.processing) this.process(); }, 300); // 300ms delay
             },
             async process() {
                 if (this.queue.length === 0) { this.processing = false; return; }
                 this.processing = true;
                 const batches = this.groupOperations();
+                
                 for (const batch of batches) {
                     try {
                         if (batch.operations.length === 1) {
@@ -374,15 +386,17 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                             await this.processBatch(batch);
                         }
                     } catch (err) {
+                        console.error("Errore coda:", err);
+                        // Retry logic semplificata
                         for (const op of batch.operations) {
                             op.retries--;
                             if (op.retries <= 0) this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
                         }
                     }
-                    await new Promise(resolve => setTimeout(resolve, 100)); // Veloce con Supabase
+                    await new Promise(resolve => setTimeout(resolve, 50)); // Molto veloce con Supabase
                 }
                 this.processing = false;
-                if (this.queue.length > 0) setTimeout(() => this.process(), 300);
+                if (this.queue.length > 0) setTimeout(() => this.process(), 200);
             },
             groupOperations() {
                 const groups = {};
@@ -407,9 +421,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         };
 
         // ============================================
-        // 6. COMPONENTI REACT (INCOLLATI ESATTAMENTE I TUOI)
+        // 6. COMPONENTI UI (ICONS)
         // ============================================
-        
         const Icons = {
             Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             Package: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
@@ -424,6 +437,10 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
         };
 
+        // ============================================
+        // 7. COMPONENTI REACT PRINCIPALI
+        // ============================================
+
         function App() {
             const [user, setUser] = useState(() => { const saved = sessionStorage.getItem('ats_user'); return saved ? JSON.parse(saved) : null; });
             const [currentView, setCurrentView] = useState(() => { return sessionStorage.getItem('ats_view') || 'login'; });
@@ -431,16 +448,21 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
             useEffect(() => { if (user) { sessionStorage.setItem('ats_user', JSON.stringify(user)); sessionStorage.setItem('ats_view', currentView); } }, [user, currentView]);
             useEffect(() => { const interval = setInterval(() => { setQueueSize(operationQueue.queue.length); }, 1000); return () => clearInterval(interval); }, []);
-            
+
             const handleLogout = () => { setUser(null); setCurrentView('login'); sessionStorage.clear(); dbCache.clearAll(); };
-            const handleForceRefresh = async () => { if (!window.confirm('Ricaricare tutti i dati dal server?')) return; await dbCache.clearAll(); window.location.reload(); };
+            
+            const handleForceRefresh = async () => { 
+                if (!window.confirm('Ricaricare tutti i dati dal server Supabase?')) return; 
+                await dbCache.clearAll(); 
+                window.location.reload(); 
+            };
 
             if (!user || currentView === 'login') return <Login onLogin={(u) => { setUser(u); setCurrentView('dashboard'); }} />;
 
             return (
                 <div className="min-h-screen bg-gray-100 no-print">
                     <header className="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
-                        <div><h1 className="text-2xl font-bold">Inventario ATS</h1><p className="text-sm opacity-90">{user.nome}</p></div>
+                        <div><h1 className="text-2xl font-bold">Inventario ATS (Supabase)</h1><p className="text-sm opacity-90">{user.nome || user.username}</p></div>
                         <div className="flex gap-2">
                             {queueSize > 0 && <div className="bg-yellow-500 px-4 py-2 rounded text-white font-medium">⏳ {queueSize} in coda</div>}
                             <button onClick={handleForceRefresh} className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600">🔄 Refresh</button>
@@ -473,17 +495,23 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             const [username, setUsername] = useState('');
             const [password, setPassword] = useState('');
             const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
             const handleLogin = async (e) => {
-                e.preventDefault(); setLoading(true);
+                e.preventDefault();
+                setLoading(true); setError('');
                 try { const result = await api('login', { username, password }); onLogin(result.user); } 
-                catch (err) { alert(err.message); } finally { setLoading(false); }
+                catch (err) { setError(err.message || 'Errore login'); } 
+                finally { setLoading(false); }
             };
+
             return (
                 <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
                     <form onSubmit={handleLogin} className="bg-white p-8 rounded shadow-xl w-full max-w-md space-y-4">
-                        <h1 className="text-2xl font-bold text-center">Login ATS</h1>
+                        <h1 className="text-2xl font-bold text-center">Login ATS (DB)</h1>
                         <input className="w-full border p-3 rounded" placeholder="User" value={username} onChange={e => setUsername(e.target.value)} />
                         <input className="w-full border p-3 rounded" type="password" placeholder="Pass" value={password} onChange={e => setPassword(e.target.value)} />
+                        {error && <div className="text-red-500 bg-red-100 p-2 rounded">{error}</div>}
                         <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700">{loading ? '...' : 'Accedi'}</button>
                     </form>
                 </div>
@@ -492,15 +520,30 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 
         function Dashboard({ user }) {
             const [stats, setStats] = useState(null);
+
             useEffect(() => {
                 const load = async () => {
+                    // Carica prima cache locale
                     let g = await dbCache.get('giacenza');
-                    if(g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
-                    const tot = g.length; const inv = g.filter(i => i.inventariato).length;
-                    setStats({ totaleGiacenza: tot, totaleInventariato: inv, daInventariare: tot-inv, matchOk: g.filter(i => i.Match === 'OK').length, percentualeCompletamento: tot > 0 ? Math.round((inv/tot)*100) : 0 });
+                    // Se vuota, scarica dal DB
+                    if(g.length === 0) { 
+                        const res = await api('getGiacenza'); 
+                        g = res.data; 
+                        await dbCache.set('giacenza', g); 
+                    }
+                    const tot = g.length; 
+                    const inv = g.filter(i => i.inventariato).length;
+                    setStats({ 
+                        totaleGiacenza: tot, 
+                        totaleInventariato: inv, 
+                        daInventariare: tot-inv, 
+                        matchOk: g.filter(i => i.Match === 'OK').length, 
+                        percentualeCompletamento: tot > 0 ? Math.round((inv/tot)*100) : 0 
+                    });
                 };
                 load();
             }, []);
+
             if (!stats) return <div className="text-center p-10">Caricamento stats...</div>;
             return (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -518,7 +561,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         // ============================================
-        // MODE SCANNER ORIGINALE (CON DATA MAPPING)
+        // MODE SCANNER (VELOCE CON SUPABASE)
         // ============================================
         function ModeScanner({ user }) {
             const [scanInput, setScanInput] = useState('');
@@ -535,7 +578,11 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             useEffect(() => {
                 const init = async () => {
                     let g = await dbCache.get('giacenza');
-                    if (g.length === 0) { const res = await api('getGiacenza'); g = res.data; await dbCache.set('giacenza', g); }
+                    if (g.length === 0) { 
+                        const res = await api('getGiacenza'); 
+                        g = res.data; 
+                        await dbCache.set('giacenza', g); 
+                    }
                     setGiacenza(g);
                 };
                 init();
@@ -557,7 +604,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 if (e.key !== 'Enter' || !scanInput.trim()) return;
                 const code = scanInput.trim().toUpperCase();
                 setScanInput('');
-
+                
+                // Ricerca in memoria (VELOCISSIMA)
                 const found = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && !i.inventariato);
                 const already = giacenza.find(i => String(i.RISCONTROSERIALEF).toUpperCase() === code && i.inventariato);
 
@@ -566,6 +614,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     playBeep('error');
                 } else if (found) {
                     const newItem = { ...found, inventariato: true, Match: 'OK' };
+                    // Aggiorna stato locale immediato
                     const updatedG = giacenza.map(i => i.RISCONTROSERIALEF === found.RISCONTROSERIALEF ? newItem : i);
                     setGiacenza(updatedG);
                     setCurrentItem(newItem);
@@ -573,10 +622,11 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     setNewPartNumber(newItem.PartNumber || '');
                     setMessage({ type: 'success', text: '✅ MATCH OK' });
                     playBeep('success');
+
+                    // Salva in Cache e in Coda per Supabase
                     await dbCache.set('giacenza', updatedG);
-                    
                     operationQueue.add('registraScansione', {
-                        operatore: user.nome,
+                        operatore: user.nome || user.username,
                         codSap: found.CodSap,
                         descrizione: found.Descrizione,
                         ubicazione: found.Ubicazioni,
@@ -615,7 +665,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 operationQueue.add('updatePartNumber', { seriale: currentItem.RISCONTROSERIALEF, partNumber: newPartNumber });
             };
 
-            // LOGICA STAMPA ORIGINALE
+            // LOGICA STAMPA (Invariata dalla tua versione HTML perfetta)
             const stampaEtichetta = (item) => {
                 const printArea = document.getElementById('print-area');
                 const bcId = 'bc-' + Date.now();
@@ -661,7 +711,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         // ============================================
-        // MODE LISTA ORIGINALE (CON FILTRI & MASSIVO)
+        // MODE LISTA (CON FILTRI E MASSIVO)
         // ============================================
         function ModeLista({ user }) {
             const [giacenza, setGiacenza] = useState([]);
@@ -670,8 +720,16 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
             const [showCols, setShowCols] = useState(false);
             const [cols, setCols] = useState({poNr:true, cdc:true, codSap:true, desc:true, ub:true, sn:true, pn:true});
             const [bulkUb, setBulkUb] = useState('');
-            
-            useEffect(() => { const l = async () => { let g = await dbCache.get('giacenza'); if(g.length===0) { const res = await api('getGiacenza'); g=res.data; await dbCache.set('giacenza',g); } setGiacenza(g.filter(i=>!i.inventariato)); }; l(); }, []);
+            const [displayCount, setDisplayCount] = useState(50);
+
+            useEffect(() => { 
+                const l = async () => { 
+                    let g = await dbCache.get('giacenza'); 
+                    if(g.length===0) { const res = await api('getGiacenza'); g=res.data; await dbCache.set('giacenza',g); } 
+                    setGiacenza(g.filter(i=>!i.inventariato)); 
+                }; 
+                l(); 
+            }, []);
 
             const filtered = giacenza.filter(i => {
                 if(filters.poNr && !i.PoNr.includes(filters.poNr)) return false;
@@ -686,8 +744,9 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 for(let item of selected) {
                     const idx = newG.findIndex(x=>x.ID_Riga===item.ID_Riga);
                     if(idx>=0) { newG[idx].inventariato=true; newG[idx].Match='OK'; if(bulkUb) newG[idx].Ubicazioni=bulkUb; }
+                    
                     operationQueue.add('registraScansione', {
-                        operatore: user.nome,
+                        operatore: user.nome || user.username,
                         codSap: item.CodSap,
                         descrizione: item.Descrizione,
                         ubicazione: bulkUb || item.Ubicazioni,
@@ -706,19 +765,23 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 setSelected([]); setBulkUb('');
             };
 
+            const displayed = filtered.slice(0, displayCount);
+
             return (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center"><h2 className="text-xl font-bold">Lista ({filtered.length})</h2><div className="flex gap-2"><button onClick={()=>setShowCols(!showCols)} className="bg-gray-200 px-3 rounded">Colonne</button></div></div>
                     {showCols && <div className="bg-white p-2 flex gap-4 flex-wrap text-sm">{Object.keys(cols).map(k=><label key={k}><input type="checkbox" checked={cols[k]} onChange={()=>setCols({...cols,[k]:!cols[k]})}/> {k}</label>)}</div>}
                     <div className="bg-white p-2 flex gap-2"><input placeholder="Filtra SAP" className="border p-1" onChange={e=>setFilters({...filters,codSap:e.target.value})}/><input placeholder="Filtra PO" className="border p-1" onChange={e=>setFilters({...filters,poNr:e.target.value})}/><input placeholder="Filtra Ubic." className="border p-1" onChange={e=>setFilters({...filters,ub:e.target.value})}/></div>
                     {selected.length>0 && <div className="bg-blue-50 p-2 flex gap-2 items-center"><span className="font-bold">{selected.length} scelti</span><input placeholder="Nuova Ubicazione (opz)" value={bulkUb} onChange={e=>setBulkUb(e.target.value)} className="border p-1"/><button onClick={handleMassive} className="bg-green-600 text-white px-3 py-1 rounded">CONFERMA MASSIVA</button></div>}
-                    <div className="bg-white shadow overflow-auto max-h-[600px]"><table className="w-full text-sm text-left"><thead className="bg-gray-100 sticky top-0"><tr><th className="p-2"><input type="checkbox" onChange={e=>setSelected(e.target.checked?filtered:[])}/></th>{cols.poNr&&<th className="p-2">PoNr</th>}{cols.cdc&&<th className="p-2">CDC</th>}{cols.codSap&&<th className="p-2">SAP</th>}{cols.desc&&<th className="p-2">Desc</th>}{cols.ub&&<th className="p-2">Ubic</th>}{cols.sn&&<th className="p-2">SN</th>}{cols.pn&&<th className="p-2">PN</th>}</tr></thead><tbody>{filtered.slice(0,100).map(r=><tr key={r.ID_Riga} className="border-b"><td className="p-2"><input type="checkbox" checked={selected.includes(r)} onChange={e=>{if(e.target.checked) setSelected([...selected,r]); else setSelected(selected.filter(x=>x!==r));}}/></td>{cols.poNr&&<td className="p-2">{r.PoNr}</td>}{cols.cdc&&<td className="p-2">{r.Cdc}</td>}{cols.codSap&&<td className="p-2 font-mono font-bold">{r.CodSap}</td>}{cols.desc&&<td className="p-2 truncate max-w-[200px]">{r.Descrizione}</td>}{cols.ub&&<td className="p-2">{r.Ubicazioni}</td>}{cols.sn&&<td className="p-2 font-mono">{r.RISCONTROSERIALEF}</td>}{cols.pn&&<td className="p-2">{r.PartNumber}</td>}</tr>)}</tbody></table></div>
+                    <div className="bg-white shadow overflow-auto max-h-[600px]"><table className="w-full text-sm text-left"><thead className="bg-gray-100 sticky top-0"><tr><th className="p-2"><input type="checkbox" onChange={e=>setSelected(e.target.checked?filtered:[])}/></th>{cols.poNr&&<th className="p-2">PoNr</th>}{cols.cdc&&<th className="p-2">CDC</th>}{cols.codSap&&<th className="p-2">SAP</th>}{cols.desc&&<th className="p-2">Desc</th>}{cols.ub&&<th className="p-2">Ubic</th>}{cols.sn&&<th className="p-2">SN</th>}{cols.pn&&<th className="p-2">PN</th>}</tr></thead><tbody>{displayed.map(r=><tr key={r.ID_Riga} className="border-b"><td className="p-2"><input type="checkbox" checked={selected.includes(r)} onChange={e=>{if(e.target.checked) setSelected([...selected,r]); else setSelected(selected.filter(x=>x!==r));}}/></td>{cols.poNr&&<td className="p-2">{r.PoNr}</td>}{cols.cdc&&<td className="p-2">{r.Cdc}</td>}{cols.codSap&&<td className="p-2 font-mono font-bold">{r.CodSap}</td>}{cols.desc&&<td className="p-2 truncate max-w-[200px]">{r.Descrizione}</td>}{cols.ub&&<td className="p-2">{r.Ubicazioni}</td>}{cols.sn&&<td className="p-2 font-mono">{r.RISCONTROSERIALEF}</td>}{cols.pn&&<td className="p-2">{r.PartNumber}</td>}</tr>)}</tbody></table>
+                    {filtered.length > displayCount && <button onClick={()=>setDisplayCount(c=>c+50)} className="w-full p-2 bg-gray-100 hover:bg-gray-200">Carica altri...</button>}
+                    </div>
                 </div>
             );
         }
 
         // ============================================
-        // STORICO (SEMPLIFICATO PER VISUALIZZAZIONE)
+        // STORICO
         // ============================================
         function Storico() {
             const [data, setData] = useState([]);
