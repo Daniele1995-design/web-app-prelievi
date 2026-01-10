@@ -737,18 +737,62 @@ case 'updateNoteStorico':
     const giacUpdateUbic = { ubicazioni: payload.ubicazione };
     if (payload.note) giacUpdateUbic.note = payload.note;
     
-    await supabaseClient
+    const { error: gErr1 } = await supabaseClient
         .from('giacenza')
         .update(giacUpdateUbic)
         .eq('riscontro_seriale_f', payload.seriale);
     
+    if (gErr1) throw gErr1;
+    
     const invUpdateUbic = { ubicazione: payload.ubicazione };
     if (payload.note) invUpdateUbic.note = payload.note;
     
-    await supabaseClient
+    const { error: iErr1 } = await supabaseClient
         .from('inventario')
         .update(invUpdateUbic)
         .eq('seriale_riscontrato', payload.seriale);
+    
+    if (iErr1) throw iErr1;
+    
+    return { success: true };
+
+case 'updateNote':
+    const { error: gErr2 } = await supabaseClient
+        .from('giacenza')
+        .update({ note: payload.note })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    if (gErr2) throw gErr2;
+    
+    const { error: iErr2 } = await supabaseClient
+        .from('inventario')
+        .update({ note: payload.note })
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    if (iErr2) throw iErr2;
+    
+    return { success: true };
+
+case 'updatePartNumber':
+    const giacUpdatePN = { part_number: payload.partNumber };
+    if (payload.note) giacUpdatePN.note = payload.note;
+    
+    const { error: gErr3 } = await supabaseClient
+        .from('giacenza')
+        .update(giacUpdatePN)
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    if (gErr3) throw gErr3;
+    
+    const invUpdatePN = { part_number: payload.partNumber };
+    if (payload.note) invUpdatePN.note = payload.note;
+    
+    const { error: iErr3 } = await supabaseClient
+        .from('inventario')
+        .update(invUpdatePN)
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    if (iErr3) throw iErr3;
     
     return { success: true };
 
@@ -2558,6 +2602,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     );
     setGiacenza(updated);
     appCache.giacenza = updated;
+                setEditingNote(prev => { 
+        const n = {...prev}; 
+        delete n[item.RISCONTROSERIALEF]; 
+        return n; 
+    });
     
     let filtered = updated.filter(i => !i.inventariato);
     if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
@@ -3264,6 +3313,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             : i
     );
     setStorico(updated);
+            setEditingNote(prev => { 
+    const n = {...prev}; 
+    delete n[item.Seriale_Riscontrato]; 
+    return n; 
+});
     setFilteredData(updated.filter(i => {
         let match = true;
         if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
