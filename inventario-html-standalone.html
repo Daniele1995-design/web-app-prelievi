@@ -562,36 +562,7 @@ body {
 
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
 
-        // Aggiungi questa funzione dopo API_URL e prima di App()
-async function api(action, payload = {}, showError = true) {
-    try {
-        // Usa un proxy CORS
-        const PROXY = 'https://corsproxy.io/?';
-        const response = await fetch(PROXY + encodeURIComponent(API_URL), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ...payload })
-        });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const data = await response.json();
-        
-        if (!data.success && showError) {
-            throw new Error(data.error || 'Errore sconosciuto dal server');
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Errore API:', error);
-        if (showError) {
-            alert('Errore comunicazione con il server:\n' + error.message);
-        }
-        throw error;
-    }
-}
-
-// ============================================
+        // ============================================
 // INDEXEDDB CACHE MANAGER
 // ============================================
 const DB_NAME = 'ATSInventoryDB';
@@ -704,22 +675,18 @@ function isCacheValid(key) {
     return (Date.now() - appCache.lastUpdate[key]) < CACHE_TIME;
 }
 
-   // ============================================
-// QUEUE MANAGER OTTIMIZZATO - BATCH E NON-BLOCKING
+        // ============================================
+// QUEUE MANAGER PER OPERAZIONI FALLITE
 // ============================================
 const operationQueue = {
     queue: [],
     processing: false,
-    batchTimer: null,
     
     async add(action, payload, retries = 3) {
-        this.queue.push({ action, payload, retries, timestamp: Date.now() });
-        
-        // ✅ BATCH: Accumula operazioni per 500ms prima di inviare
-        clearTimeout(this.batchTimer);
-        this.batchTimer = setTimeout(() => {
-            if (!this.processing) this.process();
-        }, 500);
+        this.queue.push({ action, payload, retries });
+        if (!this.processing) {
+            this.process();
+        }
     },
     
     async process() {
@@ -729,94 +696,67 @@ const operationQueue = {
         }
         
         this.processing = true;
+        const operation = this.queue[0];
         
-        // ✅ RAGGRUPPA operazioni simili (es. multiple updateUbicazione)
-        const batches = this.groupOperations();
-        
-        for (const batch of batches) {
-            try {
-                if (batch.operations.length === 1) {
-                    // Operazione singola
-                    const op = batch.operations[0];
-                    await api(op.action, op.payload, false);
-                    this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
-                    console.log('✅ Operazione completata:', op.action);
-                } else {
-                    // Operazioni multiple dello stesso tipo - BATCH
-                    await this.processBatch(batch);
-                }
-            } catch (err) {
-                console.warn('⚠️ Errore batch, retry individuale...');
-                // Riprova individualmente
-                for (const op of batch.operations) {
-                    op.retries--;
-                    if (op.retries <= 0) {
-                        this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
-                        console.error('❌ Operazione fallita:', op.action);
-                    }
-                }
-            }
-            
-            // Attendi solo 200ms tra batch invece di 2 secondi
-            await new Promise(resolve => setTimeout(resolve, 200));
-        }
-        
-        this.processing = false;
-        
-        // Continua se ci sono ancora operazioni
-        if (this.queue.length > 0) {
-            setTimeout(() => this.process(), 300);
-        }
-    },
-    
-    groupOperations() {
-        const groups = {};
-        this.queue.forEach(op => {
-            if (!groups[op.action]) groups[op.action] = [];
-            groups[op.action].push(op);
-        });
-        
-        return Object.keys(groups).map(action => ({
-            action,
-            operations: groups[action]
-        }));
-    },
-    
-    async processBatch(batch) {
-        if (batch.action === 'updateUbicazione') {
-            // Batch di aggiornamenti ubicazione
-            const payload = {
-                updates: batch.operations.map(op => ({
-                    seriale: op.payload.seriale,
-                    ubicazione: op.payload.ubicazione
-                }))
-            };
-            await api('batchUpdateUbicazione', payload, false);
-            batch.operations.forEach(op => {
-                this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
-            });
-            console.log(`✅ Batch ubicazione completato (${batch.operations.length} items)`);
-        } else if (batch.action === 'updatePartNumber') {
-            const payload = {
-                updates: batch.operations.map(op => ({
-                    seriale: op.payload.seriale,
-                    partNumber: op.payload.partNumber
-                }))
-            };
-            await api('batchUpdatePartNumber', payload, false);
-            batch.operations.forEach(op => {
-                this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
-            });
-            console.log(`✅ Batch part number completato (${batch.operations.length} items)`);
-        } else {
-            // Per altre operazioni, esegui individualmente
-            for (const op of batch.operations) {
-                await api(op.action, op.payload, false);
-                this.queue = this.queue.filter(q => q.timestamp !== op.timestamp);
+        try {
+            await api(operation.action, operation.payload, false); // Non rientrare in coda
+            this.queue.shift(); // Rimuovi se successo
+            console.log('✅ Operazione dalla coda completata:', operation.action);
+        } catch (err) {
+            operation.retries--;
+            if (operation.retries <= 0) {
+                console.error('❌ Operazione fallita definitivamente:', operation.action);
+                this.queue.shift(); // Rimuovi dopo 3 tentativi
+            } else {
+                console.warn(`⚠️ Retry ${3 - operation.retries}/3 per:`, operation.action);
             }
         }
+        
+        // Attendi 2 secondi prima di processare la prossima
+        setTimeout(() => this.process(), 2000);
     }
 };
+
+async function api(action, payload = {}, useQueue = true) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, ...payload })
+        });
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        if (!data.success) {
+            // ✅ CONTROLLO INTELLIGENTE: mette in coda se è un errore di lock/timeout
+            if (useQueue && (
+                data.shouldRetry === true || // Flag esplicito dal backend
+                data.error.includes('timeout') || 
+                data.error.includes('Timeout') ||
+                data.error.includes('lock') || 
+                data.error.includes('blocco') ||
+                data.error.includes('attesa')
+            )) {
+                console.warn('⚠️ Timeout/Lock rilevato, metto in coda:', action);
+                await operationQueue.add(action, payload);
+                return { success: true, queued: true }; // Ritorna successo locale
+            }
+            throw new Error(data.error || 'Errore API');
+        }
+        
+        return data;
+    } catch (err) {
+        // Se fallisce per problemi di rete, metti in coda
+        if (useQueue && err.message.includes('Failed to fetch')) {
+            console.warn('⚠️ Errore rete, metto in coda:', action);
+            await operationQueue.add(action, payload);
+            return { success: true, queued: true };
+        }
+        throw err;
+    }
+}
 
         const Icons = {
             Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
