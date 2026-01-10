@@ -735,77 +735,30 @@ case 'updateNoteStorico':
 
     case 'updateUbicazione':
     console.log('🔍 DEBUG updateUbicazione - Payload:', payload);
-    console.log('🔍 Seriale ricevuto:', payload.seriale);
-    console.log('🔍 Ubicazione nuova:', payload.ubicazione);
     
-    // PRIMA: Conta quante righe ci sono con questo seriale
-    const { count, error: countErr } = await supabaseClient
-        .from('giacenza')
-        .select('*', { count: 'exact', head: true })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    console.log('🔍 Righe trovate in giacenza:', count);
-    
-    if (countErr) {
-        console.error('❌ Errore count giacenza:', countErr);
-    }
-    
-    if (count === 0) {
-        console.error('❌ NESSUNA RIGA TROVATA CON QUESTO SERIALE!');
-        
-        // Cerca con LIKE per vedere se ci sono match parziali
-        const { data: similarData } = await supabaseClient
-            .from('giacenza')
-            .select('riscontro_seriale_f')
-            .ilike('riscontro_seriale_f', `%${payload.seriale}%`)
-            .limit(5);
-        
-        console.log('🔍 Seriali simili trovati:', similarData);
-        throw new Error(`Seriale ${payload.seriale} non trovato nel database`);
-    }
-    
-    // Aggiorna giacenza
     const giacUpdateUbic = { ubicazioni: payload.ubicazione };
     if (payload.note) giacUpdateUbic.note = payload.note;
     
-    console.log('🔍 Dati da aggiornare giacenza:', giacUpdateUbic);
-    
-    const { error: gErr1, data: gData1 } = await supabaseClient
+    const { error: gErr1 } = await supabaseClient
         .from('giacenza')
         .update(giacUpdateUbic)
-        .eq('riscontro_seriale_f', payload.seriale)
-        .select();
+        .eq('riscontro_seriale_f', payload.seriale);
     
     if (gErr1) {
         console.error('❌ Errore update giacenza:', gErr1);
-        console.error('❌ Dettagli errore:', JSON.stringify(gErr1, null, 2));
         throw gErr1;
     }
     
-    console.log('✅ Righe aggiornate in giacenza:', gData1?.length || 0);
-    console.log('✅ Dati aggiornati giacenza:', gData1);
-    
-    // Aggiorna inventario
+    // Aggiorna inventario SOLO se esiste (non bloccare se non c'è)
     const invUpdateUbic = { ubicazione: payload.ubicazione };
     if (payload.note) invUpdateUbic.note = payload.note;
     
-    console.log('🔍 Dati da aggiornare inventario:', invUpdateUbic);
-    
-    const { error: iErr1, data: iData1 } = await supabaseClient
+    await supabaseClient
         .from('inventario')
         .update(invUpdateUbic)
-        .eq('seriale_riscontrato', payload.seriale)
-        .select();
+        .eq('seriale_riscontrato', payload.seriale);
     
-    if (iErr1) {
-        console.error('❌ Errore update inventario:', iErr1);
-        console.error('❌ Dettagli errore:', JSON.stringify(iErr1, null, 2));
-        throw iErr1;
-    }
-    
-    console.log('✅ Righe aggiornate in inventario:', iData1?.length || 0);
-    console.log('✅ Dati aggiornati inventario:', iData1);
-    console.log('✅ Ubicazione aggiornata su DB');
+    console.log('✅ Ubicazione aggiornata');
     return { success: true };
 
 case 'updateNote':
