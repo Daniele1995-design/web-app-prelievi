@@ -621,6 +621,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         async function api(action, payload = {}) {
             try {
                 switch (action) {
+
                     case 'login':
                         const { data: user, error: lErr } = await supabaseClient
                             .from('utenti')
@@ -715,6 +716,22 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                                 .eq('riscontro_seriale_f', sd.serialeRiscontrato);
                         }
                         return { success: true };
+
+                        case 'updateGiacenza':
+    return await supabase
+        .from('giacenza')
+        .update({ 
+            ubicazioni: data.ubicazione, 
+            part_number: data.partNumber,
+            stato: 'INVENTARIATO' 
+        })
+        .eq('riscontro_seriale_f', data.seriale);
+
+case 'updateNoteStorico':
+    return await supabase
+        .from('inventario')
+        .update({ Note: data.note })
+        .eq('Seriale_Riscontrato', data.seriale);
 
                     case 'updateUbicazione':
     const giacUpdateUbic = { ubicazioni: payload.ubicazione };
