@@ -735,46 +735,50 @@ case 'updateNoteStorico':
 
   case 'updateNote':
     console.log('🔍 DEBUG updateNote - payload:', payload);
+    console.log('🔍 Cerco seriale:', payload.seriale);
     
     try {
         // Update inventario
-        const { data: invData, error: invError } = await supabaseClient
+        const { data: invData, error: invError, count: invCount } = await supabaseClient
             .from('inventario')
             .update({ note: payload.note })
             .eq('seriale_riscontrato', payload.seriale)
             .select();
         
-        console.log('📊 Inventario update result:', { invData, invError });
+        console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
+        console.log('📊 Inventario - Dati:', invData);
+        console.log('📊 Inventario - Errore:', invError);
         
-        if (invError) {
-            console.error('❌ ERRORE INVENTARIO:', invError);
-            throw invError;
-        }
+        if (invError) throw invError;
         
         // Update giacenza
-        const { data: giacData, error: giacError } = await supabaseClient
+        const { data: giacData, error: giacError, count: giacCount } = await supabaseClient
             .from('giacenza')
             .update({ note: payload.note })
             .eq('riscontro_seriale_f', payload.seriale)
             .select();
         
-        console.log('📊 Giacenza update result:', { giacData, giacError });
+        console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
+        console.log('📊 Giacenza - Dati:', giacData);
+        console.log('📊 Giacenza - Errore:', giacError);
         
-        if (giacError) {
-            console.error('❌ ERRORE GIACENZA:', giacError);
-            throw giacError;
+        if (giacError) throw giacError;
+        
+        if ((invData?.length || 0) === 0 && (giacData?.length || 0) === 0) {
+            console.warn('⚠️ ATTENZIONE: Nessuna riga aggiornata! Seriale non trovato?');
         }
         
-        console.log('✅ Note salvate con successo!');
+        console.log('✅ Note - Query completate');
         return { success: true };
         
     } catch (err) {
-        console.error('💥 ERRORE COMPLETO updateNote:', err);
+        console.error('💥 ERRORE updateNote:', err);
         throw err;
     }
 
 case 'updateUbicazione':
     console.log('🔍 DEBUG updateUbicazione - payload:', payload);
+    console.log('🔍 Cerco seriale:', payload.seriale);
     
     try {
         const { data: invData, error: invError } = await supabaseClient
@@ -783,7 +787,7 @@ case 'updateUbicazione':
             .eq('seriale_riscontrato', payload.seriale)
             .select();
         
-        console.log('📊 Inventario ubicazione:', { invData, invError });
+        console.log('📊 Inventario ubicazione - Righe:', invData?.length || 0, 'Dati:', invData);
         if (invError) throw invError;
         
         const { data: giacData, error: giacError } = await supabaseClient
@@ -792,8 +796,12 @@ case 'updateUbicazione':
             .eq('riscontro_seriale_f', payload.seriale)
             .select();
         
-        console.log('📊 Giacenza ubicazioni:', { giacData, giacError });
+        console.log('📊 Giacenza ubicazioni - Righe:', giacData?.length || 0, 'Dati:', giacData);
         if (giacError) throw giacError;
+        
+        if ((invData?.length || 0) === 0 && (giacData?.length || 0) === 0) {
+            console.warn('⚠️ ATTENZIONE: Nessuna riga aggiornata! Seriale non trovato?');
+        }
         
         return { success: true };
     } catch (err) {
@@ -803,6 +811,7 @@ case 'updateUbicazione':
 
 case 'updatePartNumber':
     console.log('🔍 DEBUG updatePartNumber - payload:', payload);
+    console.log('🔍 Cerco seriale:', payload.seriale);
     
     try {
         const { data: invData, error: invError } = await supabaseClient
@@ -811,7 +820,7 @@ case 'updatePartNumber':
             .eq('seriale_riscontrato', payload.seriale)
             .select();
         
-        console.log('📊 Inventario part_number:', { invData, invError });
+        console.log('📊 Inventario part_number - Righe:', invData?.length || 0, 'Dati:', invData);
         if (invError) throw invError;
         
         const { data: giacData, error: giacError } = await supabaseClient
@@ -820,8 +829,12 @@ case 'updatePartNumber':
             .eq('riscontro_seriale_f', payload.seriale)
             .select();
         
-        console.log('📊 Giacenza part_number:', { giacData, giacError });
+        console.log('📊 Giacenza part_number - Righe:', giacData?.length || 0, 'Dati:', giacData);
         if (giacError) throw giacError;
+        
+        if ((invData?.length || 0) === 0 && (giacData?.length || 0) === 0) {
+            console.warn('⚠️ ATTENZIONE: Nessuna riga aggiornata! Seriale non trovato?');
+        }
         
         return { success: true };
     } catch (err) {
@@ -3281,7 +3294,7 @@ const updateNoteLista = async (item, newNote) => {
         <div className="flex gap-1">
             <textarea 
                 defaultValue={item.Note} 
-                onBlur={(e) => updateNoteStorico(item, e.target.value)} 
+                onBlur={(e) => updateNoteLista(item, e.target.value)} 
                 className="px-2 py-1 border rounded text-xs w-full" 
                 rows="2"
                 autoFocus 
