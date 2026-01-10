@@ -1370,8 +1370,10 @@ operations: groups[action]
             const [newUbicazione, setNewUbicazione] = useState('');
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingPartNumber, setEditingPartNumber] = useState(false);
-            const [newPartNumber, setNewPartNumber] = useState('');
-            const inputRef = useRef(null);
+const [newPartNumber, setNewPartNumber] = useState('');
+const [editingNote, setEditingNote] = useState(false);
+const [newNote, setNewNote] = useState('');
+const inputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
 const [newItemData, setNewItemData] = useState({
@@ -2538,14 +2540,14 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-        await supabaseClient
-            .from('giacenza')
-            .update({ note: newNote })
-            .eq('riscontro_seriale_f', item.RISCONTROSERIALEF);
-        console.log('✅ Note salvate su Supabase');
-    } catch (err) {
-        console.error('❌ Errore server:', err);
-    }
+    await api('updateNote', { 
+        seriale: item.RISCONTROSERIALEF, 
+        note: newNote 
+    });
+    console.log('✅ Note salvate su Supabase');
+} catch (err) {
+    console.error('❌ Errore server:', err);
+}
 };
 
             const verificaMassivo = async () => {
