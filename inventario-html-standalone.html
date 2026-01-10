@@ -733,31 +733,61 @@ case 'updateNoteStorico':
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
 
-   case 'updateUbicazione':
-                        await supabaseClient
-                            .from('giacenza')
-                            .update({ ubicazioni: payload.ubicazione })
-                            .eq('riscontro_seriale_f', payload.seriale);
-                        
-                        await supabaseClient
-                            .from('inventario')
-                            .update({ ubicazione: payload.ubicazione })
-                            .eq('seriale_riscontrato', payload.seriale);
-                        
-                        return { success: true };
+  case 'updateNote':
+    // Note SOLO in inventario
+    await supabaseClient
+        .from('inventario')
+        .update({ note: payload.note })
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    return { success: true };
 
-                    case 'updatePartNumber':
-                        await supabaseClient
-                            .from('giacenza')
-                            .update({ part_number: payload.partNumber })
-                            .eq('riscontro_seriale_f', payload.seriale);
-                        
-                        await supabaseClient
-                            .from('inventario')
-                            .update({ part_number: payload.partNumber })
-                            .eq('seriale_riscontrato', payload.seriale);
-                        
-                        return { success: true };
+case 'updateUbicazione':
+    // Ubicazione SOLO in inventario
+    await supabaseClient
+        .from('inventario')
+        .update({ ubicazione: payload.ubicazione })
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    return { success: true };
+
+case 'updatePartNumber':
+    // Part Number SOLO in inventario
+    await supabaseClient
+        .from('inventario')
+        .update({ part_number: payload.partNumber })
+        .eq('seriale_riscontrato', payload.seriale);
+    
+    return { success: true };
+
+// NUOVI CASE PER GIACENZA
+case 'updateGiacenzaUbicazione':
+    // Ubicazione SOLO in giacenza
+    await supabaseClient
+        .from('giacenza')
+        .update({ ubicazioni: payload.ubicazione })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    return { success: true };
+
+case 'updateGiacenzaPartNumber':
+    // Part Number SOLO in giacenza
+    await supabaseClient
+        .from('giacenza')
+        .update({ part_number: payload.partNumber })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    return { success: true };
+
+case 'updateGiacenzaNote':
+    // Note SOLO in giacenza
+    await supabaseClient
+        .from('giacenza')
+        .update({ note: payload.note })
+        .eq('riscontro_seriale_f', payload.seriale);
+    
+    return { success: true };
+
 
                         
                     case 'batchUpdateUbicazione':
@@ -1594,100 +1624,71 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             };
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
-                const oldUbicazione = currentItem.Ubicazioni;
-    const note = oldUbicazione !== newUbicazione 
-        ? `Ubicazione modificata: ${oldUbicazione} → ${newUbicazione}`
-        : '';
     
-    const updatedGiacenza = giacenza.map(i => 
-    i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-        ? { ...i, Ubicazioni: newUbicazione, Note: note } 
-        : i
-);
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
-    setEditingUbicazione(false);
-    appCache.giacenza = updatedGiacenza;
-    
+    // Aggiorna INVENTARIO
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione , Note: note } 
+            ? { ...i, Ubicazioni: newUbicazione } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
+    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
+    setEditingUbicazione(false);
+    
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
         await api('updateUbicazione', { 
             seriale: currentItem.RISCONTROSERIALEF, 
-            ubicazione: newUbicazione,
-            note: note 
+            ubicazione: newUbicazione
         });
-        console.log('✅ Ubicazione salvata su Supabase');
+        console.log('✅ Ubicazione salvata su Supabase (inventario)');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
     }
 };
 
-            const handleUpdatePartNumber = async () => {
+
+           const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
-                const oldPartNumber = currentItem.PartNumber;
-    const note = oldPartNumber !== newPartNumber 
-        ? `Part Number modificato: ${oldPartNumber || 'vuoto'} → ${newPartNumber}`
-        : '';
     
-    const updatedGiacenza = giacenza.map(i => 
-    i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-        ? { ...i, PartNumber: newPartNumber, Note: note } 
-        : i
-);
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
-    setEditingPartNumber(false);
-    appCache.giacenza = updatedGiacenza;
-    // Cache solo in memoria
-    
+    // Aggiorna INVENTARIO
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber, Note: note } 
+            ? { ...i, PartNumber: newPartNumber } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
-    // Cache solo in memoria
+    
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
+    setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
         await api('updatePartNumber', { 
             seriale: currentItem.RISCONTROSERIALEF, 
-            partNumber: newPartNumber,
-            note: note
+            partNumber: newPartNumber
         });
-        console.log('✅ PartNumber salvato su Supabase');
+        console.log('✅ PartNumber salvato su Supabase (inventario)');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
     }
 };
+
             const handleUpdateNote = async () => {
     if (!currentItem) return;
     
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Note: newNote } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    setCurrentItem({ ...currentItem, Note: newNote });
-    setEditingNote(false);
-    appCache.giacenza = updatedGiacenza;
-    
+    // Aggiorna INVENTARIO (articolo appena scansionato)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Note: newNote } 
@@ -1696,8 +1697,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
+    setCurrentItem({ ...currentItem, Note: newNote });
+    setEditingNote(false);
+    
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
@@ -1705,11 +1709,14 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             seriale: currentItem.RISCONTROSERIALEF, 
             note: newNote
         });
-        console.log('✅ Note salvate su Supabase');
+        console.log('✅ Note salvate su Supabase (inventario)');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Errore sincronizzazione note: ' + err.message);
     }
 };
+
+
             const handleSaveNewItem = async () => {
     // Validazione campi obbligatori
     if (!newItemData.codSap.trim()) {
@@ -2459,86 +2466,19 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             };
 
             const updateUbicazioneLista = async (item, newUbic) => {
-                if (!newUbic.trim()) return;
-                
-                const updated = giacenza.map(i => 
-                    i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-                        ? { ...i, Ubicazioni: newUbic } 
-                        : i
-                );
-                setGiacenza(updated);
-                appCache.giacenza = updated;
-                //await dbCache.set('giacenza', updated);
-                
-                let filtered = updated.filter(i => !i.inventariato);
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                setFilteredData(filtered);
-                
-                window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                    detail: { giacenza: updated }
-                }));
-                
-                try {
-                    await api('updateUbicazione', { seriale: item.RISCONTROSERIALEF, ubicazione: newUbic });
-                    console.log('✅ Ubicazione salvata su Supabase');
-                } catch (err) {
-                    console.error('❌ Errore server:', err);
-                }
-            };
-
-            const updatePartNumberLista = async (item, newPN) => {
-                if (!newPN.trim()) return;
-                
-                const updated = giacenza.map(i => 
-                    i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-                        ? { ...i, PartNumber: newPN } 
-                        : i
-                );
-                setGiacenza(updated);
-                appCache.giacenza = updated;
-                //await dbCache.set('giacenza', updated);
-                
-                let filtered = updated.filter(i => !i.inventariato);
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                setFilteredData(filtered);
-                
-                window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                    detail: { giacenza: updated }
-                }));
-                
-                try {
-                    await api('updatePartNumber', { seriale: item.RISCONTROSERIALEF, partNumber: newPN });
-                    console.log('✅ PartNumber salvato su Supabase');
-                } catch (err) {
-                    console.error('❌ Errore server:', err);
-                }
-            };
-            
-            const updateNoteLista = async (item, newNote) => {
-    const updated = giacenza.map(i => 
+    if (!newUbic.trim()) return;
+    
+    // Aggiorna GIACENZA (articoli non ancora inventariati)
+    const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-            ? { ...i, Note: newNote } 
+            ? { ...i, Ubicazioni: newUbic } 
             : i
     );
-    setGiacenza(updated);
-    appCache.giacenza = updated;
-                setEditingNote(prev => { 
-        const n = {...prev}; 
-        delete n[item.RISCONTROSERIALEF]; 
-        return n; 
-    });
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
     
-    let filtered = updated.filter(i => !i.inventariato);
+    // Aggiorna filteredData
+    let filtered = updatedGiacenza.filter(i => !i.inventariato);
     if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
     if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
@@ -2548,19 +2488,100 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     setFilteredData(filtered);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updated }
+        detail: { giacenza: updatedGiacenza }
     }));
     
     try {
-    await api('updateNote', { 
-        seriale: item.RISCONTROSERIALEF, 
-        note: newNote 
-    });
-    console.log('✅ Note salvate su Supabase');
-} catch (err) {
-    console.error('❌ Errore server:', err);
-}
+        await api('updateGiacenzaUbicazione', { 
+            seriale: item.RISCONTROSERIALEF, 
+            ubicazione: newUbic 
+        });
+        console.log('✅ Ubicazione salvata su Supabase (giacenza)');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+        alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
 };
+
+const updatePartNumberLista = async (item, newPN) => {
+    if (!newPN.trim()) return;
+    
+    // Aggiorna GIACENZA
+    const updatedGiacenza = giacenza.map(i => 
+        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+            ? { ...i, PartNumber: newPN } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    
+    // Aggiorna filteredData
+    let filtered = updatedGiacenza.filter(i => !i.inventariato);
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+    if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    setFilteredData(filtered);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza }
+    }));
+    
+    try {
+        await api('updateGiacenzaPartNumber', { 
+            seriale: item.RISCONTROSERIALEF, 
+            partNumber: newPN 
+        });
+        console.log('✅ PartNumber salvato su Supabase (giacenza)');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+        alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
+};
+
+const updateNoteLista = async (item, newNote) => {
+    // Aggiorna GIACENZA
+    const updatedGiacenza = giacenza.map(i => 
+        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+            ? { ...i, Note: newNote } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    setEditingNote(prev => { 
+        const n = {...prev}; 
+        delete n[item.RISCONTROSERIALEF]; 
+        return n; 
+    });
+    
+    // Aggiorna filteredData
+    let filtered = updatedGiacenza.filter(i => !i.inventariato);
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+    if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    setFilteredData(filtered);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza }
+    }));
+    
+    try {
+        await api('updateGiacenzaNote', { 
+            seriale: item.RISCONTROSERIALEF, 
+            note: newNote 
+        });
+        console.log('✅ Note salvate su Supabase (giacenza)');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+        alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
+};
+
 
             const verificaMassivo = async () => {
                 if (selected.length === 0) return alert('Seleziona almeno un articolo');
