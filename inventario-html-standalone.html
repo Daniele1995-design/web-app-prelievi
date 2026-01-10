@@ -717,8 +717,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                         }
                         return { success: true };
 
-                        case 'updateGiacenza':
-    return await supabase
+    case 'updateGiacenza':
+    return await supabaseClient
         .from('giacenza')
         .update({ 
             ubicazioni: data.ubicazione, 
@@ -728,7 +728,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         .eq('riscontro_seriale_f', data.seriale);
 
 case 'updateNoteStorico':
-    return await supabase
+    return await supabaseClient
         .from('inventario')
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
