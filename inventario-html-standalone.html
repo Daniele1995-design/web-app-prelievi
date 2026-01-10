@@ -733,7 +733,7 @@ case 'updateNoteStorico':
         .update({ Note: data.note })
         .eq('Seriale_Riscontrato', data.seriale);
 
-                    case 'updateUbicazione':
+           case 'updateUbicazione':
     const giacUpdateUbic = { ubicazioni: payload.ubicazione };
     if (payload.note) giacUpdateUbic.note = payload.note;
     
@@ -742,7 +742,10 @@ case 'updateNoteStorico':
         .update(giacUpdateUbic)
         .eq('riscontro_seriale_f', payload.seriale);
     
-    if (gErr1) throw gErr1;
+    if (gErr1) {
+        console.error('❌ Errore update giacenza:', gErr1);
+        throw gErr1;
+    }
     
     const invUpdateUbic = { ubicazione: payload.ubicazione };
     if (payload.note) invUpdateUbic.note = payload.note;
@@ -752,8 +755,12 @@ case 'updateNoteStorico':
         .update(invUpdateUbic)
         .eq('seriale_riscontrato', payload.seriale);
     
-    if (iErr1) throw iErr1;
+    if (iErr1) {
+        console.error('❌ Errore update inventario:', iErr1);
+        throw iErr1;
+    }
     
+    console.log('✅ Ubicazione aggiornata su DB');
     return { success: true };
 
 case 'updateNote':
@@ -762,15 +769,22 @@ case 'updateNote':
         .update({ note: payload.note })
         .eq('riscontro_seriale_f', payload.seriale);
     
-    if (gErr2) throw gErr2;
+    if (gErr2) {
+        console.error('❌ Errore update note giacenza:', gErr2);
+        throw gErr2;
+    }
     
     const { error: iErr2 } = await supabaseClient
         .from('inventario')
         .update({ note: payload.note })
         .eq('seriale_riscontrato', payload.seriale);
     
-    if (iErr2) throw iErr2;
+    if (iErr2) {
+        console.error('❌ Errore update note inventario:', iErr2);
+        throw iErr2;
+    }
     
+    console.log('✅ Note aggiornate su DB');
     return { success: true };
 
 case 'updatePartNumber':
@@ -782,7 +796,10 @@ case 'updatePartNumber':
         .update(giacUpdatePN)
         .eq('riscontro_seriale_f', payload.seriale);
     
-    if (gErr3) throw gErr3;
+    if (gErr3) {
+        console.error('❌ Errore update part number giacenza:', gErr3);
+        throw gErr3;
+    }
     
     const invUpdatePN = { part_number: payload.partNumber };
     if (payload.note) invUpdatePN.note = payload.note;
@@ -792,8 +809,12 @@ case 'updatePartNumber':
         .update(invUpdatePN)
         .eq('seriale_riscontrato', payload.seriale);
     
-    if (iErr3) throw iErr3;
+    if (iErr3) {
+        console.error('❌ Errore update part number inventario:', iErr3);
+        throw iErr3;
+    }
     
+    console.log('✅ Part Number aggiornato su DB');
     return { success: true };
                         
                     case 'batchUpdateUbicazione':
