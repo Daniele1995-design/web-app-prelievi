@@ -579,7 +579,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Cdc: item.cdc || '',
                 PoNr: item.po_nr || '',
                 PartNumber: item.part_number || '',
-                Stato: item.match ? 'INVENTARIATO' : 'ERRORE',
+                Stato: item.stato || '',
                 Note: item.note || ''
             }));
         }
