@@ -3012,18 +3012,23 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                                             {item.RISCONTROSERIALEF}
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
-    {editingNote[item.RISCONTROSERIALEF] ? (
+    {editingNote[item.Seriale_Riscontrato] ? (
         <div className="flex gap-1">
             <textarea 
                 defaultValue={item.Note} 
                 onBlur={(e) => {
-                    updateNoteLista(item, e.target.value);
+                    updateNoteStorico(item, e.target.value);
                     setEditingNote(prev => {
                         const n = {...prev};
-                        delete n[item.RISCONTROSERIALEF];
+                        delete n[item.Seriale_Riscontrato];
                         return n;
                     });
                 }}
+                className="px-2 py-1 border rounded text-xs w-full" 
+                rows="2"
+                autoFocus 
+            />
+        </div>
                                     </tr>
                                 ))}
                             </tbody>
