@@ -1489,7 +1489,7 @@ operations: groups[action]
 
             // Prepara dati per Excel
             const excelData = daInventariare.map(item => ({
-                'ID Riga': item.ID_Riga || '',
+                'ID Riga': item.id || '',
                 'Po Nr': item.PoNr || '',
                 'CDC': item.Cdc || '',
                 'Cod. SAP': item.CodSap || '',
