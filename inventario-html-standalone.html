@@ -11,7 +11,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-   
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
 /* STILI BASE */
 body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
@@ -734,47 +734,100 @@ case 'updateNoteStorico':
         .eq('Seriale_Riscontrato', data.seriale);
 
   case 'updateNote':
-    // Note in ENTRAMBE le tabelle
-    await supabaseClient
-        .from('inventario')
-        .update({ note: payload.note })
-        .eq('seriale_riscontrato', payload.seriale);
+    console.log('🔍 DEBUG updateNote - payload:', payload);
     
-    await supabaseClient
-        .from('giacenza')
-        .update({ note: payload.note })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    return { success: true };
+    try {
+        // Update inventario
+        const { data: invData, error: invError } = await supabaseClient
+            .from('inventario')
+            .update({ note: payload.note })
+            .eq('seriale_riscontrato', payload.seriale)
+            .select();
+        
+        console.log('📊 Inventario update result:', { invData, invError });
+        
+        if (invError) {
+            console.error('❌ ERRORE INVENTARIO:', invError);
+            throw invError;
+        }
+        
+        // Update giacenza
+        const { data: giacData, error: giacError } = await supabaseClient
+            .from('giacenza')
+            .update({ note: payload.note })
+            .eq('riscontro_seriale_f', payload.seriale)
+            .select();
+        
+        console.log('📊 Giacenza update result:', { giacData, giacError });
+        
+        if (giacError) {
+            console.error('❌ ERRORE GIACENZA:', giacError);
+            throw giacError;
+        }
+        
+        console.log('✅ Note salvate con successo!');
+        return { success: true };
+        
+    } catch (err) {
+        console.error('💥 ERRORE COMPLETO updateNote:', err);
+        throw err;
+    }
 
 case 'updateUbicazione':
-    // Ubicazione in ENTRAMBE le tabelle
-    await supabaseClient
-        .from('inventario')
-        .update({ ubicazione: payload.ubicazione })
-        .eq('seriale_riscontrato', payload.seriale);
+    console.log('🔍 DEBUG updateUbicazione - payload:', payload);
     
-    await supabaseClient
-        .from('giacenza')
-        .update({ ubicazioni: payload.ubicazione })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    return { success: true };
+    try {
+        const { data: invData, error: invError } = await supabaseClient
+            .from('inventario')
+            .update({ ubicazione: payload.ubicazione })
+            .eq('seriale_riscontrato', payload.seriale)
+            .select();
+        
+        console.log('📊 Inventario ubicazione:', { invData, invError });
+        if (invError) throw invError;
+        
+        const { data: giacData, error: giacError } = await supabaseClient
+            .from('giacenza')
+            .update({ ubicazioni: payload.ubicazione })
+            .eq('riscontro_seriale_f', payload.seriale)
+            .select();
+        
+        console.log('📊 Giacenza ubicazioni:', { giacData, giacError });
+        if (giacError) throw giacError;
+        
+        return { success: true };
+    } catch (err) {
+        console.error('💥 ERRORE updateUbicazione:', err);
+        throw err;
+    }
 
 case 'updatePartNumber':
-    // Part Number in ENTRAMBE le tabelle
-    await supabaseClient
-        .from('inventario')
-        .update({ part_number: payload.partNumber })
-        .eq('seriale_riscontrato', payload.seriale);
+    console.log('🔍 DEBUG updatePartNumber - payload:', payload);
     
-    await supabaseClient
-        .from('giacenza')
-        .update({ part_number: payload.partNumber })
-        .eq('riscontro_seriale_f', payload.seriale);
-    
-    return { success: true };
-  
+    try {
+        const { data: invData, error: invError } = await supabaseClient
+            .from('inventario')
+            .update({ part_number: payload.partNumber })
+            .eq('seriale_riscontrato', payload.seriale)
+            .select();
+        
+        console.log('📊 Inventario part_number:', { invData, invError });
+        if (invError) throw invError;
+        
+        const { data: giacData, error: giacError } = await supabaseClient
+            .from('giacenza')
+            .update({ part_number: payload.partNumber })
+            .eq('riscontro_seriale_f', payload.seriale)
+            .select();
+        
+        console.log('📊 Giacenza part_number:', { giacData, giacError });
+        if (giacError) throw giacError;
+        
+        return { success: true };
+    } catch (err) {
+        console.error('💥 ERRORE updatePartNumber:', err);
+        throw err;
+    }
                     case 'batchUpdateUbicazione':
                         for (let item of payload.updates) {
                             await api('updateUbicazione', item);
@@ -1240,127 +1293,333 @@ operations: groups[action]
         // DASHBOARD
         // ============================================
         function Dashboard({ user }) {
-            const [stats, setStats] = useState(null);
-            const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
 
-            useEffect(() => {
-                async function load() {
-                    try {
-                        await dbCache.init();
-                        const giacenzaLocal = await dbCache.get('giacenza');
+    useEffect(() => {
+        async function load() {
+            try {
+                await dbCache.init();
+                const giacenzaLocal = await dbCache.get('giacenza');
 
-                        if (giacenzaLocal.length > 0) {
-                            const totaleGiacenza = giacenzaLocal.length;
-                            const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                            const daInventariare = totaleGiacenza - inventariati;
-                            const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                            const percentuale = totaleGiacenza > 0 
-                                ? Math.round((inventariati / totaleGiacenza) * 100) 
-                                : 0;
+                if (giacenzaLocal.length > 0) {
+                    const totaleGiacenza = giacenzaLocal.length;
+                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                    const daInventariare = totaleGiacenza - inventariati;
+                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                    const percentuale = totaleGiacenza > 0 
+                        ? Math.round((inventariati / totaleGiacenza) * 100) 
+                        : 0;
 
-                            const localStats = {
-                                totaleGiacenza,
-                                totaleInventariato: inventariati,
-                                daInventariare,
-                                matchOk,
-                                percentualeCompletamento: percentuale
-                            };
+                    const localStats = {
+                        totaleGiacenza,
+                        totaleInventariato: inventariati,
+                        daInventariare,
+                        matchOk,
+                        percentualeCompletamento: percentuale
+                    };
 
-                            setStats(localStats);
-                            appCache.stats = localStats;
-                        } else {
-                            // Carica dal server se cache vuota
-                            const res = await api('getStats');
-                            setStats(res.stats);
-                            appCache.stats = res.stats;
-                        }
-
-                        setLoading(false);
-                    } catch (err) {
-                        console.error(err);
-                        try {
-                            const res = await api('getStats');
-                            setStats(res.stats);
-                            appCache.stats = res.stats;
-                        } catch (serverErr) {
-                            console.error('Errore caricamento stats:', serverErr);
-                        }
-                        setLoading(false);
-                    }
+                    setStats(localStats);
+                    appCache.stats = localStats;
+                } else {
+                    const res = await api('getStats');
+                    setStats(res.stats);
+                    appCache.stats = res.stats;
                 }
-                
-                load();
-                
-                const interval = setInterval(() => {
-                    load();
-                }, 30000);
-                
-                return () => clearInterval(interval);
-            }, []);
 
-            // Listener per aggiornamenti real-time
-            useEffect(() => {
-                const handleUpdate = async () => {
-                    try {
-                        await dbCache.init();
-                        const giacenzaLocal = await dbCache.get('giacenza');
-
-                        if (giacenzaLocal.length > 0) {
-                            const totaleGiacenza = giacenzaLocal.length;
-                            const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                            const daInventariare = totaleGiacenza - inventariati;
-                            const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                            const percentuale = totaleGiacenza > 0 
-                                ? Math.round((inventariati / totaleGiacenza) * 100) 
-                                : 0;
-
-                            const localStats = {
-                                totaleGiacenza,
-                                totaleInventariato: inventariati,
-                                daInventariare,
-                                matchOk,
-                                percentualeCompletamento: percentuale
-                            };
-
-                            setStats(localStats);
-                            appCache.stats = localStats;
-                        }
-                    } catch (err) {
-                        console.error('Errore aggiornamento stats:', err);
-                    }
-                };
-
-                window.addEventListener('ats-data-updated', handleUpdate);
-                return () => window.removeEventListener('ats-data-updated', handleUpdate);
-            }, []);
-
-            if (loading) return <div className="text-center py-12">Caricamento statistiche...</div>;
-            if (!stats) return <div className="text-center py-12 text-red-600">Errore caricamento statistiche</div>;
-
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
-                        <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
-                        <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
-                        <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-gray-700">Completamento</span>
-                            <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div 
-                                className="bg-blue-600 h-4 rounded-full transition-all" 
-                                style={{ width: `${stats.percentualeCompletamento}%` }} 
-                            />
-                        </div>
-                    </div>
-                </div>
-            );
+                setLoading(false);
+            } catch (err) {
+                console.error(err);
+                try {
+                    const res = await api('getStats');
+                    setStats(res.stats);
+                    appCache.stats = res.stats;
+                } catch (serverErr) {
+                    console.error('Errore caricamento stats:', serverErr);
+                }
+                setLoading(false);
+            }
         }
+        
+        load();
+        
+        const interval = setInterval(() => {
+            load();
+        }, 30000);
+        
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const handleUpdate = async () => {
+            try {
+                await dbCache.init();
+                const giacenzaLocal = await dbCache.get('giacenza');
+
+                if (giacenzaLocal.length > 0) {
+                    const totaleGiacenza = giacenzaLocal.length;
+                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                    const daInventariare = totaleGiacenza - inventariati;
+                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
+                    const percentuale = totaleGiacenza > 0 
+                        ? Math.round((inventariati / totaleGiacenza) * 100) 
+                        : 0;
+
+                    const localStats = {
+                        totaleGiacenza,
+                        totaleInventariato: inventariati,
+                        daInventariare,
+                        matchOk,
+                        percentualeCompletamento: percentuale
+                    };
+
+                    setStats(localStats);
+                    appCache.stats = localStats;
+                }
+            } catch (err) {
+                console.error('Errore aggiornamento stats:', err);
+            }
+        };
+
+        window.addEventListener('ats-data-updated', handleUpdate);
+        return () => window.removeEventListener('ats-data-updated', handleUpdate);
+    }, []);
+
+    const exportInventariati = async () => {
+        setExporting(true);
+        try {
+            console.log('📊 Inizio export inventariati...');
+            
+            // Carica storico se non in cache
+            let storico = appCache.storico;
+            if (!storico || storico.length === 0) {
+                const res = await api('getStorico');
+                storico = res.data;
+                appCache.storico = storico;
+            }
+
+            if (storico.length === 0) {
+                alert('⚠️ Nessun dato inventariato da esportare');
+                setExporting(false);
+                return;
+            }
+
+            // Prepara dati per Excel
+            const excelData = storico.map(item => ({
+                'ID Riga': item.id || '',
+                'Data/Ora': new Date(item.Timestamp).toLocaleString('it-IT'),
+                'Operatore': item.Operatore || '',
+                'Po Nr': item.PoNr || '',
+                'CDC': item.Cdc || '',
+                'Cod. SAP': item.CodSap || '',
+                'Descrizione': item.Descrizione || '',
+                'Stato': item.Stato || '',
+                'Ubicazione': item.Ubicazioni || '',
+                'Seriale Atteso': item.RISCONTROSERIALEF || '',
+                'Seriale Riscontrato': item.Seriale_Riscontrato || '',
+                'Part Number': item.PartNumber || '',
+                'WMS Code': item.WMSCode || '',
+                'Match': item.Match || '',
+                'Note': item.Note || ''
+            }));
+
+            // Crea foglio Excel
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            
+            // Auto-dimensiona colonne
+            const colWidths = [
+                { wch: 10 }, // ID Riga
+                { wch: 18 }, // Data/Ora
+                { wch: 15 }, // Operatore
+                { wch: 12 }, // Po Nr
+                { wch: 15 }, // CDC
+                { wch: 15 }, // Cod. SAP
+                { wch: 40 }, // Descrizione
+                { wch: 12 }, // Stato
+                { wch: 20 }, // Ubicazione
+                { wch: 20 }, // Seriale Atteso
+                { wch: 20 }, // Seriale Riscontrato
+                { wch: 18 }, // Part Number
+                { wch: 15 }, // WMS Code
+                { wch: 8 },  // Match
+                { wch: 30 }  // Note
+            ];
+            ws['!cols'] = colWidths;
+
+            // Crea workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventariati');
+
+            // Download file
+            const fileName = `Inventario_INVENTARIATI_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}_${new Date().toLocaleTimeString('it-IT').replace(/:/g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            console.log('✅ Export completato:', fileName);
+            alert(`✅ Export completato!\n\nFile: ${fileName}\n${storico.length} righe esportate`);
+        } catch (err) {
+            console.error('❌ Errore export:', err);
+            alert('❌ Errore durante l\'export: ' + err.message);
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const exportDaInventariare = async () => {
+        setExporting(true);
+        try {
+            console.log('📊 Inizio export da inventariare...');
+            
+            // Carica giacenza se non in cache
+            let giacenza = appCache.giacenza;
+            if (!giacenza || giacenza.length === 0) {
+                const res = await api('getGiacenza');
+                giacenza = res.data;
+                appCache.giacenza = giacenza;
+            }
+
+            // Filtra solo NON inventariati
+            const daInventariare = giacenza.filter(item => !item.inventariato);
+
+            if (daInventariare.length === 0) {
+                alert('✅ Tutti gli articoli sono stati inventariati!');
+                setExporting(false);
+                return;
+            }
+
+            // Prepara dati per Excel
+            const excelData = daInventariare.map(item => ({
+                'ID Riga': item.ID_Riga || '',
+                'Po Nr': item.PoNr || '',
+                'CDC': item.Cdc || '',
+                'Cod. SAP': item.CodSap || '',
+                'Descrizione': item.Descrizione || '',
+                'Ser. S/N': item['SerS/No'] || '',
+                'Stato': item.Stato || '',
+                'Ubicazione': item.Ubicazioni || '',
+                'Seriale Atteso': item.RISCONTROSERIALEF || '',
+                'Part Number': item.PartNumber || '',
+                'WMS Code': item.WMSCode || '',
+                'Qtà': item['Qtà'] || 1,
+                'Note': item.Note || ''
+            }));
+
+            // Crea foglio Excel
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            
+            // Auto-dimensiona colonne
+            const colWidths = [
+                { wch: 10 }, // ID Riga
+                { wch: 12 }, // Po Nr
+                { wch: 15 }, // CDC
+                { wch: 15 }, // Cod. SAP
+                { wch: 40 }, // Descrizione
+                { wch: 10 }, // Ser. S/N
+                { wch: 12 }, // Stato
+                { wch: 20 }, // Ubicazione
+                { wch: 20 }, // Seriale Atteso
+                { wch: 18 }, // Part Number
+                { wch: 15 }, // WMS Code
+                { wch: 8 },  // Qtà
+                { wch: 30 }  // Note
+            ];
+            ws['!cols'] = colWidths;
+
+            // Crea workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Da Inventariare');
+
+            // Download file
+            const fileName = `Inventario_DA_INVENTARIARE_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}_${new Date().toLocaleTimeString('it-IT').replace(/:/g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            console.log('✅ Export completato:', fileName);
+            alert(`✅ Export completato!\n\nFile: ${fileName}\n${daInventariare.length} righe esportate`);
+        } catch (err) {
+            console.error('❌ Errore export:', err);
+            alert('❌ Errore durante l\'export: ' + err.message);
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    if (loading) return <div className="text-center py-12">Caricamento statistiche...</div>;
+    if (!stats) return <div className="text-center py-12 text-red-600">Errore caricamento statistiche</div>;
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800">Dashboard Inventario</h2>
+            
+            {/* PULSANTI EXPORT */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold mb-4">📊 Export Dati Excel</h3>
+                <div className="flex gap-4 flex-wrap">
+                    <button 
+                        onClick={exportInventariati}
+                        disabled={exporting}
+                        className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                        {exporting ? (
+                            <>⏳ Esportazione...</>
+                        ) : (
+                            <>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Export INVENTARIATI
+                            </>
+                        )}
+                    </button>
+                    
+                    <button 
+                        onClick={exportDaInventariare}
+                        disabled={exporting}
+                        className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                        {exporting ? (
+                            <>⏳ Esportazione...</>
+                        ) : (
+                            <>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Export DA INVENTARIARE
+                            </>
+                        )}
+                    </button>
+                </div>
+                <p className="text-sm text-gray-600 mt-3">
+                    ℹ️ I file Excel verranno scaricati automaticamente con data e ora corrente
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard title="Totale Giacenza" value={stats.totaleGiacenza} icon="📦" color="bg-blue-500" />
+                <StatCard title="Inventariato" value={stats.totaleInventariato} icon="✅" color="bg-green-500" />
+                <StatCard title="Da Inventariare" value={stats.daInventariare} icon="⏳" color="bg-yellow-500" />
+                <StatCard title="Match OK" value={stats.matchOk} icon="🎯" color="bg-purple-500" />
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-700">Completamento</span>
+                    <span className="text-2xl font-bold text-blue-600">{stats.percentualeCompletamento}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                        className="bg-blue-600 h-4 rounded-full transition-all" 
+                        style={{ width: `${stats.percentualeCompletamento}%` }} 
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
         function StatCard({ title, value, icon, color }) {
             return (
