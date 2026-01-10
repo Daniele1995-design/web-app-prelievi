@@ -562,7 +562,34 @@ body {
 
         const API_URL = 'https://script.google.com/macros/s/AKfycbypiaZ1faHma7yjnvaoweiV5pjkBbxr_3pZf0kXceomBtTHryxUnl6nhKPVWC_Cilc6/exec';
 
-        // ============================================
+        // Aggiungi questa funzione dopo API_URL e prima di App()
+async function api(action, payload = {}, showError = true) {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...payload })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.success && showError) {
+            throw new Error(data.error || 'Errore sconosciuto dal server');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Errore API:', error);
+        if (showError) {
+            alert('Errore comunicazione con il server:\n' + error.message);
+        }
+        throw error;
+    }
+}
+
+// ============================================
 // INDEXEDDB CACHE MANAGER
 // ============================================
 const DB_NAME = 'ATSInventoryDB';
