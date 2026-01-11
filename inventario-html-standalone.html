@@ -579,26 +579,27 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         }
 
         function normalizeStorico(data) {
-            if (!data) return [];
-            return data.map(item => ({
-                id: item.id,
-                Timestamp: item.timestamp,
-                Operatore: item.operatore || '',
-                CodSap: item.cod_sap || '',
-                Descrizione: item.descrizione || '',
-                Ubicazioni: item.ubicazione || '',
-                Seriale_Riscontrato: item.seriale_riscontrato || '',
-                RISCONTROSERIALEF: item.seriale_atteso || '',
-                Match: item.match ? 'OK' : 'KO',
-                WMSCode: item.wms_code || '',
-                Cdc: item.cdc || '',
-                PoNr: item.po_nr || '',
-                PartNumber: item.part_number || '',
-                Stato: item.stato || '',
-                Note: item.note || '',
-                id_riga_giacenza: item.id_riga_giacenza || ''
-            }));
-        }
+    if (!data) return [];
+    return data.map(item => ({
+        id: item.id,
+        Timestamp: item.timestamp,
+        Operatore: item.operatore || '',
+        CodSap: item.cod_sap || '',
+        Descrizione: item.descrizione || '',
+        Ubicazioni: item.ubicazione || '',
+        Seriale_Riscontrato: item.seriale_riscontrato || '',
+        RISCONTROSERIALEF: item.seriale_atteso || '',
+        Match: item.match ? 'OK' : 'KO',
+        WMSCode: item.wms_code || '',
+        Cdc: item.cdc || '',
+        PoNr: item.po_nr || '',
+        PartNumber: item.part_number || '',
+        Stato: item.stato || '',
+        Note: item.note || '',
+        SerSN: item.ser_sn || 'No', // ✅ NEW: Aggiunge ser_sn
+        id_riga_giacenza: item.id_riga_giacenza || ''
+    }));
+}
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
         // ============================================
@@ -688,50 +689,51 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 if (sErr) throw sErr;
                 return { data: normalizeStorico(sData) };
 
-            case 'saveRiscontro': 
-            case 'registraScansione':
-                const sd = payload.data || payload;
-                
-                // Insert Inventario
-                const { error: iErr } = await supabaseClient
-                    .from('inventario')
-                    .insert([{
-                        operatore: sd.operatore,
-                        cod_sap: sd.codSap || sd.CodSap,
-                        descrizione: sd.descrizione,
-                        ubicazione: sd.ubicazione,
-                        seriale_atteso: sd.serialeAtteso,
-                        seriale_riscontrato: sd.serialeRiscontrato,
-                        match: sd.match === 'OK' || sd.match === true,
-                        qta: sd.qta || 1,
-                        wms_code: sd.wmsCode,
-                        cdc: sd.cdc,
-                        po_nr: sd.poNr,
-                        part_number: sd.partNumber,
-                        id_riga_giacenza: sd.idRigaGiacenza,
-                        note: sd.note || '',
-                        stato: sd.stato
-                    }]);
-                
-                if (iErr) throw iErr;
+           case 'saveRiscontro': 
+case 'registraScansione':
+    const sd = payload.data || payload;
+    
+    // Insert Inventario
+    const { error: iErr } = await supabaseClient
+        .from('inventario')
+        .insert([{
+            operatore: sd.operatore,
+            cod_sap: sd.codSap || sd.CodSap,
+            descrizione: sd.descrizione,
+            ubicazione: sd.ubicazione,
+            seriale_atteso: sd.serialeAtteso,
+            seriale_riscontrato: sd.serialeRiscontrato,
+            match: sd.match === 'OK' || sd.match === true,
+            qta: sd.qta || 1,
+            wms_code: sd.wmsCode,
+            cdc: sd.cdc,
+            po_nr: sd.poNr,
+            part_number: sd.partNumber,
+            id_riga_giacenza: sd.idRigaGiacenza,
+            note: sd.note || '',
+            stato: sd.stato,
+            ser_sn: sd.serSN || 'No' // ✅ NEW: Aggiunge ser_sn
+        }]);
+    
+    if (iErr) throw iErr;
 
-                // Update Giacenza
-                if (sd.match === 'OK' || sd.match === true) {
-                    await supabaseClient
-                        .from('giacenza')
-                        .update({ 
-                            match: 'OK',
-                            stato: sd.stato,
-                            ubicazioni: sd.ubicazione,
-                            part_number: sd.partNumber,
-                            seriale_riscontrato: sd.serialeRiscontrato,
-                            operatore: sd.operatore,
-                            note: sd.note,
-                            timestamp: new Date().toISOString()
-                        })
-                        .eq('riscontro_seriale_f', sd.serialeRiscontrato);
-                }
-                return { success: true };
+    // Update Giacenza
+    if (sd.match === 'OK' || sd.match === true) {
+        await supabaseClient
+            .from('giacenza')
+            .update({ 
+                match: 'OK',
+                stato: sd.stato,
+                ubicazioni: sd.ubicazione,
+                part_number: sd.partNumber,
+                seriale_riscontrato: sd.serialeRiscontrato,
+                operatore: sd.operatore,
+                note: sd.note,
+                timestamp: new Date().toISOString()
+            })
+            .eq('riscontro_seriale_f', sd.serialeRiscontrato);
+    }
+    return { success: true };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
           case 'updateInventarioUbicazione':
@@ -835,54 +837,52 @@ case 'updateInventarioNote':
                 return { success: true };
 
             case 'batchSaveRiscontro':
-                const items = payload.items || [];
-                
-                // Insert multipli in inventario (batch)
-                const inventarioRecords = items.map(item => ({
-                    operatore: item.operatore,
-                    cod_sap: item.codSap,
-                    descrizione: item.descrizione,
-                    ubicazione: item.ubicazione,
-                    seriale_atteso: item.serialeAtteso,
-                    seriale_riscontrato: item.serialeRiscontrato,
-                    match: true,
-                    qta: item.qta || 1,
-                    wms_code: item.wmsCode,
-                    cdc: item.cdc,
-                    po_nr: item.poNr,
-                    part_number: item.partNumber,
-                    id_riga_giacenza: item.idRigaGiacenza,
-                    note: item.note,
-                    stato: item.stato
-                }));
-                
-                const { error: batchInvErr } = await supabaseClient
-                    .from('inventario')
-                    .insert(inventarioRecords);
-                
-                if (batchInvErr) throw batchInvErr;
-                
-                // Update multipli in giacenza (batch)
-                const updates = items.map(item => ({
-                    riscontro_seriale_f: item.serialeRiscontrato,
-                    stato: item.stato,
-                    note: item.note,
-                    match: 'OK',
-                    ubicazioni: item.ubicazione,
-                    part_number: item.partNumber,
-                    seriale_riscontrato: item.serialeRiscontrato,
-                    operatore: item.operatore,
-                    timestamp: new Date().toISOString()
-                }));
-                
-                for (const update of updates) {
-                    await supabaseClient
-                        .from('giacenza')
-                        .update(update)
-                        .eq('riscontro_seriale_f', update.riscontro_seriale_f);
-                }
-                
-                return { success: true };   
+    const items = payload.items || [];
+    
+    // Insert multipli in inventario (batch)
+    const inventarioRecords = items.map(item => ({
+        operatore: item.operatore,
+        cod_sap: item.codSap,
+        descrizione: item.descrizione,
+        ubicazione: item.ubicazione,
+        seriale_atteso: item.serialeAtteso,
+        seriale_riscontrato: item.serialeRiscontrato,
+        match: true,
+        qta: item.qta || 1,
+        wms_code: item.wmsCode,
+        cdc: item.cdc,
+        po_nr: item.poNr,
+        part_number: item.partNumber,
+        id_riga_giacenza: item.idRigaGiacenza,
+        note: item.note,
+        stato: item.stato,
+        ser_sn: item.serSN || 'No' // ✅ NEW
+    }));
+    
+    const { error: batchInvErr } = await supabaseClient
+        .from('inventario')
+        .insert(inventarioRecords);
+    
+    if (batchInvErr) throw batchInvErr;
+    
+    // ✅ FIX: Update multipli usando ID_Riga invece di seriale
+    for (const item of items) {
+        await supabaseClient
+            .from('giacenza')
+            .update({
+                match: 'OK',
+                stato: item.stato,
+                ubicazioni: item.ubicazione,
+                part_number: item.partNumber,
+                seriale_riscontrato: item.serialeRiscontrato,
+                operatore: item.operatore,
+                note: item.note || '',
+                timestamp: new Date().toISOString()
+            })
+            .eq('id_riga', item.idRigaGiacenza); // ✅ FIX: Match per ID invece di seriale
+    }
+    
+    return { success: true };
 
             default:
                 return { success: true };
@@ -1864,7 +1864,16 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // Aggiorna INVENTARIO (storico locale)
+    // ✅ FIX: Aggiorna GIACENZA, non inventario
+    const updatedGiacenza = giacenza.map(i => 
+        i.ID_Riga === currentItem.ID_Riga 
+            ? { ...i, Ubicazioni: newUbicazione } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    
+    // Aggiorna anche storico locale se esiste
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Ubicazioni: newUbicazione } 
@@ -1877,15 +1886,33 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     setEditingUbicazione(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { storico: updatedStorico }
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
     try {
-        await api('updateInventarioUbicazione', { 
-            id_riga_giacenza: currentItem.ID_Riga,
+        // ✅ FIX: Aggiorna in GIACENZA
+        await api('updateGiacenzaUbicazione', { 
+            id_riga: currentItem.ID_Riga,
             ubicazione: newUbicazione 
         });
-        console.log('✅ Ubicazione salvata in INVENTARIO');
+        
+        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        const { data: invData } = await supabaseClient
+            .from('inventario')
+            .select('id')
+            .eq('id_riga_giacenza', currentItem.ID_Riga)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (invData) {
+            await supabaseClient
+                .from('inventario')
+                .update({ ubicazione: newUbicazione })
+                .eq('id', invData.id);
+        }
+        
+        console.log('✅ Ubicazione salvata in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
@@ -1895,7 +1922,16 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
     
-    // Aggiorna INVENTARIO
+    // ✅ FIX: Aggiorna GIACENZA, non inventario
+    const updatedGiacenza = giacenza.map(i => 
+        i.ID_Riga === currentItem.ID_Riga 
+            ? { ...i, PartNumber: newPartNumber } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    
+    // Aggiorna anche storico locale se esiste
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, PartNumber: newPartNumber } 
@@ -1908,15 +1944,33 @@ const handleUpdatePartNumber = async () => {
     setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { storico: updatedStorico }
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
     try {
-        await api('updateInventarioPartNumber', { 
-            id_riga_giacenza: currentItem.ID_Riga,
+        // ✅ FIX: Aggiorna in GIACENZA
+        await api('updateGiacenzaPartNumber', { 
+            id_riga: currentItem.ID_Riga,
             partNumber: newPartNumber 
         });
-        console.log('✅ PartNumber salvato in INVENTARIO');
+        
+        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        const { data: invData } = await supabaseClient
+            .from('inventario')
+            .select('id')
+            .eq('id_riga_giacenza', currentItem.ID_Riga)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (invData) {
+            await supabaseClient
+                .from('inventario')
+                .update({ part_number: newPartNumber })
+                .eq('id', invData.id);
+        }
+        
+        console.log('✅ PartNumber salvato in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
@@ -1926,7 +1980,16 @@ const handleUpdatePartNumber = async () => {
 const handleUpdateNote = async () => {
     if (!currentItem) return;
     
-    // Aggiorna INVENTARIO
+    // ✅ FIX: Aggiorna GIACENZA, non inventario
+    const updatedGiacenza = giacenza.map(i => 
+        i.ID_Riga === currentItem.ID_Riga 
+            ? { ...i, Note: newNote } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    
+    // Aggiorna anche storico locale se esiste
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Note: newNote } 
@@ -1939,21 +2002,38 @@ const handleUpdateNote = async () => {
     setEditingNote(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { storico: updatedStorico }
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
     try {
-        await api('updateInventarioNote', { 
-            id_riga_giacenza: currentItem.ID_Riga,
+        // ✅ FIX: Aggiorna in GIACENZA
+        await api('updateGiacenzaNote', { 
+            id_riga: currentItem.ID_Riga,
             note: newNote 
         });
-        console.log('✅ Note salvate in INVENTARIO');
+        
+        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        const { data: invData } = await supabaseClient
+            .from('inventario')
+            .select('id')
+            .eq('id_riga_giacenza', currentItem.ID_Riga)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (invData) {
+            await supabaseClient
+                .from('inventario')
+                .update({ note: newNote })
+                .eq('id', invData.id);
+        }
+        
+        console.log('✅ Note salvate in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione note: ' + err.message);
     }
 };
-
 
             const handleSaveNewItem = async () => {
     // Validazione campi obbligatori
@@ -2599,6 +2679,7 @@ const handleUpdateNote = async () => {
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
+            const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // ✅ NEW: Per SHIFT-select
             const [visibleColumns, setVisibleColumns] = useState({
                 poNr: true,
                 cdc: true,
@@ -2692,12 +2773,37 @@ const handleUpdateNote = async () => {
             };
 
             const toggleSelect = (item) => {
-                setSelected(prev => 
-                    prev.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) 
-                        ? prev.filter(i => i.RISCONTROSERIALEF !== item.RISCONTROSERIALEF) 
-                        : [...prev, item]
-                );
-            };
+    setSelected(prev => 
+        prev.find(i => i.ID_Riga === item.ID_Riga) 
+            ? prev.filter(i => i.ID_Riga !== item.ID_Riga) 
+            : [...prev, item]
+    );
+};
+
+// ✅ NEW: Selezione con SHIFT (range selection)
+const toggleSelectWithShift = (item, index, event) => {
+    if (event.shiftKey && lastSelectedIndex !== null) {
+        // Seleziona range da lastSelectedIndex a index
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        const rangeItems = displayedData.slice(start, end + 1);
+        
+        setSelected(prev => {
+            // Rimuovi duplicati e aggiungi nuovi
+            const existingIds = new Set(prev.map(i => i.ID_Riga));
+            const newItems = rangeItems.filter(i => !existingIds.has(i.ID_Riga));
+            return [...prev, ...newItems];
+        });
+    } else {
+        // Selezione singola normale
+        setSelected(prev => 
+            prev.find(i => i.ID_Riga === item.ID_Riga) 
+                ? prev.filter(i => i.ID_Riga !== item.ID_Riga) 
+                : [...prev, item]
+        );
+    }
+    setLastSelectedIndex(index);
+};
 
             const toggleColumn = (column) => {
                 setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
@@ -2820,84 +2926,85 @@ const updateNoteLista = async (item, newNote) => {
     }
 };
             const verificaMassivo = async () => {
-                if (selected.length === 0) return alert('Seleziona almeno un articolo');
-                const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
-                const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
-                
-                if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
-                
-                const updatedGiacenza = giacenza.map(i => 
-                    selected.find(s => s.RISCONTROSERIALEF === i.RISCONTROSERIALEF) 
-                        ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale } 
-                        : i
-                );
-                
-                const newEntries = selected.map(item => ({
-                    id: Date.now() + Math.random(),
-                    Timestamp: new Date().toISOString(),
-                    Operatore: user.nome || user.username,
-                    Seriale_Riscontrato: item.RISCONTROSERIALEF,
-                    Match: 'OK',
-                    CodSap: item.CodSap,
-                    Descrizione: item.Descrizione,
-                    Cdc: item.Cdc,
-                    Stato: item.Stato,
-                    Ubicazioni: ubicazioneFinale,
-                    RISCONTROSERIALEF: item.RISCONTROSERIALEF,
-                    WMSCode: item.WMSCode,
-                    PoNr: item.PoNr,
-                    PartNumber: partNumberFinale
-                }));
-                
-                const currentStorico = appCache.storico || [];
-                const updatedStorico = [...newEntries, ...currentStorico];
-                
-                setGiacenza(updatedGiacenza);
-                appCache.giacenza = updatedGiacenza;
-                appCache.storico = updatedStorico;
-                
-                await Promise.all([
-                    //dbCache.set('giacenza', updatedGiacenza),
-                    //dbCache.set('storico', updatedStorico)
-                ]);
-                
-                setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-                setSelected([]);
-                setBulkUbicazione('');
-                setBulkPartNumber('');
-                
-                window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                    detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-                }));
-                
-                alert('Verifica completata localmente!');
-                
-                (async () => {
-    try {
-        // NUOVO: usa batch API invece di loop
-        await api('batchSaveRiscontro', {
-            items: selected.map(item => ({
-                operatore: user.nome || user.username,
-                codSap: item.CodSap,
-                descrizione: item.Descrizione,
-                ubicazione: ubicazioneFinale,
-                serialeAtteso: item.RISCONTROSERIALEF,
-                serialeRiscontrato: item.RISCONTROSERIALEF,
-                qta: item['Qtà'] || 1,
-                wmsCode: item.WMSCode || '',
-                cdc: item.Cdc || '',
-                poNr: item.PoNr || '',
-                partNumber: partNumberFinale,
-                idRigaGiacenza: item.ID_Riga || ''
-            }))
-        });
-        console.log('✅ Verifica massiva salvata su Supabase');
-    } catch (err) {
-        console.error('❌ Errore Supabase:', err);
-        alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
-    }
-})();
-            };
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
+    const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
+    
+    if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
+    
+    // ✅ FIX: Match per ID_Riga invece di RISCONTROSERIALEF (supporta lotti)
+    const updatedGiacenza = giacenza.map(i => 
+        selected.find(s => s.ID_Riga === i.ID_Riga) 
+            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale, Stato: i.Stato } 
+            : i
+    );
+    
+    const newEntries = selected.map(item => ({
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(),
+        Operatore: user.nome || user.username,
+        Seriale_Riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+        Match: 'OK',
+        CodSap: item.CodSap,
+        Descrizione: item.Descrizione,
+        Cdc: item.Cdc,
+        Stato: item.Stato, // ✅ FIX: Passa lo stato corretto
+        Ubicazioni: ubicazioneFinale,
+        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
+        WMSCode: item.WMSCode,
+        PoNr: item.PoNr,
+        PartNumber: partNumberFinale,
+        SerSN: item['SerS/No'], // ✅ NEW: Aggiunge ser_sn
+        id_riga_giacenza: item.ID_Riga
+    }));
+    
+    const currentStorico = appCache.storico || [];
+    const updatedStorico = [...newEntries, ...currentStorico];
+    
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    
+    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkUbicazione('');
+    setBulkPartNumber('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    alert('Verifica completata localmente!');
+    
+    (async () => {
+        try {
+            // ✅ FIX: Passa stato corretto + ser_sn
+            await api('batchSaveRiscontro', {
+                items: selected.map(item => ({
+                    operatore: user.nome || user.username,
+                    codSap: item.CodSap,
+                    descrizione: item.Descrizione,
+                    ubicazione: ubicazioneFinale,
+                    serialeAtteso: item.RISCONTROSERIALEF,
+                    serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+                    qta: item['Qtà'] || 1,
+                    wmsCode: item.WMSCode || '',
+                    cdc: item.Cdc || '',
+                    poNr: item.PoNr || '',
+                    partNumber: partNumberFinale,
+                    idRigaGiacenza: item.ID_Riga,
+                    stato: item.Stato, // ✅ FIX
+                    note: item.Note || '',
+                    serSN: item['SerS/No'] // ✅ FIX
+                }))
+            });
+            console.log('✅ Verifica massiva salvata su Supabase');
+        } catch (err) {
+            console.error('❌ Errore Supabase:', err);
+            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
+        }
+    })();
+};
 
             const stampaSelezionati = () => {
                 if (selected.length === 0) return alert('Seleziona almeno un articolo');
@@ -3185,12 +3292,12 @@ const updateNoteLista = async (item, newNote) => {
                                 {displayedData.map((item, idx) => (
                                     <tr key={item.ID_Riga || idx} className="border-t hover:bg-gray-50">
                                         <td className="px-3 py-2">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selected.find(i => i.RISCONTROSERIALEF === item.RISCONTROSERIALEF) !== undefined} 
-                                                onChange={() => toggleSelect(item)} 
-                                            />
-                                        </td>
+    <input 
+        type="checkbox" 
+        checked={selected.find(i => i.ID_Riga === item.ID_Riga) !== undefined} 
+        onChange={(e) => toggleSelectWithShift(item, idx, e)} 
+    />
+</td>
                                         <td className={`px-3 py-2 font-medium ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>{item.PoNr}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>{item.Cdc}</td>
                                         <td className={`px-3 py-2 font-medium ${!visibleColumns.codSap ? 'col-hidden' : ''}`}>{item.CodSap}</td>
@@ -3375,7 +3482,8 @@ const updateNoteLista = async (item, newNote) => {
             partNumber: true,
             serialeRiscontrato: true,
             match: false,
-            note: true
+            note: true,
+            serSN: false
         });
 
         useEffect(() => {
@@ -3885,6 +3993,10 @@ const updateNoteStorico = async (item, newNote) => {
                             <label htmlFor="col-serialeRiscontrato">Seriale Riscontrato</label>
                         </div>
                         <div className="column-option">
+    <input type="checkbox" id="col-serSN" checked={visibleColumns.serSN} onChange={() => toggleColumn('serSN')} />
+    <label htmlFor="col-serSN">Serializzato</label>
+</div>
+                        <div className="column-option">
     <input type="checkbox" id="col-match" checked={visibleColumns.match} onChange={() => toggleColumn('match')} />
     <label htmlFor="col-match">Match</label>
 </div>
@@ -3976,6 +4088,7 @@ const updateNoteStorico = async (item, newNote) => {
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>Seriale Atteso</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>Seriale Riscontrato</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>Serializzato</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.note ? 'col-hidden' : ''}`}>Note</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.match ? 'col-hidden' : ''}`}>Match</th>
                                 </tr>
@@ -4049,6 +4162,9 @@ const updateNoteStorico = async (item, newNote) => {
                                                 </div>
                                             )}
                                         </td>
+                                        <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>
+    {item.SerSN === 'Sì' ? '✅' : '❌'}
+</td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF || '-'}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
                                             {editingPartNumber[item.Seriale_Riscontrato] ? (
