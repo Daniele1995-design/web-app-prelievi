@@ -4152,9 +4152,6 @@ const updateNoteStorico = async (item, newNote) => {
     </div>
 )}
                                         </td>
-                                        <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>
-    {item.SerSN === 'Sì' ? '✅' : '❌'}
-</td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF || '-'}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
                                             {editingPartNumber[item.id] ? (
