@@ -719,53 +719,56 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 return { success: true };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
-            case 'updateInventarioUbicazione':
-                console.log('🔍 updateInventarioUbicazione - payload:', payload);
-                
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                const { error: invUbicErr } = await supabaseClient
-                    .from('inventario')
-                    .update({ ubicazione: payload.ubicazione })
-                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
-                
-                if (invUbicErr) throw invUbicErr;
-                console.log('✅ Ubicazione aggiornata in INVENTARIO');
-                return { success: true };
+           case 'updateInventarioUbicazione':
+    console.log('🔍 updateInventarioUbicazione - payload:', payload);
+    
+    if (!payload.id_riga_giacenza) {
+        throw new Error('id_riga_giacenza mancante');
+    }
+    
+    const { data: invUbicData, error: invUbicErr } = await supabaseClient
+        .from('inventario')
+        .update({ ubicazione: payload.ubicazione })
+        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+        .select(); // ← AGGIUNGI .select()
+    
+    if (invUbicErr) throw invUbicErr;
+    console.log('📊 RIGHE AGGIORNATE:', invUbicData?.length || 0, invUbicData); // ← AGGIUNGI QUESTO
+    return { success: true };
 
-            case 'updateInventarioPartNumber':
-                console.log('🔍 updateInventarioPartNumber - payload:', payload);
-                
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                const { error: invPnErr } = await supabaseClient
-                    .from('inventario')
-                    .update({ part_number: payload.partNumber })
-                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
-                
-                if (invPnErr) throw invPnErr;
-                console.log('✅ PartNumber aggiornato in INVENTARIO');
-                return { success: true };
+case 'updateInventarioPartNumber':
+    console.log('🔍 updateInventarioPartNumber - payload:', payload);
+    
+    if (!payload.id_riga_giacenza) {
+        throw new Error('id_riga_giacenza mancante');
+    }
+    
+    const { data: invPnData, error: invPnErr } = await supabaseClient
+        .from('inventario')
+        .update({ part_number: payload.partNumber })
+        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+        .select(); // ← AGGIUNGI .select()
+    
+    if (invPnErr) throw invPnErr;
+    console.log('📊 RIGHE AGGIORNATE:', invPnData?.length || 0, invPnData); // ← AGGIUNGI QUESTO
+    return { success: true };
 
-            case 'updateInventarioNote':
-                console.log('🔍 updateInventarioNote - payload:', payload);
-                
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                const { error: invNoteErr } = await supabaseClient
-                    .from('inventario')
-                    .update({ note: payload.note })
-                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
-                
-                if (invNoteErr) throw invNoteErr;
-                console.log('✅ Note aggiornate in INVENTARIO');
-                return { success: true };
+case 'updateInventarioNote':
+    console.log('🔍 updateInventarioNote - payload:', payload);
+    
+    if (!payload.id_riga_giacenza) {
+        throw new Error('id_riga_giacenza mancante');
+    }
+    
+    const { data: invNoteData, error: invNoteErr } = await supabaseClient
+        .from('inventario')
+        .update({ note: payload.note })
+        .eq('id_riga_giacenza', payload.id_riga_giacenza)
+        .select(); // ← AGGIUNGI .select()
+    
+    if (invNoteErr) throw invNoteErr;
+    console.log('📊 RIGHE AGGIORNATE:', invNoteData?.length || 0, invNoteData); // ← AGGIUNGI QUESTO
+    return { success: true };
 
             // ========== AGGIORNA SOLO GIACENZA (Lista) ==========
             case 'updateGiacenzaUbicazione':
