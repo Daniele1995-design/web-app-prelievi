@@ -3188,8 +3188,8 @@ const updateNoteLista = async (item, newNote) => {
         title={item.Descrizione || '-'}
     >
         <span className="text-xs">
-            {item.Descrizione && item.Descrizione.length > 50 
-                ? item.Descrizione.substring(0, 50) + '...' 
+            {item.Descrizione && item.Descrizione.length > 40 
+                ? item.Descrizione.substring(0, 40) + '...' 
                 : item.Descrizione || '-'}
         </span>
     </div>
@@ -3998,8 +3998,8 @@ const updateNoteStorico = async (item, newNote) => {
         title={item.Descrizione || '-'}
     >
         <span className="text-xs">
-            {item.Descrizione && item.Descrizione.length > 50 
-                ? item.Descrizione.substring(0, 50) + '...' 
+            {item.Descrizione && item.Descrizione.length > 40 
+                ? item.Descrizione.substring(0, 40) + '...' 
                 : item.Descrizione || '-'}
         </span>
     </div>
