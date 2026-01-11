@@ -1401,45 +1401,47 @@ operations: groups[action]
             }
 
             // Prepara dati per Excel
-            const excelData = storico.map(item => ({
-               'ID Riga Giacenza': item.id_riga_giacenza || '',
-                'Data/Ora': new Date(item.Timestamp).toLocaleString('it-IT'),
-                'Operatore': item.Operatore || '',
-                'Po Nr': item.PoNr || '',
-                'CDC': item.Cdc || '',
-                'Cod. SAP': item.CodSap || '',
-                'Descrizione': item.Descrizione || '',
-                'Stato': item.Stato || '',
-                'Ubicazione': item.Ubicazioni || '',
-                'Seriale Atteso': item.RISCONTROSERIALEF || '',
-                'Seriale Riscontrato': item.Seriale_Riscontrato || '',
-                'Part Number': item.PartNumber || '',
-                'WMS Code': item.WMSCode || '',
-                'Match': item.Match || '',
-                'Note': item.Note || ''
-            }));
+const excelData = storico.map(item => ({
+   'ID Riga Giacenza': item.id_riga_giacenza || '',
+    'Data/Ora': new Date(item.Timestamp).toLocaleString('it-IT'),
+    'Operatore': item.Operatore || '',
+    'Po Nr': item.PoNr || '',
+    'CDC': item.Cdc || '',
+    'Cod. SAP': item.CodSap || '',
+    'Descrizione': item.Descrizione || '',
+    'Serializzato': item.SerSN || 'No',
+    'Stato': item.Stato || '',
+    'Ubicazione': item.Ubicazioni || '',
+    'Seriale Atteso': item.RISCONTROSERIALEF || '',
+    'Seriale Riscontrato': item.Seriale_Riscontrato || '',
+    'Part Number': item.PartNumber || '',
+    'WMS Code': item.WMSCode || '',
+    'Match': item.Match || '',
+    'Note': item.Note || ''
+     }));
 
             // Crea foglio Excel
             const ws = XLSX.utils.json_to_sheet(excelData);
             
             // Auto-dimensiona colonne
             const colWidths = [
-                { wch: 10 }, // ID Riga
-                { wch: 18 }, // Data/Ora
-                { wch: 15 }, // Operatore
-                { wch: 12 }, // Po Nr
-                { wch: 15 }, // CDC
-                { wch: 15 }, // Cod. SAP
-                { wch: 40 }, // Descrizione
-                { wch: 12 }, // Stato
-                { wch: 20 }, // Ubicazione
-                { wch: 20 }, // Seriale Atteso
-                { wch: 20 }, // Seriale Riscontrato
-                { wch: 18 }, // Part Number
-                { wch: 15 }, // WMS Code
-                { wch: 8 },  // Match
-                { wch: 30 }  // Note
-            ];
+    { wch: 10 }, // ID Riga
+    { wch: 18 }, // Data/Ora
+    { wch: 15 }, // Operatore
+    { wch: 12 }, // Po Nr
+    { wch: 15 }, // CDC
+    { wch: 15 }, // Cod. SAP
+    { wch: 40 }, // Descrizione
+    { wch: 12 }, // Serializzato ← AGGIUNTO
+    { wch: 12 }, // Stato
+    { wch: 20 }, // Ubicazione
+    { wch: 20 }, // Seriale Atteso
+    { wch: 20 }, // Seriale Riscontrato
+    { wch: 18 }, // Part Number
+    { wch: 15 }, // WMS Code
+    { wch: 8 },  // Match
+    { wch: 30 }  // Note
+    ];
             ws['!cols'] = colWidths;
 
             // Crea workbook
