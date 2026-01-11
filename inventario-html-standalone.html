@@ -3577,7 +3577,7 @@ const updateNoteLista = async (item, newNote) => {
         return match;
     }));
     appCache.storico = updated;
-    setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    setEditingItems(prev => { const n = {...prev}; delete n[item.id]; return n; });
     
     try {
         await api('updateInventarioUbicazione', { 
@@ -3609,7 +3609,7 @@ const updatePartNumberStorico = async (item, newPN) => {
         return match;
     }));
     appCache.storico = updated;
-    setEditingPartNumber(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
+    setEditingPartNumber(prev => { const n = {...prev}; delete n[item.id]; return n; });
     
     try {
         await api('updateInventarioPartNumber', { 
@@ -3648,7 +3648,7 @@ const updateNoteStorico = async (item, newNote) => {
     }));
     
     appCache.storico = updated;
-    
+    setEditingNote(prev => { const n = {...prev}; delete n[item.id]; return n; });
     try {
         await api('updateInventarioNote', { 
             id: item.id,
