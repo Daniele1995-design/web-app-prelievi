@@ -718,136 +718,102 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 }
                 return { success: true };
 
-            case 'updateGiacenza':
-                return await supabaseClient
-                    .from('giacenza')
-                    .update({ 
-                        ubicazioni: payload.ubicazione, 
-                        part_number: payload.partNumber,
-                        stato: 'INVENTARIATO' 
-                    })
-                    .eq('riscontro_seriale_f', payload.seriale);
-
-            case 'updateNoteStorico':
-                return await supabaseClient
+            // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
+            case 'updateInventarioUbicazione':
+                console.log('🔍 updateInventarioUbicazione - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
+                }
+                
+                const { error: invUbicErr } = await supabaseClient
                     .from('inventario')
-                    .update({ note: payload.note })
-                    .eq('seriale_riscontrato', payload.seriale);
-
-            case 'updateNote':
-                console.log('🔍 updateNote - payload:', payload);
+                    .update({ ubicazione: payload.ubicazione })
+                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
                 
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                try {
-                    // Update inventario (cerca con id_riga_giacenza)
-                    const { data: invData, error: invError } = await supabaseClient
-                        .from('inventario')
-                        .update({ note: payload.note })
-                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-                    if (invError) throw invError;
-                    
-                    // Update giacenza (cerca con id_riga)
-                    const { data: giacData, error: giacError } = await supabaseClient
-                        .from('giacenza')
-                        .update({ note: payload.note })
-                        .eq('id_riga', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-                    if (giacError) throw giacError;
-                    
-                    console.log('✅ Note aggiornate su entrambe le tabelle');
-                    return { success: true };
-                    
-                } catch (err) {
-                    console.error('💥 ERRORE updateNote:', err);
-                    throw err;
-                }
-
-            case 'updateUbicazione':
-                console.log('🔍 updateUbicazione - payload:', payload);
-                
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                try {
-                    // Update inventario
-                    const { data: invData, error: invError } = await supabaseClient
-                        .from('inventario')
-                        .update({ ubicazione: payload.ubicazione })
-                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-                    if (invError) throw invError;
-                    
-                    // Update giacenza
-                    const { data: giacData, error: giacError } = await supabaseClient
-                        .from('giacenza')
-                        .update({ ubicazioni: payload.ubicazione })
-                        .eq('id_riga', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-                    if (giacError) throw giacError;
-                    
-                    return { success: true };
-                } catch (err) {
-                    console.error('💥 ERRORE updateUbicazione:', err);
-                    throw err;
-                }
-
-            case 'updatePartNumber':
-                console.log('🔍 updatePartNumber - payload:', payload);
-                
-                if (!payload.id_riga_giacenza) {
-                    throw new Error('id_riga_giacenza mancante');
-                }
-                
-                try {
-                    // Update inventario
-                    const { data: invData, error: invError } = await supabaseClient
-                        .from('inventario')
-                        .update({ part_number: payload.partNumber })
-                        .eq('id_riga_giacenza', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Inventario - Righe aggiornate:', invData?.length || 0);
-                    if (invError) throw invError;
-                    
-                    // Update giacenza
-                    const { data: giacData, error: giacError } = await supabaseClient
-                        .from('giacenza')
-                        .update({ part_number: payload.partNumber })
-                        .eq('id_riga', payload.id_riga_giacenza)
-                        .select();
-                    
-                    console.log('📊 Giacenza - Righe aggiornate:', giacData?.length || 0);
-                    if (giacError) throw giacError;
-                    
-                    return { success: true };
-                } catch (err) {
-                    console.error('💥 ERRORE updatePartNumber:', err);
-                    throw err;
-                }
-
-            case 'batchUpdateUbicazione':
-                for (let item of payload.updates) {
-                    await api('updateUbicazione', item);
-                }
+                if (invUbicErr) throw invUbicErr;
+                console.log('✅ Ubicazione aggiornata in INVENTARIO');
                 return { success: true };
 
-            case 'batchUpdatePartNumber':
-                for (let item of payload.updates) {
-                    await api('updatePartNumber', item);
+            case 'updateInventarioPartNumber':
+                console.log('🔍 updateInventarioPartNumber - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
                 }
+                
+                const { error: invPnErr } = await supabaseClient
+                    .from('inventario')
+                    .update({ part_number: payload.partNumber })
+                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
+                
+                if (invPnErr) throw invPnErr;
+                console.log('✅ PartNumber aggiornato in INVENTARIO');
+                return { success: true };
+
+            case 'updateInventarioNote':
+                console.log('🔍 updateInventarioNote - payload:', payload);
+                
+                if (!payload.id_riga_giacenza) {
+                    throw new Error('id_riga_giacenza mancante');
+                }
+                
+                const { error: invNoteErr } = await supabaseClient
+                    .from('inventario')
+                    .update({ note: payload.note })
+                    .eq('id_riga_giacenza', payload.id_riga_giacenza);
+                
+                if (invNoteErr) throw invNoteErr;
+                console.log('✅ Note aggiornate in INVENTARIO');
+                return { success: true };
+
+            // ========== AGGIORNA SOLO GIACENZA (Lista) ==========
+            case 'updateGiacenzaUbicazione':
+                console.log('🔍 updateGiacenzaUbicazione - payload:', payload);
+                
+                if (!payload.id_riga) {
+                    throw new Error('id_riga mancante');
+                }
+                
+                const { error: giacUbicErr } = await supabaseClient
+                    .from('giacenza')
+                    .update({ ubicazioni: payload.ubicazione })
+                    .eq('id_riga', payload.id_riga);
+                
+                if (giacUbicErr) throw giacUbicErr;
+                console.log('✅ Ubicazione aggiornata in GIACENZA');
+                return { success: true };
+
+            case 'updateGiacenzaPartNumber':
+                console.log('🔍 updateGiacenzaPartNumber - payload:', payload);
+                
+                if (!payload.id_riga) {
+                    throw new Error('id_riga mancante');
+                }
+                
+                const { error: giacPnErr } = await supabaseClient
+                    .from('giacenza')
+                    .update({ part_number: payload.partNumber })
+                    .eq('id_riga', payload.id_riga);
+                
+                if (giacPnErr) throw giacPnErr;
+                console.log('✅ PartNumber aggiornato in GIACENZA');
+                return { success: true };
+
+            case 'updateGiacenzaNote':
+                console.log('🔍 updateGiacenzaNote - payload:', payload);
+                
+                if (!payload.id_riga) {
+                    throw new Error('id_riga mancante');
+                }
+                
+                const { error: giacNoteErr } = await supabaseClient
+                    .from('giacenza')
+                    .update({ note: payload.note })
+                    .eq('id_riga', payload.id_riga);
+                
+                if (giacNoteErr) throw giacNoteErr;
+                console.log('✅ Note aggiornate in GIACENZA');
                 return { success: true };
 
             case 'batchSaveRiscontro':
@@ -861,7 +827,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     ubicazione: item.ubicazione,
                     seriale_atteso: item.serialeAtteso,
                     seriale_riscontrato: item.serialeRiscontrato,
-                    match: true, // sempre OK per verifica massiva
+                    match: true,
                     qta: item.qta || 1,
                     wms_code: item.wmsCode,
                     cdc: item.cdc,
@@ -891,7 +857,6 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                     timestamp: new Date().toISOString()
                 }));
                 
-                // Esegui update per ogni item
                 for (const update of updates) {
                     await supabaseClient
                         .from('giacenza')
@@ -1881,7 +1846,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // Aggiorna INVENTARIO
+    // Aggiorna INVENTARIO (storico locale)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Ubicazioni: newUbicazione } 
@@ -1898,19 +1863,18 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-        await api('updateUbicazione', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            ubicazione: newUbicazione
+        await api('updateInventarioUbicazione', { 
+            id_riga_giacenza: currentItem.ID_Riga,
+            ubicazione: newUbicazione 
         });
-        console.log('✅ Ubicazione salvata su Supabase (inventario)');
+        console.log('✅ Ubicazione salvata in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
     }
 };
 
-
-           const handleUpdatePartNumber = async () => {
+const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
     
     // Aggiorna INVENTARIO
@@ -1930,21 +1894,21 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-        await api('updatePartNumber', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            partNumber: newPartNumber
+        await api('updateInventarioPartNumber', { 
+            id_riga_giacenza: currentItem.ID_Riga,
+            partNumber: newPartNumber 
         });
-        console.log('✅ PartNumber salvato su Supabase (inventario)');
+        console.log('✅ PartNumber salvato in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
     }
 };
 
-            const handleUpdateNote = async () => {
+const handleUpdateNote = async () => {
     if (!currentItem) return;
     
-    // Aggiorna INVENTARIO (articolo appena scansionato)
+    // Aggiorna INVENTARIO
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Note: newNote } 
@@ -1961,11 +1925,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-        await api('updateNote', { 
-            seriale: currentItem.RISCONTROSERIALEF, 
-            note: newNote
+        await api('updateInventarioNote', { 
+            id_riga_giacenza: currentItem.ID_Riga,
+            note: newNote 
         });
-        console.log('✅ Note salvate su Supabase (inventario)');
+        console.log('✅ Note salvate in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione note: ' + err.message);
@@ -2724,7 +2688,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const updateUbicazioneLista = async (item, newUbic) => {
     if (!newUbic.trim()) return;
     
-    // Aggiorna GIACENZA (articoli non ancora inventariati)
+    // Aggiorna GIACENZA (articoli NON inventariati)
     const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
             ? { ...i, Ubicazioni: newUbic } 
@@ -2748,11 +2712,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }));
     
     try {
-    await api('updateUbicazione', { 
-        seriale: item.RISCONTROSERIALEF, 
-        ubicazione: newUbic 
-    });
-    console.log('✅ Ubicazione salvata su Supabase (entrambe le tabelle)');
+        await api('updateGiacenzaUbicazione', { 
+            id_riga: item.ID_Riga,
+            ubicazione: newUbic 
+        });
+        console.log('✅ Ubicazione salvata in GIACENZA');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -2786,11 +2750,11 @@ const updatePartNumberLista = async (item, newPN) => {
     }));
     
     try {
-    await api('updatePartNumber', { 
-        seriale: item.RISCONTROSERIALEF, 
-        partNumber: newPN 
-    });
-    console.log('✅ PartNumber salvato su Supabase (entrambe le tabelle)');
+        await api('updateGiacenzaPartNumber', { 
+            id_riga: item.ID_Riga,
+            partNumber: newPN 
+        });
+        console.log('✅ PartNumber salvato in GIACENZA');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -2827,18 +2791,16 @@ const updateNoteLista = async (item, newNote) => {
     }));
     
     try {
-    await api('updateNote', { 
-        seriale: item.RISCONTROSERIALEF, 
-        note: newNote 
-    });
-    console.log('✅ Note salvate su Supabase (entrambe le tabelle)');
+        await api('updateGiacenzaNote', { 
+            id_riga: item.ID_Riga,
+            note: newNote 
+        });
+        console.log('✅ Note salvate in GIACENZA');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-
-
             const verificaMassivo = async () => {
                 if (selected.length === 0) return alert('Seleziona almeno un articolo');
                 const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
@@ -3482,18 +3444,18 @@ const updateNoteLista = async (item, newNote) => {
     setEditingItems(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
     
     try {
-        await api('updateUbicazione', { 
-            id_riga_giacenza: item.id_riga_giacenza,  // ← USA SOLO QUESTO
+        await api('updateInventarioUbicazione', { 
+            id_riga_giacenza: item.id_riga_giacenza,
             ubicazione: newUbic 
         });
-        console.log('✅ Ubicazione salvata su Supabase');
+        console.log('✅ Ubicazione salvata in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
     }
 };
 
-        const updatePartNumberStorico = async (item, newPN) => {
+const updatePartNumberStorico = async (item, newPN) => {
     const updated = storico.map(i => 
         i.id === item.id 
             ? { ...i, PartNumber: newPN } 
@@ -3514,19 +3476,20 @@ const updateNoteLista = async (item, newNote) => {
     setEditingPartNumber(prev => { const n = {...prev}; delete n[item.Seriale_Riscontrato]; return n; });
     
     try {
-        await api('updatePartNumber', { 
-            id_riga_giacenza: item.id_riga_giacenza,  // ← USA SOLO QUESTO
+        await api('updateInventarioPartNumber', { 
+            id_riga_giacenza: item.id_riga_giacenza,
             partNumber: newPN 
         });
-        console.log('✅ PartNumber salvato su Supabase');
+        console.log('✅ PartNumber salvato in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
     }
 };
-        const updateNoteStorico = async (item, newNote) => {
+
+const updateNoteStorico = async (item, newNote) => {
     const updated = storico.map(i => 
-        i.id === item.id  // ← Usa l'ID inventario per identificare localmente
+        i.id === item.id
             ? { ...i, Note: newNote } 
             : i
     );
@@ -3551,11 +3514,11 @@ const updateNoteLista = async (item, newNote) => {
     appCache.storico = updated;
     
     try {
-        await api('updateNote', { 
-            id_riga_giacenza: item.id_riga_giacenza,  // ← USA SOLO QUESTO
+        await api('updateInventarioNote', { 
+            id_riga_giacenza: item.id_riga_giacenza,
             note: newNote 
         });
-        console.log('✅ Note salvate su Supabase');
+        console.log('✅ Note salvate in INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione note: ' + err.message);
