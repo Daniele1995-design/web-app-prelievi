@@ -4128,95 +4128,105 @@ const updateNoteStorico = async (item, newNote) => {
                                             </span>
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>
-                                            {editingItems[item.Seriale_Riscontrato] ? (
-                                                <div className="flex gap-1">
-                                                    <input 
-                                                        type="text" 
-                                                        defaultValue={item.Ubicazioni} 
-                                                        onBlur={(e) => updateUbicazione(item, e.target.value)} 
-                                                        className="px-2 py-1 border rounded text-xs w-32" 
-                                                        autoFocus 
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="flex gap-1 items-center">
-                                                    <span className="font-mono text-xs">{item.Ubicazioni}</span>
-                                                    <button 
-                                                        onClick={() => setEditingItems(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
-                                                        className="text-blue-500 hover:text-blue-700"
-                                                    >
-                                                        <Icons.Edit />
-                                                    </button>
-                                                </div>
-                                            )}
+                                            {editingItems[item.id] ? (
+    <div className="flex gap-1">
+        <input 
+            type="text" 
+            defaultValue={item.Ubicazioni} 
+            onBlur={(e) => updateUbicazione(item, e.target.value)} 
+            className="px-2 py-1 border rounded text-xs w-32" 
+            autoFocus 
+        />
+    </div>
+) : (
+    <div className="flex gap-1 items-center">
+        <span className="font-mono text-xs">{item.Ubicazioni}</span>
+        <button 
+            onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: true }))} 
+            className="text-blue-500 hover:text-blue-700"
+        >
+            <Icons.Edit />
+        </button>
+    </div>
+)}
                                         </td>
                                         <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>
     {item.SerSN === 'Sì' ? '✅' : '❌'}
 </td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.serialeAtteso ? 'col-hidden' : ''}`}>{item.RISCONTROSERIALEF || '-'}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
-                                            {editingPartNumber[item.Seriale_Riscontrato] ? (
-                                                <div className="flex gap-1">
-                                                    <input 
-                                                        type="text" 
-                                                        defaultValue={item.PartNumber} 
-                                                        onBlur={(e) => updatePartNumberStorico(item, e.target.value)} 
-                                                        className="px-2 py-1 border rounded text-xs w-32" 
-                                                        autoFocus 
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="flex gap-1 items-center">
-                                                    <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
-                                                    <button 
-                                                        onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.Seriale_Riscontrato]: true }))} 
-                                                        className="text-blue-500 hover:text-blue-700"
-                                                    >
-                                                        <Icons.Edit />
-                                                    </button>
-                                                </div>
-                                            )}
+                                            {editingPartNumber[item.id] ? (
+    <div className="flex gap-1">
+        <input 
+            type="text" 
+            defaultValue={item.PartNumber} 
+            onBlur={(e) => updatePartNumberStorico(item, e.target.value)} 
+            className="px-2 py-1 border rounded text-xs w-32" 
+            autoFocus 
+        />
+    </div>
+) : (
+    <div className="flex gap-1 items-center">
+        <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
+        <button 
+            onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.id]: true }))} 
+            className="text-blue-500 hover:text-blue-700"
+        >
+            <Icons.Edit />
+        </button>
+    </div>
+)}
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs font-bold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>{item.Seriale_Riscontrato}</td>
+                                        
                                         <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
-    {editingNote[item.Seriale_Riscontrato] ? (
-        <div className="flex gap-1">
-            <textarea 
-                defaultValue={item.Note} 
-                onBlur={(e) => updateNoteStorico(item, e.target.value)} 
-                className="px-2 py-1 border rounded text-xs w-full" 
-                rows="2"
-                autoFocus 
-            />
-        </div>
-    ) : (
-        <div 
-            className="flex gap-1 items-center cursor-pointer"
-            onDoubleClick={() => {
-                alert(item.Note || 'Nessuna nota');
-            }}
+    {editingNote[item.id] ? (
+    <div className="flex gap-1">
+        <textarea 
+            defaultValue={item.Note} 
+            onBlur={(e) => updateNoteStorico(item, e.target.value)} 
+            className="px-2 py-1 border rounded text-xs w-full" 
+            rows="2"
+            autoFocus 
+        />
+    </div>
+) : (
+    <div 
+        className="flex gap-1 items-center cursor-pointer"
+        onDoubleClick={() => {
+            alert(item.Note || 'Nessuna nota');
+        }}
+    >
+        <span 
+            className="text-xs italic truncate block" 
+            style={{ maxWidth: '60px' }}
+            title={item.Note || '-'}
         >
-            <span 
-                className="text-xs italic truncate block" 
-                style={{ maxWidth: '60px' }}  // ← 8 caratteri circa
-                title={item.Note || '-'}
-            >
-                {item.Note && item.Note.length > 8 
-                    ? item.Note.substring(0, 8) + '...' 
-                    : item.Note || '-'}
-            </span>
-            <button 
-                onClick={(e) => { 
-                    e.stopPropagation();
-                    setEditingNote(prev => ({ ...prev, [item.Seriale_Riscontrato]: true })); 
-                }} 
-                className="text-blue-500 hover:text-blue-700"
-            >
-                <Icons.Edit />
-            </button>
-        </div>
+            {item.Note && item.Note.length > 8 
+                ? item.Note.substring(0, 8) + '...' 
+                : item.Note || '-'}
+        </span>
+        <button 
+            onClick={(e) => { 
+                e.stopPropagation();
+                setEditingNote(prev => ({ ...prev, [item.id]: true })); 
+            }} 
+            className="text-blue-500 hover:text-blue-700"
+        >
+            <Icons.Edit />
+        </button>
+    </div>
+)}
+</td>
+                                        <td className={`px-3 py-2 font-mono text-xs font-bold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>{item.Seriale_Riscontrato}</td>
+<td className={`px-3 py-2 text-center ${!visibleColumns.match ? 'col-hidden' : ''}`}>
+    {item.Match === 'OK' ? (
+        <span className="text-green-600 font-bold">✓</span>
+    ) : (
+        <span className="text-red-600 font-bold">✗</span>
     )}
 </td>
+                                        
                                     </tr>
                                 ))}
                             </tbody>
