@@ -3194,8 +3194,8 @@ const updateNoteLista = async (item, newNote) => {
                                         <td className={`px-3 py-2 font-medium ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>{item.PoNr}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>{item.Cdc}</td>
                                         <td className={`px-3 py-2 font-medium ${!visibleColumns.codSap ? 'col-hidden' : ''}`}>{item.CodSap}</td>
-                                        <td className={`px-3 py-2 col-descrizione ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>
-                                        <td className={`px-3 py-2 col-note ${!visibleColumns.note ? 'col-hidden' : ''}`}>    
+                                        <th className={`px-3 py-2 text-left font-semibold col-descrizione ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>Descrizione</th>
+                                           
     <div 
         className="cursor-pointer"
         onDoubleClick={() => {
