@@ -3250,10 +3250,13 @@ const updateNoteLista = async (item, newNote) => {
                                     <tr key={item.ID_Riga || idx} className="border-t hover:bg-gray-50">
                                         <td className="px-3 py-2">
     <input 
-        type="checkbox" 
-        checked={selected.find(i => i.ID_Riga === item.ID_Riga) !== undefined} 
-        onChange={(e) => toggleSelectWithShift(item, idx, e)} 
-    />
+    type="checkbox" 
+    checked={selected.find(i => i.ID_Riga === item.ID_Riga) !== undefined} 
+    onChange={(e) => {
+        e.persist(); // ← Importante per React synthetic events
+        toggleSelectWithShift(item, idx, e.nativeEvent); // ← Passa nativeEvent
+    }}
+/>
 </td>
                                         <td className={`px-3 py-2 font-medium ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>{item.PoNr}</td>
                                         <td className={`px-3 py-2 ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>{item.Cdc}</td>
@@ -3442,6 +3445,7 @@ const updateNoteLista = async (item, newNote) => {
             note: true,
             serSN: false
         });
+        const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
 
         useEffect(() => {
     async function loadData() {
@@ -3524,6 +3528,29 @@ const updateNoteLista = async (item, newNote) => {
         const toggleColumn = (column) => {
             setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
         };
+        const toggleSelectWithShift = (item, index, event) => {
+    if (event.shiftKey && lastSelectedIndex !== null) {
+        // Selezione range da lastSelectedIndex a index
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        const rangeItems = filteredData.slice(start, end + 1);
+        
+        setSelected(prev => {
+            // Rimuovi duplicati e aggiungi nuovi
+            const existingIds = new Set(prev.map(i => i.id));
+            const newItems = rangeItems.filter(i => !existingIds.has(i.id));
+            return [...prev, ...newItems];
+        });
+    } else {
+        // Selezione singola normale
+        setSelected(prev => 
+            prev.find(i => i.id === item.id) 
+                ? prev.filter(i => i.id !== item.id) 
+                : [...prev, item]
+        );
+    }
+    setLastSelectedIndex(index);
+};
 
        const updateUbicazione = async (item, newUbic) => {
     const updated = storico.map(i => 
@@ -4053,19 +4080,16 @@ const updateNoteStorico = async (item, newNote) => {
                             <tbody>
                                 {filteredData.map((item, idx) => (
                                     <tr key={idx} className="border-t hover:bg-gray-50">
-                                        <td className="px-3 py-2">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selected.find(i => i.Seriale_Riscontrato === item.Seriale_Riscontrato) !== undefined} 
-                                                onChange={() => {
-                                                    setSelected(prev => 
-                                                        prev.find(i => i.Seriale_Riscontrato === item.Seriale_Riscontrato) 
-                                                            ? prev.filter(i => i.Seriale_Riscontrato !== item.Seriale_Riscontrato) 
-                                                            : [...prev, item]
-                                                    );
-                                                }} 
-                                            />
-                                        </td>
+                                       <td className="px-3 py-2">
+    <input 
+        type="checkbox" 
+        checked={selected.find(i => i.id === item.id) !== undefined} 
+        onChange={(e) => {
+            e.persist();
+            toggleSelectWithShift(item, idx, e.nativeEvent);
+        }} 
+    />
+</td>
                                         <td className={`px-3 py-2 whitespace-nowrap ${!visibleColumns.dataOra ? 'col-hidden' : ''}`}>
                                             {new Date(item.Timestamp).toLocaleString('it-IT', { 
                                                 day: '2-digit', month: '2-digit', year: 'numeric', 
