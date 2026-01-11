@@ -1864,16 +1864,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // ✅ FIX: Aggiorna GIACENZA, non inventario
-    const updatedGiacenza = giacenza.map(i => 
-        i.ID_Riga === currentItem.ID_Riga 
-            ? { ...i, Ubicazioni: newUbicazione } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    appCache.giacenza = updatedGiacenza;
-    
-    // Aggiorna anche storico locale se esiste
+    // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Ubicazioni: newUbicazione } 
@@ -1886,17 +1877,11 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     setEditingUbicazione(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
-        // ✅ FIX: Aggiorna in GIACENZA
-        await api('updateGiacenzaUbicazione', { 
-            id_riga: currentItem.ID_Riga,
-            ubicazione: newUbicazione 
-        });
-        
-        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        // ✅ Aggiorna solo INVENTARIO
         const { data: invData } = await supabaseClient
             .from('inventario')
             .select('id')
@@ -1910,9 +1895,10 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 .from('inventario')
                 .update({ ubicazione: newUbicazione })
                 .eq('id', invData.id);
+            console.log('✅ Ubicazione salvata solo in INVENTARIO');
+        } else {
+            console.warn('⚠️ Nessun record trovato in inventario');
         }
-        
-        console.log('✅ Ubicazione salvata in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
@@ -1922,16 +1908,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
     
-    // ✅ FIX: Aggiorna GIACENZA, non inventario
-    const updatedGiacenza = giacenza.map(i => 
-        i.ID_Riga === currentItem.ID_Riga 
-            ? { ...i, PartNumber: newPartNumber } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    appCache.giacenza = updatedGiacenza;
-    
-    // Aggiorna anche storico locale se esiste
+    // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, PartNumber: newPartNumber } 
@@ -1944,17 +1921,11 @@ const handleUpdatePartNumber = async () => {
     setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
-        // ✅ FIX: Aggiorna in GIACENZA
-        await api('updateGiacenzaPartNumber', { 
-            id_riga: currentItem.ID_Riga,
-            partNumber: newPartNumber 
-        });
-        
-        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        // ✅ Aggiorna solo INVENTARIO
         const { data: invData } = await supabaseClient
             .from('inventario')
             .select('id')
@@ -1968,9 +1939,10 @@ const handleUpdatePartNumber = async () => {
                 .from('inventario')
                 .update({ part_number: newPartNumber })
                 .eq('id', invData.id);
+            console.log('✅ PartNumber salvato solo in INVENTARIO');
+        } else {
+            console.warn('⚠️ Nessun record trovato in inventario');
         }
-        
-        console.log('✅ PartNumber salvato in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
@@ -1980,16 +1952,7 @@ const handleUpdatePartNumber = async () => {
 const handleUpdateNote = async () => {
     if (!currentItem) return;
     
-    // ✅ FIX: Aggiorna GIACENZA, non inventario
-    const updatedGiacenza = giacenza.map(i => 
-        i.ID_Riga === currentItem.ID_Riga 
-            ? { ...i, Note: newNote } 
-            : i
-    );
-    setGiacenza(updatedGiacenza);
-    appCache.giacenza = updatedGiacenza;
-    
-    // Aggiorna anche storico locale se esiste
+    // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
             ? { ...i, Note: newNote } 
@@ -2002,17 +1965,11 @@ const handleUpdateNote = async () => {
     setEditingNote(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        detail: { storico: updatedStorico }
     }));
     
     try {
-        // ✅ FIX: Aggiorna in GIACENZA
-        await api('updateGiacenzaNote', { 
-            id_riga: currentItem.ID_Riga,
-            note: newNote 
-        });
-        
-        // ✅ NUOVO: Aggiorna anche in INVENTARIO se esiste
+        // ✅ Aggiorna solo INVENTARIO
         const { data: invData } = await supabaseClient
             .from('inventario')
             .select('id')
@@ -2026,15 +1983,15 @@ const handleUpdateNote = async () => {
                 .from('inventario')
                 .update({ note: newNote })
                 .eq('id', invData.id);
+            console.log('✅ Note salvate solo in INVENTARIO');
+        } else {
+            console.warn('⚠️ Nessun record trovato in inventario');
         }
-        
-        console.log('✅ Note salvate in GIACENZA e INVENTARIO');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione note: ' + err.message);
     }
 };
-
             const handleSaveNewItem = async () => {
     // Validazione campi obbligatori
     if (!newItemData.codSap.trim()) {
@@ -3568,7 +3525,7 @@ const updateNoteLista = async (item, newNote) => {
             setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
         };
 
-        const updateUbicazione = async (item, newUbic) => {
+       const updateUbicazione = async (item, newUbic) => {
     const updated = storico.map(i => 
         i.id === item.id 
             ? { ...i, Ubicazioni: newUbic } 
@@ -3590,7 +3547,7 @@ const updateNoteLista = async (item, newNote) => {
     
     try {
         await api('updateInventarioUbicazione', { 
-            id: item.id,  // ← CAMBIATO QUI
+            id: item.id,
             ubicazione: newUbic 
         });
         console.log('✅ Ubicazione salvata in INVENTARIO');
@@ -3622,7 +3579,7 @@ const updatePartNumberStorico = async (item, newPN) => {
     
     try {
         await api('updateInventarioPartNumber', { 
-            id: item.id,  // ← CAMBIATO QUI
+            id: item.id,
             partNumber: newPN 
         });
         console.log('✅ PartNumber salvato in INVENTARIO');
@@ -3660,7 +3617,7 @@ const updateNoteStorico = async (item, newNote) => {
     
     try {
         await api('updateInventarioNote', { 
-            id: item.id,  // ← CAMBIATO QUI
+            id: item.id,
             note: newNote 
         });
         console.log('✅ Note salvate in INVENTARIO');
