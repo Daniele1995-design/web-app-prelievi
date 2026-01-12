@@ -801,20 +801,23 @@ case 'updateInventarioNote':
                 return { success: true };
 
             case 'updateGiacenzaPartNumber':
-                console.log('🔍 updateGiacenzaPartNumber - payload:', payload);
-                
-                if (!payload.id_riga) {
-                    throw new Error('id_riga mancante');
-                }
-                
-                const { error: giacPnErr } = await supabaseClient
-                    .from('giacenza')
-                    .update({ part_number: payload.partNumber })
-                    .eq('id_riga', payload.id_riga);
-                
-                if (giacPnErr) throw giacPnErr;
-                console.log('✅ PartNumber aggiornato in GIACENZA');
-                return { success: true };
+    console.log('🔍 updateGiacenzaPartNumber - payload:', payload);
+    
+    if (!payload.id_riga) {
+        throw new Error('id_riga mancante');
+    }
+    
+    const { error: giacPnErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            part_number: payload.partNumber,
+            note: payload.note 
+        })
+        .eq('id_riga', payload.id_riga);
+    
+    if (giacPnErr) throw giacPnErr;
+    console.log('✅ PartNumber aggiornato in GIACENZA');
+    return { success: true };
 
             case 'updateGiacenzaNote':
                 console.log('🔍 updateGiacenzaNote - payload:', payload);
@@ -831,6 +834,25 @@ case 'updateInventarioNote':
                 if (giacNoteErr) throw giacNoteErr;
                 console.log('✅ Note aggiornate in GIACENZA');
                 return { success: true };
+
+                case 'updateGiacenzaSeriale':
+    console.log('🔍 updateGiacenzaSeriale - payload:', payload);
+    
+    if (!payload.id_riga) {
+        throw new Error('id_riga mancante');
+    }
+    
+    const { error: giacSerErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            riscontro_seriale_f: payload.seriale,
+            note: payload.note 
+        })
+        .eq('id_riga', payload.id_riga);
+    
+    if (giacSerErr) throw giacSerErr;
+    console.log('✅ Seriale aggiornato in GIACENZA');
+    return { success: true };
 
             case 'batchSaveRiscontro':
     const items = payload.items || [];
@@ -2634,7 +2656,8 @@ const handleUpdateNote = async () => {
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
-            const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // ✅ NEW: Per SHIFT-select
+            const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
+            const [editingSeriale, setEditingSeriale] = useState({});
             const [visibleColumns, setVisibleColumns] = useState({
                 poNr: true,
                 cdc: true,
@@ -2805,10 +2828,14 @@ const toggleSelectWithShift = (item, index, event) => {
 const updatePartNumberLista = async (item, newPN) => {
     if (!newPN.trim()) return;
     
+    const oldPN = item.PartNumber;
+    const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${newPN}`;
+    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+    
     // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPN } 
+        i.ID_Riga === item.ID_Riga
+            ? { ...i, PartNumber: newPN, Note: newNote } 
             : i
     );
     setGiacenza(updatedGiacenza);
@@ -2824,6 +2851,8 @@ const updatePartNumberLista = async (item, newPN) => {
     if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
     setFilteredData(filtered);
     
+    setEditingPartNumber(prev => { const n = {...prev}; delete n[item.ID_Riga]; return n; });
+    
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza }
     }));
@@ -2831,7 +2860,8 @@ const updatePartNumberLista = async (item, newPN) => {
     try {
         await api('updateGiacenzaPartNumber', { 
             id_riga: item.ID_Riga,
-            partNumber: newPN 
+            partNumber: newPN,
+            note: newNote
         });
         console.log('✅ PartNumber salvato in GIACENZA');
     } catch (err) {
@@ -2875,6 +2905,50 @@ const updateNoteLista = async (item, newNote) => {
             note: newNote 
         });
         console.log('✅ Note salvate in GIACENZA');
+    } catch (err) {
+        console.error('❌ Errore server:', err);
+        alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
+};
+            const updateSerialeLista = async (item, newSeriale) => {
+    if (!newSeriale.trim()) return;
+    
+    const oldSeriale = item.RISCONTROSERIALEF;
+    const logMessage = `Seriale modificato da ${oldSeriale} a ${newSeriale}`;
+    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+    
+    // Aggiorna GIACENZA
+    const updatedGiacenza = giacenza.map(i => 
+        i.ID_Riga === item.ID_Riga
+            ? { ...i, RISCONTROSERIALEF: newSeriale, Note: newNote } 
+            : i
+    );
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    
+    // Aggiorna filteredData
+    let filtered = updatedGiacenza.filter(i => !i.inventariato);
+    if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+    if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+    if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+    if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+    if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+    if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    setFilteredData(filtered);
+    
+    setEditingSeriale(prev => { const n = {...prev}; delete n[item.ID_Riga]; return n; });
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza }
+    }));
+    
+    try {
+        await api('updateGiacenzaSeriale', { 
+            id_riga: item.ID_Riga,
+            seriale: newSeriale,
+            note: newNote
+        });
+        console.log('✅ Seriale salvato in GIACENZA');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -3346,8 +3420,35 @@ const updateNoteLista = async (item, newNote) => {
                                             )}
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>
-                                            {item.RISCONTROSERIALEF}
-                                        </td>
+    {editingSeriale[item.ID_Riga] ? (
+        <div className="flex gap-1">
+            <input 
+                type="text" 
+                defaultValue={item.RISCONTROSERIALEF} 
+                onBlur={(e) => {
+                    updateSerialeLista(item, e.target.value);
+                    setEditingSeriale(prev => {
+                        const n = {...prev};
+                        delete n[item.ID_Riga];
+                        return n;
+                    });
+                }}
+                className="px-2 py-1 border rounded text-xs w-32" 
+                autoFocus 
+            />
+        </div>
+    ) : (
+        <div className="flex gap-1 items-center">
+            <span>{item.RISCONTROSERIALEF}</span>
+            <button 
+                onClick={() => setEditingSeriale(prev => ({ ...prev, [item.ID_Riga]: true }))} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
+</td>
                                       <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
     {editingNote[item.ID_Riga] ? (
         <div className="flex gap-1">
