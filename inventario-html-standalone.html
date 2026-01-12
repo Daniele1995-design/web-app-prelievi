@@ -2653,7 +2653,6 @@ const handleUpdateNote = async () => {
             const [loading, setLoading] = useState(true);
             const [loadingProgress, setLoadingProgress] = useState('');
             const [showFilters, setShowFilters] = useState(false);
-            const [filters, setFilters] = useState({});
             const [selected, setSelected] = useState([]);
             const [bulkUbicazione, setBulkUbicazione] = useState('');
             const [bulkPartNumber, setBulkPartNumber] = useState('');
@@ -3557,7 +3556,6 @@ const updateNoteLista = async (item, newNote) => {
     function Storico({ user }) {
         const [storico, setStorico] = useState([]);
         const [filteredData, setFilteredData] = useState([]);
-        const [filters, setFilters] = useState({});
         const [loading, setLoading] = useState(true);
         const [loadingProgress, setLoadingProgress] = useState('');
         const [showFilters, setShowFilters] = useState(false);
