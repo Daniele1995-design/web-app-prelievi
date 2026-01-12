@@ -2647,7 +2647,7 @@ const handleUpdateNote = async () => {
         // ============================================
         // MODE LISTA
         // ============================================
-        function ModeLista({ user }) {
+        function ModeLista({ user, globalFilters, setGlobalFilters }) {
             const [giacenza, setGiacenza] = useState([]);
             const [filteredData, setFilteredData] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -3553,7 +3553,7 @@ const updateNoteLista = async (item, newNote) => {
     // ============================================
     // STORICO
     // ============================================
-    function Storico({ user }) {
+    function Storico({ user, globalFilters, setGlobalFilters }) {
         const [storico, setStorico] = useState([]);
         const [filteredData, setFilteredData] = useState([]);
         const [loading, setLoading] = useState(true);
