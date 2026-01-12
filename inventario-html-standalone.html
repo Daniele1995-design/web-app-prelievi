@@ -2680,6 +2680,10 @@ const handleUpdateNote = async () => {
             });
 
             useEffect(() => {
+        setFilters(globalFilters || {});
+    }, [globalFilters]);
+
+            useEffect(() => {
     async function load() {
         if (appCache.giacenza) {
             setGiacenza(appCache.giacenza);
@@ -3585,6 +3589,10 @@ const updateNoteLista = async (item, newNote) => {
             serSN: false
         });
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
+
+         useEffect(() => {
+        setFilters(globalFilters || {});
+    }, [globalFilters]);
 
         useEffect(() => {
     async function loadData() {
