@@ -1129,7 +1129,6 @@ operations: groups[action]
                 const saved = sessionStorage.getItem('ats_user');
                 return saved ? JSON.parse(saved) : null;
             });
-            const [globalFilters, setGlobalFilters] = useState({});
 
             const [currentView, setCurrentView] = useState(() => {
                 return sessionStorage.getItem('ats_view') || 'login';
@@ -1209,8 +1208,8 @@ operations: groups[action]
                     <main className="max-w-7xl mx-auto p-4">
                         {currentView === 'dashboard' && <Dashboard user={user} />}
                         {currentView === 'scanner' && <ModeScanner user={user} />}
-                        {currentView === 'lista' && <ModeLista user={user} globalFilters={globalFilters} setGlobalFilters={setGlobalFilters} />}
-                        {currentView === 'storico' && <Storico user={user} globalFilters={globalFilters} setGlobalFilters={setGlobalFilters} />}
+                        {currentView === 'lista' && <ModeLista user={user} />}
+                        {currentView === 'storico' && <Storico user={user} />}
                     </main>
                 </div>
             );
@@ -1929,20 +1928,16 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
     
-    const oldPN = currentItem.PartNumber;
-    const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${newPartNumber}`;
-    const newNote = currentItem.Note ? `${currentItem.Note} | ${logMessage}` : logMessage;
-    
     // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber, Note: newNote } 
+            ? { ...i, PartNumber: newPartNumber } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber, Note: newNote });
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
     setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -1950,7 +1945,7 @@ const handleUpdatePartNumber = async () => {
     }));
     
     try {
-        // ✅ Aggiorna INVENTARIO
+        // ✅ Aggiorna solo INVENTARIO
         const { data: invData } = await supabaseClient
             .from('inventario')
             .select('id')
@@ -1962,18 +1957,15 @@ const handleUpdatePartNumber = async () => {
         if (invData) {
             await supabaseClient
                 .from('inventario')
-                .update({ 
-                    part_number: newPartNumber,
-                    note: newNote 
-                })
+                .update({ part_number: newPartNumber })
                 .eq('id', invData.id);
-            console.log('✅ PartNumber + Note salvati in INVENTARIO');
+            console.log('✅ PartNumber salvato solo in INVENTARIO');
         } else {
             console.warn('⚠️ Nessun record trovato in inventario');
         }
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
-        alert('⚠️ Errore sincronizzazione: ' + err.message);
+        alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
     }
 };
 
@@ -2471,150 +2463,150 @@ const handleUpdateNote = async () => {
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Po Nr</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.PoNr || '-'}</p>
-    </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">CDC</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.Cdc || '-'}</p>
-    </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Cod. SAP</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.CodSap || '-'}</p>
-    </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Serializzato</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem['SerS/No'] === 'Sì' ? '✅' : '❌'}</p>
-    </div>
-    <div className="col-span-2">
-        <p className="text-sm text-gray-600 font-medium">Descrizione</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.Descrizione || '-'}</p>
-    </div>
-    <div className="col-span-2">
-        <p className="text-sm text-gray-600 font-medium mb-2">Part Number</p>
-        {editingPartNumber ? (
-            <div className="flex gap-2">
-                <input 
-                    type="text" 
-                    value={newPartNumber} 
-                    onChange={(e) => setNewPartNumber(e.target.value)} 
-                    className="flex-1 px-3 py-2 border rounded" 
-                />
-                <button 
-                    onClick={handleUpdatePartNumber} 
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                    Salva
-                </button>
-                <button 
-                    onClick={() => setEditingPartNumber(false)} 
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                >
-                    Annulla
-                </button>
-            </div>
-        ) : (
-            <div className="flex gap-2 items-center">
-                <p className="text-lg font-semibold text-gray-800">{currentItem.PartNumber || '-'}</p>
-                <button 
-                    onClick={() => { 
-                        setEditingPartNumber(true); 
-                        setNewPartNumber(currentItem.PartNumber || ''); 
-                    }} 
-                    className="text-blue-500 hover:text-blue-700"
-                >
-                    <Icons.Edit />
-                </button>
-            </div>
-        )}
-    </div>
-    <div className="col-span-2">
-        <p className="text-sm text-gray-600 font-medium mb-2">Note</p>
-        {editingNote ? (
-            <div className="flex gap-2">
-                <textarea 
-                    value={newNote} 
-                    onChange={(e) => setNewNote(e.target.value)} 
-                    className="flex-1 px-3 py-2 border rounded" 
-                    rows="3"
-                />
-                <button 
-                    onClick={handleUpdateNote} 
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                    Salva
-                </button>
-                <button 
-                    onClick={() => setEditingNote(false)} 
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                >
-                    Annulla
-                </button>
-            </div>
-        ) : (
-            <div className="flex gap-2 items-center">
-                <p className="text-sm italic text-gray-600">{currentItem.Note || '-'}</p>
-                <button 
-                    onClick={() => { 
-                        setEditingNote(true); 
-                        setNewNote(currentItem.Note || ''); 
-                    }} 
-                    className="text-blue-500 hover:text-blue-700"
-                >
-                    <Icons.Edit />
-                </button>
-            </div>
-        )}
-    </div>
-    <div className="col-span-2">
-        <p className="text-sm text-gray-600 font-medium mb-2">Ubicazione</p>
-        {editingUbicazione ? (
-            <div className="flex gap-2">
-                <input 
-                    type="text" 
-                    value={newUbicazione} 
-                    onChange={(e) => setNewUbicazione(e.target.value)} 
-                    className="flex-1 px-3 py-2 border rounded" 
-                />
-                <button 
-                    onClick={handleUpdateUbicazione} 
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                    Salva
-                </button>
-                <button 
-                    onClick={() => setEditingUbicazione(false)} 
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                >
-                    Annulla
-                </button>
-            </div>
-        ) : (
-            <div className="flex gap-2 items-center">
-                <p className="text-lg font-semibold text-gray-800">{currentItem.Ubicazioni || '-'}</p>
-                <button 
-                    onClick={() => setEditingUbicazione(true)} 
-                    className="text-blue-500 hover:text-blue-700"
-                >
-                    <Icons.Edit />
-                </button>
-            </div>
-        )}
-    </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Qtà</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem['Qtà'] || '-'}</p>
-    </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Stato</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.Stato || '-'}</p>
-    </div>
-    <div className="col-span-2">
-        <p className="text-sm text-gray-600 font-medium">Seriale Atteso</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.RISCONTROSERIALEF || '-'}</p>
-    </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Po Nr</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.PoNr || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">CDC</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.Cdc || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Cod. SAP</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.CodSap || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Stato</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.Stato || '-'}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-sm text-gray-600 font-medium">Descrizione</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.Descrizione || '-'}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-sm text-gray-600 font-medium mb-2">Part Number</p>
+                                    {editingPartNumber ? (
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={newPartNumber} 
+                                                onChange={(e) => setNewPartNumber(e.target.value)} 
+                                                className="flex-1 px-3 py-2 border rounded" 
+                                            />
+                                            <button 
+                                                onClick={handleUpdatePartNumber} 
+                                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                                            >
+                                                Salva
+                                            </button>
+                                            <button 
+                                                onClick={() => setEditingPartNumber(false)} 
+                                                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                            >
+                                                Annulla
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2 items-center">
+                                            <p className="text-lg font-semibold text-gray-800">{currentItem.PartNumber || '-'}</p>
+                                            <button 
+                                                onClick={() => { 
+                                                    setEditingPartNumber(true); 
+                                                    setNewPartNumber(currentItem.PartNumber || ''); 
+                                                }} 
+                                                className="text-blue-500 hover:text-blue-700"
+                                            >
+                                                <Icons.Edit />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="col-span-2">
+    <p className="text-sm text-gray-600 font-medium mb-2">Note</p>
+    {editingNote ? (
+        <div className="flex gap-2">
+            <textarea 
+                value={newNote} 
+                onChange={(e) => setNewNote(e.target.value)} 
+                className="flex-1 px-3 py-2 border rounded" 
+                rows="3"
+            />
+            <button 
+                onClick={handleUpdateNote} 
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            >
+                Salva
+            </button>
+            <button 
+                onClick={() => setEditingNote(false)} 
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+                Annulla
+            </button>
+        </div>
+    ) : (
+        <div className="flex gap-2 items-center">
+            <p className="text-sm italic text-gray-600">{currentItem.Note || '-'}</p>
+            <button 
+                onClick={() => { 
+                    setEditingNote(true); 
+                    setNewNote(currentItem.Note || ''); 
+                }} 
+                className="text-blue-500 hover:text-blue-700"
+            >
+                <Icons.Edit />
+            </button>
+        </div>
+    )}
 </div>
+                                <div className="col-span-2">
+                                    <p className="text-sm text-gray-600 font-medium mb-2">Ubicazione</p>
+                                    {editingUbicazione ? (
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={newUbicazione} 
+                                                onChange={(e) => setNewUbicazione(e.target.value)} 
+                                                className="flex-1 px-3 py-2 border rounded" 
+                                            />
+                                            <button 
+                                                onClick={handleUpdateUbicazione} 
+                                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                                            >
+                                                Salva
+                                            </button>
+                                            <button 
+                                                onClick={() => setEditingUbicazione(false)} 
+                                                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                            >
+                                                Annulla
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2 items-center">
+                                            <p className="text-lg font-semibold text-gray-800">{currentItem.Ubicazioni || '-'}</p>
+                                            <button 
+                                                onClick={() => setEditingUbicazione(true)} 
+                                                className="text-blue-500 hover:text-blue-700"
+                                            >
+                                                <Icons.Edit />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Qtà</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem['Qtà'] || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Serializzato</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem['SerS/No'] || '-'}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-sm text-gray-600 font-medium">Seriale Atteso</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.RISCONTROSERIALEF || '-'}</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -2647,12 +2639,13 @@ const handleUpdateNote = async () => {
         // ============================================
         // MODE LISTA
         // ============================================
-        function ModeLista({ user, globalFilters, setGlobalFilters }) {
+        function ModeLista({ user }) {
             const [giacenza, setGiacenza] = useState([]);
             const [filteredData, setFilteredData] = useState([]);
             const [loading, setLoading] = useState(true);
             const [loadingProgress, setLoadingProgress] = useState('');
             const [showFilters, setShowFilters] = useState(false);
+            const [filters, setFilters] = useState({});
             const [selected, setSelected] = useState([]);
             const [bulkUbicazione, setBulkUbicazione] = useState('');
             const [bulkPartNumber, setBulkPartNumber] = useState('');
@@ -2665,7 +2658,6 @@ const handleUpdateNote = async () => {
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
             const [editingSeriale, setEditingSeriale] = useState({});
-            const [filters, setFilters] = useState(globalFilters || {});
             const [visibleColumns, setVisibleColumns] = useState({
                 poNr: true,
                 cdc: true,
@@ -2678,10 +2670,6 @@ const handleUpdateNote = async () => {
                 seriale: true,
                 note: true 
             });
-
-            useEffect(() => {
-        setFilters(globalFilters || {});
-    }, [globalFilters]);
 
             useEffect(() => {
     async function load() {
@@ -2743,7 +2731,6 @@ const handleUpdateNote = async () => {
             }, [filters, displayCount]);
 
             const applyFilters = () => {
-                setGlobalFilters(filters);
                 let filtered = giacenza.filter(i => !i.inventariato);
                 if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
                 if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
@@ -3282,31 +3269,6 @@ const updateNoteLista = async (item, newNote) => {
                 {selected.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
-                        {Object.keys(filters).length > 0 && (
-    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-            <span className="font-semibold text-yellow-800">🔍 Filtri Applicati:</span>
-            {filters.cdc && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">CDC: {filters.cdc}</span>}
-            {filters.codSap && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">SAP: {filters.codSap}</span>}
-            {filters.poNr && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Po: {filters.poNr}</span>}
-            {filters.serSN && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Ser: {filters.serSN}</span>}
-            {filters.stato && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Stato: {filters.stato}</span>}
-            {filters.ubicazione && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Ubic: {filters.ubicazione}</span>}
-        </div>
-        <button 
-            onClick={() => { 
-                setFilters({}); 
-                setGlobalFilters({}); 
-                setFilteredData(giacenza.filter(i => !i.inventariato)); 
-                setDisplayCount(50); 
-                setHasMore(true); 
-            }} 
-            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-        >
-            ✕ Rimuovi Filtri
-        </button>
-    </div>
-)}
                         <div className="flex gap-2 items-center flex-wrap">
                             <input type="text" placeholder="Ubicazione (opzionale)" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Part Number (opzionale)" value={bulkPartNumber} onChange={(e) => setBulkPartNumber(e.target.value)} className="px-3 py-2 border rounded" />
@@ -3557,9 +3519,10 @@ const updateNoteLista = async (item, newNote) => {
     // ============================================
     // STORICO
     // ============================================
-    function Storico({ user, globalFilters, setGlobalFilters }) {
+    function Storico({ user }) {
         const [storico, setStorico] = useState([]);
         const [filteredData, setFilteredData] = useState([]);
+        const [filters, setFilters] = useState({});
         const [loading, setLoading] = useState(true);
         const [loadingProgress, setLoadingProgress] = useState('');
         const [showFilters, setShowFilters] = useState(false);
@@ -3570,7 +3533,7 @@ const updateNoteLista = async (item, newNote) => {
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
         const [formatoStampa, setFormatoStampa] = useState('10x10');
-        const [filters, setFilters] = useState(globalFilters || {});
+        
         const [showColumnSelector, setShowColumnSelector] = useState(false);
         const [visibleColumns, setVisibleColumns] = useState({
             dataOra: true,
@@ -3589,10 +3552,6 @@ const updateNoteLista = async (item, newNote) => {
             serSN: false
         });
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-
-         useEffect(() => {
-        setFilters(globalFilters || {});
-    }, [globalFilters]);
 
         useEffect(() => {
     async function loadData() {
@@ -3654,7 +3613,6 @@ const updateNoteLista = async (item, newNote) => {
         }, [filters]);
 
         const applyFilters = () => {
-            setGlobalFilters(filters);
             let filtered = [...storico];
             if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
             if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
@@ -4169,31 +4127,6 @@ const updateNoteStorico = async (item, newNote) => {
                 {selected.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p className="font-medium mb-2">{selected.length} articoli selezionati</p>
-                        {Object.keys(filters).length > 0 && (
-    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-            <span className="font-semibold text-yellow-800">🔍 Filtri Applicati:</span>
-            {filters.operatore && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Op: {filters.operatore}</span>}
-            {filters.ubicazione && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Ubic: {filters.ubicazione}</span>}
-            {filters.cdc && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">CDC: {filters.cdc}</span>}
-            {filters.stato && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Stato: {filters.stato}</span>}
-            {filters.match && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Match: {filters.match}</span>}
-            {filters.codSap && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">SAP: {filters.codSap}</span>}
-            {filters.poNr && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Po: {filters.poNr}</span>}
-            {filters.dataOra && <span className="bg-yellow-200 px-2 py-1 rounded text-xs">Data: {filters.dataOra}</span>}
-        </div>
-        <button 
-            onClick={() => { 
-                setFilters({}); 
-                setGlobalFilters({}); 
-                setFilteredData(storico); 
-            }} 
-            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-        >
-            ✕ Rimuovi Filtri
-        </button>
-    </div>
-)}
                         <div className="flex gap-2 items-center flex-wrap">
                             <input type="text" placeholder="Nuova ubicazione" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Nuovo Part Number" value={bulkPartNumber} onChange={(e) => setBulkPartNumber(e.target.value)} className="px-3 py-2 border rounded" />
@@ -4413,4 +4346,3 @@ const updateNoteStorico = async (item, newNote) => {
 </script>
     </body>
     </html>
-        
