@@ -680,14 +680,10 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 };
 
             case 'getStorico':
-                const { data: sData, error: sErr } = await supabaseClient
-                    .from('inventario')
-                    .select('*')
-                    .order('timestamp', { ascending: false })
-                    .limit(5000);
-                
-                if (sErr) throw sErr;
-                return { data: normalizeStorico(sData) };
+    const sData = await fetchAllRows('inventario');
+    // Ordina per timestamp decrescente (più recenti prima)
+    sData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return { data: normalizeStorico(sData) };
 
            case 'saveRiscontro': 
 case 'registraScansione':
@@ -1486,7 +1482,7 @@ const excelData = storico.map(item => ({
 
             // Prepara dati per Excel
             const excelData = daInventariare.map(item => ({
-                'ID Riga': item.id_riga_giacenza || '',
+                'ID Riga': item.ID_Riga || '',
                 'Po Nr': item.PoNr || '',
                 'CDC': item.Cdc || '',
                 'Cod. SAP': item.CodSap || '',
