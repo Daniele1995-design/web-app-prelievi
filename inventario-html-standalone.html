@@ -2731,18 +2731,25 @@ const handleUpdateNote = async () => {
             }, [filters, displayCount]);
 
             const applyFilters = () => {
-                let filtered = giacenza.filter(i => !i.inventariato);
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                setFilteredData(filtered);
-                setDisplayCount(50);
-                setHasMore(filtered.length > 50);
-                setShowFilters(false);
-            };
+    // ✅ Usa setTimeout per non bloccare UI
+    setShowFilters(false);
+    
+    setTimeout(() => {
+        // SEMPRE filtra solo NON inventariati
+        let filtered = giacenza.filter(i => !i.inventariato);
+        
+        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        
+        setFilteredData(filtered);
+        setDisplayCount(50);
+        setHasMore(filtered.length > 50);
+    }, 0);
+};
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
