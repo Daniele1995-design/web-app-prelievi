@@ -571,6 +571,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 WMSCode: item.wms_code || '',
                 RISCONTROSERIALEF: item.riscontro_seriale_f || '',
                 PartNumber: item.part_number || '',
+                inventariato: !!item.seriale_riscontrato === 'INVENTARIATO',
                 Match: item.match || '',
                 'Qtà': item.qta || 1,
                 Note: item.note || ''
@@ -1775,10 +1776,10 @@ const [newItemData, setNewItemData] = useState({
                         
                         // 1. AGGIORNA UI LOCALE IMMEDIATAMENTE
                         const updatedGiacenza = giacenza.map(item =>
-    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-        ? { ...item, Match: match ? 'OK' : 'KO' } // ✅ Aggiorna solo Match
-        : item
-);
+                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                                ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
+                                : item
+                        );
                         
                         const newEntry = { 
                             id: Date.now() + Math.random(),
@@ -2651,7 +2652,7 @@ const handleUpdateNote = async () => {
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingUbicazione, setEditingUbicazione] = useState({});
             const [editingPartNumber, setEditingPartNumber] = useState({});
-            const [editingNote, setEditingNote] = useState({});
+            const [editingNote, setEditingNote] = useState({})
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -2671,36 +2672,30 @@ const handleUpdateNote = async () => {
             });
 
             useEffect(() => {
-    async function loadData() {
+    async function load() {
+        if (appCache.giacenza) {
+            setGiacenza(appCache.giacenza);
+            const notInventoried = appCache.giacenza.filter(i => !i.inventariato);
+            setFilteredData(notInventoried);
+            setHasMore(notInventoried.length > 50);
+            setLoading(false);
+            return;
+        }
+        
         try {
             setLoadingProgress('Caricamento dati...');
+            const res = await api('getGiacenza');
             
-            // Carica giacenza e storico
-            const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'),
-                api('getStorico')
-            ]);
+            const data = res.data.map(i => ({ 
+                ...i, 
+                inventariato: i.Stato === 'INVENTARIATO'
+            }));
             
-            const giacenzaData = resGiac.data;
-            const storicoData = resStor.data;
-            
-            // ✅ Crea Set di ID_Riga già inventariati
-            const inventariatiIds = new Set(
-                storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
-            );
-            
-            // ✅ Filtra giacenza: escludi se in storico O se match='OK'
-            const daInventariare = giacenzaData.filter(item => 
-                !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
-            );
-            
-            setGiacenza(giacenzaData);
-            setFilteredData(daInventariare);
-            setHasMore(daInventariare.length > 50);
-            
-            appCache.giacenza = giacenzaData;
-            appCache.storico = storicoData;
-            
+            setGiacenza(data);
+            const notInventoried = data.filter(i => !i.inventariato);
+            setFilteredData(notInventoried);
+            setHasMore(notInventoried.length > 50);
+            appCache.giacenza = data;
         } catch (err) {
             alert('Errore caricamento: ' + err.message);
         } finally {
@@ -2708,75 +2703,46 @@ const handleUpdateNote = async () => {
             setLoadingProgress('');
         }
     }
-    
-    loadData();
+    load();
 }, []);
 
             useEffect(() => {
-    const handleUpdate = async (event) => {
-        if (event.detail) {
-            const updatedGiacenza = event.detail.giacenza || giacenza;
-            const updatedStorico = event.detail.storico || appCache.storico || [];
-            
-            setGiacenza(updatedGiacenza);
-            appCache.giacenza = updatedGiacenza;
-            if (event.detail.storico) appCache.storico = updatedStorico;
-            
-            // ✅ Crea Set di ID_Riga già inventariati
-            const inventariatiIds = new Set(
-                updatedStorico.map(s => s.id_riga_giacenza).filter(Boolean)
-            );
-            
-            // ✅ Filtra giacenza: escludi se in storico O se match='OK'
-            let filtered = updatedGiacenza.filter(item => 
-                !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
-            );
-            
-            // Applica filtri utente
-            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-            if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-            
-            setFilteredData(filtered);
-            setHasMore(filtered.length > displayCount);
-        }
-    };
+                const handleUpdate = async (event) => {
+                    if (event.detail && event.detail.giacenza) {
+                        const updatedGiacenza = event.detail.giacenza;
+                        setGiacenza(updatedGiacenza);
+                        appCache.giacenza = updatedGiacenza;
+                        
+                        let filtered = updatedGiacenza.filter(i => !i.inventariato);
+                        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+                        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+                        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+                        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+                        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+                        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+                        
+                        setFilteredData(filtered);
+                        setHasMore(filtered.length > displayCount);
+                    }
+                };
 
-    window.addEventListener('ats-data-updated', handleUpdate);
-    return () => window.removeEventListener('ats-data-updated', handleUpdate);
-}, [filters, displayCount, giacenza]);
+                window.addEventListener('ats-data-updated', handleUpdate);
+                return () => window.removeEventListener('ats-data-updated', handleUpdate);
+            }, [filters, displayCount]);
 
             const applyFilters = () => {
-    setShowFilters(false);
-    
-    setTimeout(() => {
-        // ✅ Crea Set di ID_Riga già inventariati
-        const storicoData = appCache.storico || [];
-        const inventariatiIds = new Set(
-            storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
-        );
-        
-        // ✅ Filtra base: escludi se in storico O se match='OK'
-        let filtered = giacenza.filter(item => 
-            !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
-        );
-        
-        // Applica filtri utente
-        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-        
-        setFilteredData(filtered);
-        setDisplayCount(50);
-        setHasMore(filtered.length > 50);
-    }, 0);
-};
+                let filtered = giacenza.filter(i => !i.inventariato);
+                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+                setFilteredData(filtered);
+                setDisplayCount(50);
+                setHasMore(filtered.length > 50);
+                setShowFilters(false);
+            };
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
@@ -3567,8 +3533,6 @@ const updateNoteLista = async (item, newNote) => {
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
         const [formatoStampa, setFormatoStampa] = useState('10x10');
-        const [displayCount, setDisplayCount] = useState(50);
-         const [hasMore, setHasMore] = useState(true);
         
         const [showColumnSelector, setShowColumnSelector] = useState(false);
         const [visibleColumns, setVisibleColumns] = useState({
