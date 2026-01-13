@@ -571,7 +571,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 WMSCode: item.wms_code || '',
                 RISCONTROSERIALEF: item.riscontro_seriale_f || '',
                 PartNumber: item.part_number || '',
-                inventariato: item.match === 'OK',
+                inventariato: false,
                 Match: item.match || '',
                 'Qtà': item.qta || 1,
                 Note: item.note || ''
@@ -603,6 +603,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         // ✅ Sincronizza giacenza con inventario usando ID_Riga
 async function syncGiacenzaWithInventario(giacenzaData) {
     try {
+        console.log('🔄 Inizio sync giacenza-inventario...');
+        
         // Ottieni tutti gli ID_Riga già inventariati
         const { data: inventariati, error } = await supabaseClient
             .from('inventario')
@@ -610,22 +612,34 @@ async function syncGiacenzaWithInventario(giacenzaData) {
         
         if (error) throw error;
         
+        console.log(`📊 Trovati ${inventariati.length} record in inventario`);
+        
         // Crea Set per lookup veloce
         const inventariatiSet = new Set(
             inventariati.map(i => i.id_riga_giacenza).filter(Boolean)
         );
         
+        console.log(`🎯 ID univoci inventariati: ${inventariatiSet.size}`);
+        
         // Marca come inventariati gli articoli che hanno ID in inventario
-        return giacenzaData.map(item => ({
-            ...item,
-            inventariato: item.match === 'OK' || inventariatiSet.has(item.ID_Riga)
-        }));
+        const result = giacenzaData.map(item => {
+            const isInInventario = inventariatiSet.has(item.ID_Riga);
+            return {
+                ...item,
+                inventariato: item.Match === 'OK' || isInInventario
+            };
+        });
+        
+        const inventariatiCount = result.filter(i => i.inventariato).length;
+        console.log(`✅ Sync completata: ${inventariatiCount} articoli marcati come inventariati`);
+        
+        return result;
     } catch (err) {
         console.error('❌ Errore sync giacenza-inventario:', err);
         // Fallback: usa solo il campo match
         return giacenzaData;
     }
-}
+} 
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
         // ============================================
@@ -3640,23 +3654,29 @@ const updateNoteLista = async (item, newNote) => {
         }, [filters]);
 
         const applyFilters = () => {
-            let filtered = [...storico];
-            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
-            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
-            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-            if (filters.dataOra) {
-                filtered = filtered.filter(i => {
-                    const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-                    return itemDate.includes(filters.dataOra);
-                });
-            }
-            setFilteredData(filtered);
-            setShowFilters(false);
-        };
+    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    const filtered = storico.reduce((acc, i) => {
+        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.match && i.Match !== filters.match) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.dataOra) {
+            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+            if (!itemDate.includes(filters.dataOra)) return acc;
+        }
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50); // ✅ Reset paginazione
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
         useEffect(() => {
     setHasMore(filteredData.length > displayCount);
 }, [filteredData, displayCount]);
