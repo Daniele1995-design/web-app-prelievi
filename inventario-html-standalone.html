@@ -571,7 +571,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 WMSCode: item.wms_code || '',
                 RISCONTROSERIALEF: item.riscontro_seriale_f || '',
                 PartNumber: item.part_number || '',
-                inventariato: item.match === 'OK',,
+                inventariato: !!item.seriale_riscontrato === 'INVENTARIATO',
                 Match: item.match || '',
                 'Qtà': item.qta || 1,
                 Note: item.note || ''
@@ -599,32 +599,6 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         SerSN: item.ser_sn || 'No', // ✅ NEW: Aggiunge ser_sn
         id_riga_giacenza: item.id_riga_giacenza || ''
     }));
-}
-        // ✅ Sincronizza giacenza con inventario usando ID_Riga
-async function syncGiacenzaWithInventario(giacenzaData) {
-    try {
-        // Ottieni tutti gli ID_Riga già inventariati
-        const { data: inventariati, error } = await supabaseClient
-            .from('inventario')
-            .select('id_riga_giacenza');
-        
-        if (error) throw error;
-        
-        // Crea Set per lookup veloce
-        const inventariatiSet = new Set(
-            inventariati.map(i => i.id_riga_giacenza).filter(Boolean)
-        );
-        
-        // Marca come inventariati gli articoli che hanno ID in inventario
-        return giacenzaData.map(item => ({
-            ...item,
-            inventariato: item.match === 'OK' || inventariatiSet.has(item.ID_Riga)
-        }));
-    } catch (err) {
-        console.error('❌ Errore sync giacenza-inventario:', err);
-        // Fallback: usa solo il campo match
-        return giacenzaData;
-    }
 }
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
@@ -677,11 +651,8 @@ async function syncGiacenzaWithInventario(giacenzaData) {
                 return { user };
 
             case 'getGiacenza':
-                case 'getGiacenza':
-    const gData = await fetchAllRows('giacenza');
-    const normalized = normalizeGiacenza(gData);
-    const synced = await syncGiacenzaWithInventario(normalized); // ✅ Sync con inventario
-    return { data: synced };
+                const gData = await fetchAllRows('giacenza');
+                return { data: normalizeGiacenza(gData) };
 
             case 'getStats':
                 const { count: tot } = await supabaseClient
@@ -1712,6 +1683,7 @@ const [newItemData, setNewItemData] = useState({
 
            useEffect(() => {
     async function loadData() {
+        // Controlla se abbiamo già dati in memoria
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
@@ -1722,13 +1694,18 @@ const [newItemData, setNewItemData] = useState({
         try {
             setLoadingProgress('Caricamento dati...');
             const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'), // ✅ Già sincronizzata
+                api('getGiacenza'),
                 api('getStorico')
             ]);
             
-            setGiacenza(resGiac.data); // ✅ Già ha inventariato corretto
+            const giacenzaData = resGiac.data.map(item => ({ 
+                ...item, 
+                inventariato: item.Stato === 'INVENTARIATO'
+            }));
+            
+            setGiacenza(giacenzaData);
             setStorico(resStor.data);
-            appCache.giacenza = resGiac.data;
+            appCache.giacenza = giacenzaData;
             appCache.storico = resStor.data;
         } catch (err) {
             console.error(err);
@@ -1742,6 +1719,7 @@ const [newItemData, setNewItemData] = useState({
     loadData();
     if (inputRef.current) inputRef.current.focus();
 }, []);
+
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -2674,7 +2652,7 @@ const handleUpdateNote = async () => {
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingUbicazione, setEditingUbicazione] = useState({});
             const [editingPartNumber, setEditingPartNumber] = useState({});
-            const [editingNote, setEditingNote] = useState({});
+            const [editingNote, setEditingNote] = useState({})
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -2693,7 +2671,7 @@ const handleUpdateNote = async () => {
                 note: true 
             });
 
-    useEffect(() => {
+            useEffect(() => {
     async function load() {
         if (appCache.giacenza) {
             setGiacenza(appCache.giacenza);
@@ -2706,13 +2684,18 @@ const handleUpdateNote = async () => {
         
         try {
             setLoadingProgress('Caricamento dati...');
-            const res = await api('getGiacenza'); // ✅ Già sincronizzata
+            const res = await api('getGiacenza');
             
-            setGiacenza(res.data);
-            const notInventoried = res.data.filter(i => !i.inventariato);
+            const data = res.data.map(i => ({ 
+                ...i, 
+                inventariato: i.Stato === 'INVENTARIATO'
+            }));
+            
+            setGiacenza(data);
+            const notInventoried = data.filter(i => !i.inventariato);
             setFilteredData(notInventoried);
             setHasMore(notInventoried.length > 50);
-            appCache.giacenza = res.data;
+            appCache.giacenza = data;
         } catch (err) {
             alert('Errore caricamento: ' + err.message);
         } finally {
@@ -2747,29 +2730,19 @@ const handleUpdateNote = async () => {
                 return () => window.removeEventListener('ats-data-updated', handleUpdate);
             }, [filters, displayCount]);
 
-           const applyFilters = () => {
-    // ✅ Usa UN SOLO ciclo invece di filter multipli
-    const filtered = giacenza.reduce((acc, i) => {
-        // Controlla inventariato
-        if (i.inventariato) return acc;
-        
-        // Applica tutti i filtri in un solo check
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50);
-    setHasMore(filtered.length > 50);
-    setShowFilters(false);
-};
+            const applyFilters = () => {
+                let filtered = giacenza.filter(i => !i.inventariato);
+                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+                setFilteredData(filtered);
+                setDisplayCount(50);
+                setHasMore(filtered.length > 50);
+                setShowFilters(false);
+            };
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
