@@ -600,6 +600,32 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         id_riga_giacenza: item.id_riga_giacenza || ''
     }));
 }
+        // ✅ Sincronizza giacenza con inventario usando ID_Riga
+async function syncGiacenzaWithInventario(giacenzaData) {
+    try {
+        // Ottieni tutti gli ID_Riga già inventariati
+        const { data: inventariati, error } = await supabaseClient
+            .from('inventario')
+            .select('id_riga_giacenza');
+        
+        if (error) throw error;
+        
+        // Crea Set per lookup veloce
+        const inventariatiSet = new Set(
+            inventariati.map(i => i.id_riga_giacenza).filter(Boolean)
+        );
+        
+        // Marca come inventariati gli articoli che hanno ID in inventario
+        return giacenzaData.map(item => ({
+            ...item,
+            inventariato: item.match === 'OK' || inventariatiSet.has(item.ID_Riga)
+        }));
+    } catch (err) {
+        console.error('❌ Errore sync giacenza-inventario:', err);
+        // Fallback: usa solo il campo match
+        return giacenzaData;
+    }
+}
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
         // ============================================
@@ -651,8 +677,10 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 return { user };
 
             case 'getGiacenza':
-                const gData = await fetchAllRows('giacenza');
-                return { data: normalizeGiacenza(gData) };
+    const gData = await fetchAllRows('giacenza');
+    const normalized = normalizeGiacenza(gData);
+    const synced = await syncGiacenzaWithInventario(normalized); // ✅ Sync con inventario
+    return { data: synced };
 
             case 'getStats':
                 const { count: tot } = await supabaseClient
@@ -1683,7 +1711,6 @@ const [newItemData, setNewItemData] = useState({
 
            useEffect(() => {
     async function loadData() {
-        // Controlla se abbiamo già dati in memoria
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
@@ -1694,18 +1721,13 @@ const [newItemData, setNewItemData] = useState({
         try {
             setLoadingProgress('Caricamento dati...');
             const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'),
+                api('getGiacenza'), // ✅ Già sincronizzata
                 api('getStorico')
             ]);
             
-            const giacenzaData = resGiac.data.map(item => ({ 
-                ...item, 
-                inventariato: item.Stato === 'INVENTARIATO'
-            }));
-            
-            setGiacenza(giacenzaData);
+            setGiacenza(resGiac.data); // ✅ Già ha inventariato corretto
             setStorico(resStor.data);
-            appCache.giacenza = giacenzaData;
+            appCache.giacenza = resGiac.data;
             appCache.storico = resStor.data;
         } catch (err) {
             console.error(err);
@@ -2684,18 +2706,13 @@ const handleUpdateNote = async () => {
         
         try {
             setLoadingProgress('Caricamento dati...');
-            const res = await api('getGiacenza');
+            const res = await api('getGiacenza'); // ✅ Già sincronizzata
             
-            const data = res.data.map(i => ({ 
-                ...i, 
-                inventariato: i.Stato === 'INVENTARIATO'
-            }));
-            
-            setGiacenza(data);
-            const notInventoried = data.filter(i => !i.inventariato);
+            setGiacenza(res.data);
+            const notInventoried = res.data.filter(i => !i.inventariato);
             setFilteredData(notInventoried);
             setHasMore(notInventoried.length > 50);
-            appCache.giacenza = data;
+            appCache.giacenza = res.data;
         } catch (err) {
             alert('Errore caricamento: ' + err.message);
         } finally {
@@ -2705,7 +2722,6 @@ const handleUpdateNote = async () => {
     }
     load();
 }, []);
-
             useEffect(() => {
                 const handleUpdate = async (event) => {
                     if (event.detail && event.detail.giacenza) {
