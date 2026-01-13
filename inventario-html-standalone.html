@@ -677,6 +677,7 @@ async function syncGiacenzaWithInventario(giacenzaData) {
                 return { user };
 
             case 'getGiacenza':
+                case 'getGiacenza':
     const gData = await fetchAllRows('giacenza');
     const normalized = normalizeGiacenza(gData);
     const synced = await syncGiacenzaWithInventario(normalized); // ✅ Sync con inventario
@@ -1741,7 +1742,6 @@ const [newItemData, setNewItemData] = useState({
     loadData();
     if (inputRef.current) inputRef.current.focus();
 }, []);
-
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -2674,7 +2674,7 @@ const handleUpdateNote = async () => {
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingUbicazione, setEditingUbicazione] = useState({});
             const [editingPartNumber, setEditingPartNumber] = useState({});
-            const [editingNote, setEditingNote] = useState({});
+            const [editingNote, setEditingNote] = useState({})
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -2693,7 +2693,7 @@ const handleUpdateNote = async () => {
                 note: true 
             });
 
-            useEffect(() => {
+    useEffect(() => {
     async function load() {
         if (appCache.giacenza) {
             setGiacenza(appCache.giacenza);
@@ -2722,6 +2722,7 @@ const handleUpdateNote = async () => {
     }
     load();
 }, []);
+
             useEffect(() => {
                 const handleUpdate = async (event) => {
                     if (event.detail && event.detail.giacenza) {
@@ -2746,26 +2747,26 @@ const handleUpdateNote = async () => {
                 return () => window.removeEventListener('ats-data-updated', handleUpdate);
             }, [filters, displayCount]);
 
-const applyFilters = () => {
-    const filtered = storico.reduce((acc, i) => {
-        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+           const applyFilters = () => {
+    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    const filtered = giacenza.reduce((acc, i) => {
+        // Controlla inventariato
+        if (i.inventariato) return acc;
+        
+        // Applica tutti i filtri in un solo check
         if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.match && i.Match !== filters.match) return acc;
         if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
         if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.dataOra) {
-            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-            if (!itemDate.includes(filters.dataOra)) return acc;
-        }
+        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
         
         acc.push(i);
         return acc;
     }, []);
     
     setFilteredData(filtered);
-    setDisplayCount(50); // ✅ Reset paginazione
+    setDisplayCount(50);
     setHasMore(filtered.length > 50);
     setShowFilters(false);
 };
@@ -3559,8 +3560,7 @@ const updateNoteLista = async (item, newNote) => {
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
         const [formatoStampa, setFormatoStampa] = useState('10x10');
-        const [displayCount, setDisplayCount] = useState(50);
-        const [hasMore, setHasMore] = useState(true);
+        
         const [showColumnSelector, setShowColumnSelector] = useState(false);
         const [visibleColumns, setVisibleColumns] = useState({
             dataOra: true,
@@ -4211,7 +4211,7 @@ const updateNoteStorico = async (item, newNote) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredData.slice(0, displayCount).map((item, idx) => (
+                                {filteredData.map((item, idx) => (
                                     <tr key={idx} className="border-t hover:bg-gray-50">
                                        <td className="px-3 py-2">
     <input 
@@ -4360,22 +4360,8 @@ const updateNoteStorico = async (item, newNote) => {
                     </div>
                 </div>
                 <p className="text-gray-600">
-    Visualizzati: <strong>{Math.min(displayCount, filteredData.length)}</strong> di <strong>{filteredData.length}</strong> riscontri
-</p>
-                {hasMore && (
-    <div className="text-center mt-4">
-        <button 
-            onClick={() => {
-                const newCount = displayCount + 50;
-                setDisplayCount(newCount);
-                setHasMore(filteredData.length > newCount);
-            }} 
-            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-medium"
-        >
-            Carica altri 50 articoli
-        </button>
-    </div>
-)}
+                    Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri
+                </p>
             </div>
         );
     }
