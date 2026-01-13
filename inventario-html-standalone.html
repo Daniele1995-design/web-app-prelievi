@@ -571,7 +571,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 WMSCode: item.wms_code || '',
                 RISCONTROSERIALEF: item.riscontro_seriale_f || '',
                 PartNumber: item.part_number || '',
-                inventariato: !!item.seriale_riscontrato === 'INVENTARIATO',
+                inventariato: item.match === 'OK',
                 Match: item.match || '',
                 'Qtà': item.qta || 1,
                 Note: item.note || ''
@@ -2731,18 +2731,28 @@ const handleUpdateNote = async () => {
             }, [filters, displayCount]);
 
             const applyFilters = () => {
-                let filtered = giacenza.filter(i => !i.inventariato);
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                setFilteredData(filtered);
-                setDisplayCount(50);
-                setHasMore(filtered.length > 50);
-                setShowFilters(false);
-            };
+    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    const filtered = giacenza.reduce((acc, i) => {
+        // Controlla inventariato
+        if (i.inventariato) return acc;
+        
+        // Applica tutti i filtri in un solo check
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
@@ -3542,7 +3552,7 @@ const updateNoteLista = async (item, newNote) => {
             codSap: true,
             descrizione: false,
             cdc: true,
-            stato: true,
+             stato: true,
             ubicazione: true,
             serialeAtteso: false,
             partNumber: true,
