@@ -2724,13 +2724,12 @@ const handleUpdateNote = async () => {
             
             // ✅ Crea Set di ID_Riga già inventariati
             const inventariatiIds = new Set(
-                updatedStorico.map(s => s.id_riga_giacenza).filter(Boolean)
-            );
-            
-            // ✅ Filtra giacenza: escludi se in storico O se match='OK'
-            let filtered = updatedGiacenza.filter(item => 
-                !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
-            );
+    storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
+);
+
+let filtered = giacenza.filter(item => 
+    !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
+);
             
             // Applica filtri utente
             if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
@@ -2821,26 +2820,36 @@ const toggleSelectWithShift = (item, index, event) => {
                 setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
             };
 
-            const updateUbicazioneLista = async (item, newUbic) => {
+           const updateUbicazioneLista = async (item, newUbic) => {
     if (!newUbic.trim()) return;
     
-    // Aggiorna GIACENZA (articoli NON inventariati)
+    // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+        i.ID_Riga === item.ID_Riga
             ? { ...i, Ubicazioni: newUbic } 
             : i
     );
     setGiacenza(updatedGiacenza);
     appCache.giacenza = updatedGiacenza;
     
-    // Aggiorna filteredData
-    let filtered = updatedGiacenza.filter(i => !i.inventariato);
+    // ✅ FIX: Ricalcola filteredData usando cross-check con storico
+    const storicoData = appCache.storico || [];
+    const inventariatiIds = new Set(
+        storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
+    );
+    
+    let filtered = updatedGiacenza.filter(item => 
+        !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
+    );
+    
+    // Applica filtri utente
     if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
     if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
     if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
     if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
     if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+    
     setFilteredData(filtered);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2875,16 +2884,25 @@ const updatePartNumberLista = async (item, newPN) => {
     setGiacenza(updatedGiacenza);
     appCache.giacenza = updatedGiacenza;
     
-    // Aggiorna filteredData
-    let filtered = updatedGiacenza.filter(i => !i.inventariato);
+    // ✅ FIX: Ricalcola filteredData
+    const storicoData = appCache.storico || [];
+    const inventariatiIds = new Set(
+        storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
+    );
+    
+    let filtered = updatedGiacenza.filter(item => 
+        !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
+    );
+    
+    // Applica filtri utente
     if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
     if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
     if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
     if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
     if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-    setFilteredData(filtered);
     
+    setFilteredData(filtered);
     setEditingPartNumber(prev => { const n = {...prev}; delete n[item.ID_Riga]; return n; });
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -3294,7 +3312,21 @@ const updateNoteLista = async (item, newNote) => {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
-                                    <button onClick={() => { setFilters({}); setFilteredData(giacenza.filter(i => !i.inventariato)); setDisplayCount(50); setHasMore(true); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
+                                    <button onClick={() => { 
+    setFilters({}); 
+    // ✅ FIX: Usa cross-check invece di inventariato
+    const storicoData = appCache.storico || [];
+    const inventariatiIds = new Set(
+        storicoData.map(s => s.id_riga_giacenza).filter(Boolean)
+    );
+    const daInv = giacenza.filter(item => 
+        !inventariatiIds.has(item.ID_Riga) && item.Match !== 'OK'
+    );
+    setFilteredData(daInv); 
+    setDisplayCount(50); 
+    setHasMore(true); 
+    setShowFilters(false); 
+}} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
                                 </div>
                                     </div>
                     </div>
@@ -3588,8 +3620,8 @@ const updateNoteLista = async (item, newNote) => {
             serSN: false
         });
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-        const [displayCount, setDisplayCount] = useState(50);
-        const [hasMore, setHasMore] = useState(true);
+;
+
 
         useEffect(() => {
     async function loadData() {
