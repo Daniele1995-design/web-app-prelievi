@@ -1353,94 +1353,84 @@ operations: groups[action]
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
-        async function load() {
-            try {
-                await dbCache.init();
-                const giacenzaLocal = await dbCache.get('giacenza');
+    async function load() {
+        try {
+            await dbCache.init();
+            
+            // ✅ Carica SEMPRE da API per avere sync corretta
+            const res = await api('getGiacenza'); // ← Già sincronizzata!
+            const giacenzaData = res.data;
+            
+            const totaleGiacenza = giacenzaData.length;
+            const inventariati = giacenzaData.filter(i => i.inventariato).length;
+            const daInventariare = totaleGiacenza - inventariati;
+            const matchOk = giacenzaData.filter(i => i.Match === 'OK').length;
+            const percentuale = totaleGiacenza > 0 
+                ? Math.round((inventariati / totaleGiacenza) * 100) 
+                : 0;
 
-                if (giacenzaLocal.length > 0) {
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
+            const newStats = {
+                totaleGiacenza,
+                totaleInventariato: inventariati,
+                daInventariare,
+                matchOk,
+                percentualeCompletamento: percentuale
+            };
 
-                    const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
-
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                } else {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                }
-
-                setLoading(false);
-            } catch (err) {
-                console.error(err);
-                try {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                } catch (serverErr) {
-                    console.error('Errore caricamento stats:', serverErr);
-                }
-                setLoading(false);
-            }
+            setStats(newStats);
+            appCache.stats = newStats;
+            appCache.giacenza = giacenzaData; // ✅ Salva cache aggiornata
+            setLoading(false);
+        } catch (err) {
+            console.error('Errore caricamento stats:', err);
+            setLoading(false);
         }
-        
+    }
+    
+    load();
+    
+    const interval = setInterval(() => {
         load();
-        
-        const interval = setInterval(() => {
-            load();
-        }, 30000);
-        
-        return () => clearInterval(interval);
-    }, []);
+    }, 30000);
+    
+    return () => clearInterval(interval);
+}, []);
 
     useEffect(() => {
-        const handleUpdate = async () => {
-            try {
-                await dbCache.init();
-                const giacenzaLocal = await dbCache.get('giacenza');
+    const handleUpdate = async () => {
+        try {
+            // ✅ Usa giacenza aggiornata dalla cache
+            const giacenzaLocal = appCache.giacenza;
+            
+            if (giacenzaLocal && giacenzaLocal.length > 0) {
+                const totaleGiacenza = giacenzaLocal.length;
+                const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                const daInventariare = totaleGiacenza - inventariati;
+                const matchOk = giacenzaLocal.filter(i => i.Match === 'OK').length;
+                const percentuale = totaleGiacenza > 0 
+                    ? Math.round((inventariati / totaleGiacenza) * 100) 
+                    : 0;
 
-                if (giacenzaLocal.length > 0) {
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
+                const localStats = {
+                    totaleGiacenza,
+                    totaleInventariato: inventariati,
+                    daInventariare,
+                    matchOk,
+                    percentualeCompletamento: percentuale
+                };
 
-                    const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
-
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                }
-            } catch (err) {
-                console.error('Errore aggiornamento stats:', err);
+                setStats(localStats);
+                appCache.stats = localStats;
             }
-        };
+        } catch (err) {
+            console.error('Errore aggiornamento stats:', err);
+        }
+    };
 
-        window.addEventListener('ats-data-updated', handleUpdate);
-        return () => window.removeEventListener('ats-data-updated', handleUpdate);
-    }, []);
-
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, []);
+            
     const exportInventariati = async () => {
         setExporting(true);
         try {
