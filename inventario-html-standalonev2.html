@@ -571,7 +571,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 WMSCode: item.wms_code || '',
                 RISCONTROSERIALEF: item.riscontro_seriale_f || '',
                 PartNumber: item.part_number || '',
-                inventariato: !!item.seriale_riscontrato === 'INVENTARIATO',
+                inventariato: false,
                 Match: item.match || '',
                 'Qtà': item.qta || 1,
                 Note: item.note || ''
@@ -600,6 +600,46 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         id_riga_giacenza: item.id_riga_giacenza || ''
     }));
 }
+        // ✅ Sincronizza giacenza con inventario usando ID_Riga
+async function syncGiacenzaWithInventario(giacenzaData) {
+    try {
+        console.log('🔄 Inizio sync giacenza-inventario...');
+        
+        // Ottieni tutti gli ID_Riga già inventariati
+        const { data: inventariati, error } = await supabaseClient
+            .from('inventario')
+            .select('id_riga_giacenza');
+        
+        if (error) throw error;
+        
+        console.log(`📊 Trovati ${inventariati.length} record in inventario`);
+        
+        // Crea Set per lookup veloce
+        const inventariatiSet = new Set(
+            inventariati.map(i => i.id_riga_giacenza).filter(Boolean)
+        );
+        
+        console.log(`🎯 ID univoci inventariati: ${inventariatiSet.size}`);
+        
+        // Marca come inventariati gli articoli che hanno ID in inventario
+        const result = giacenzaData.map(item => {
+            const isInInventario = inventariatiSet.has(item.ID_Riga);
+            return {
+                ...item,
+                inventariato: item.Match === 'OK' || isInInventario
+            };
+        });
+        
+        const inventariatiCount = result.filter(i => i.inventariato).length;
+        console.log(`✅ Sync completata: ${inventariatiCount} articoli marcati come inventariati`);
+        
+        return result;
+    } catch (err) {
+        console.error('❌ Errore sync giacenza-inventario:', err);
+        // Fallback: usa solo il campo match
+        return giacenzaData;
+    }
+} 
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
         // ============================================
@@ -650,9 +690,11 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 if (lErr || !user) throw new Error('Credenziali errate');
                 return { user };
 
-            case 'getGiacenza':
-                const gData = await fetchAllRows('giacenza');
-                return { data: normalizeGiacenza(gData) };
+case 'getGiacenza':
+    const gData = await fetchAllRows('giacenza');
+    const normalized = normalizeGiacenza(gData);
+    const synced = await syncGiacenzaWithInventario(normalized); // ✅ Sync con inventario
+    return { data: synced };
 
             case 'getStats':
                 const { count: tot } = await supabaseClient
@@ -1311,94 +1353,84 @@ operations: groups[action]
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
-        async function load() {
-            try {
-                await dbCache.init();
-                const giacenzaLocal = await dbCache.get('giacenza');
+    async function load() {
+        try {
+            await dbCache.init();
+            
+            // ✅ Carica SEMPRE da API per avere sync corretta
+            const res = await api('getGiacenza'); // ← Già sincronizzata!
+            const giacenzaData = res.data;
+            
+            const totaleGiacenza = giacenzaData.length;
+            const inventariati = giacenzaData.filter(i => i.inventariato).length;
+            const daInventariare = totaleGiacenza - inventariati;
+            const matchOk = giacenzaData.filter(i => i.Match === 'OK').length;
+            const percentuale = totaleGiacenza > 0 
+                ? Math.round((inventariati / totaleGiacenza) * 100) 
+                : 0;
 
-                if (giacenzaLocal.length > 0) {
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
+            const newStats = {
+                totaleGiacenza,
+                totaleInventariato: inventariati,
+                daInventariare,
+                matchOk,
+                percentualeCompletamento: percentuale
+            };
 
-                    const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
-
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                } else {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                }
-
-                setLoading(false);
-            } catch (err) {
-                console.error(err);
-                try {
-                    const res = await api('getStats');
-                    setStats(res.stats);
-                    appCache.stats = res.stats;
-                } catch (serverErr) {
-                    console.error('Errore caricamento stats:', serverErr);
-                }
-                setLoading(false);
-            }
+            setStats(newStats);
+            appCache.stats = newStats;
+            appCache.giacenza = giacenzaData; // ✅ Salva cache aggiornata
+            setLoading(false);
+        } catch (err) {
+            console.error('Errore caricamento stats:', err);
+            setLoading(false);
         }
-        
+    }
+    
+    load();
+    
+    const interval = setInterval(() => {
         load();
-        
-        const interval = setInterval(() => {
-            load();
-        }, 30000);
-        
-        return () => clearInterval(interval);
-    }, []);
+    }, 30000);
+    
+    return () => clearInterval(interval);
+}, []);
 
     useEffect(() => {
-        const handleUpdate = async () => {
-            try {
-                await dbCache.init();
-                const giacenzaLocal = await dbCache.get('giacenza');
+    const handleUpdate = async () => {
+        try {
+            // ✅ Usa giacenza aggiornata dalla cache
+            const giacenzaLocal = appCache.giacenza;
+            
+            if (giacenzaLocal && giacenzaLocal.length > 0) {
+                const totaleGiacenza = giacenzaLocal.length;
+                const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
+                const daInventariare = totaleGiacenza - inventariati;
+                const matchOk = giacenzaLocal.filter(i => i.Match === 'OK').length;
+                const percentuale = totaleGiacenza > 0 
+                    ? Math.round((inventariati / totaleGiacenza) * 100) 
+                    : 0;
 
-                if (giacenzaLocal.length > 0) {
-                    const totaleGiacenza = giacenzaLocal.length;
-                    const inventariati = giacenzaLocal.filter(i => i.inventariato).length;
-                    const daInventariare = totaleGiacenza - inventariati;
-                    const matchOk = giacenzaLocal.filter(i => i.inventariato && i.Match === 'OK').length;
-                    const percentuale = totaleGiacenza > 0 
-                        ? Math.round((inventariati / totaleGiacenza) * 100) 
-                        : 0;
+                const localStats = {
+                    totaleGiacenza,
+                    totaleInventariato: inventariati,
+                    daInventariare,
+                    matchOk,
+                    percentualeCompletamento: percentuale
+                };
 
-                    const localStats = {
-                        totaleGiacenza,
-                        totaleInventariato: inventariati,
-                        daInventariare,
-                        matchOk,
-                        percentualeCompletamento: percentuale
-                    };
-
-                    setStats(localStats);
-                    appCache.stats = localStats;
-                }
-            } catch (err) {
-                console.error('Errore aggiornamento stats:', err);
+                setStats(localStats);
+                appCache.stats = localStats;
             }
-        };
+        } catch (err) {
+            console.error('Errore aggiornamento stats:', err);
+        }
+    };
 
-        window.addEventListener('ats-data-updated', handleUpdate);
-        return () => window.removeEventListener('ats-data-updated', handleUpdate);
-    }, []);
-
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, []);
+            
     const exportInventariati = async () => {
         setExporting(true);
         try {
@@ -1683,7 +1715,6 @@ const [newItemData, setNewItemData] = useState({
 
            useEffect(() => {
     async function loadData() {
-        // Controlla se abbiamo già dati in memoria
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
@@ -1694,18 +1725,13 @@ const [newItemData, setNewItemData] = useState({
         try {
             setLoadingProgress('Caricamento dati...');
             const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'),
+                api('getGiacenza'), // ✅ Già sincronizzata
                 api('getStorico')
             ]);
             
-            const giacenzaData = resGiac.data.map(item => ({ 
-                ...item, 
-                inventariato: item.Stato === 'INVENTARIATO'
-            }));
-            
-            setGiacenza(giacenzaData);
+            setGiacenza(resGiac.data); // ✅ Già ha inventariato corretto
             setStorico(resStor.data);
-            appCache.giacenza = giacenzaData;
+            appCache.giacenza = resGiac.data;
             appCache.storico = resStor.data;
         } catch (err) {
             console.error(err);
@@ -1719,7 +1745,6 @@ const [newItemData, setNewItemData] = useState({
     loadData();
     if (inputRef.current) inputRef.current.focus();
 }, []);
-
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -2652,7 +2677,7 @@ const handleUpdateNote = async () => {
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingUbicazione, setEditingUbicazione] = useState({});
             const [editingPartNumber, setEditingPartNumber] = useState({});
-            const [editingNote, setEditingNote] = useState({});
+            const [editingNote, setEditingNote] = useState({})
             const [displayCount, setDisplayCount] = useState(50);
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -2684,18 +2709,13 @@ const handleUpdateNote = async () => {
         
         try {
             setLoadingProgress('Caricamento dati...');
-            const res = await api('getGiacenza');
+            const res = await api('getGiacenza'); // ✅ Già sincronizzata
             
-            const data = res.data.map(i => ({ 
-                ...i, 
-                inventariato: i.Stato === 'INVENTARIATO'
-            }));
-            
-            setGiacenza(data);
-            const notInventoried = data.filter(i => !i.inventariato);
+            setGiacenza(res.data);
+            const notInventoried = res.data.filter(i => !i.inventariato);
             setFilteredData(notInventoried);
             setHasMore(notInventoried.length > 50);
-            appCache.giacenza = data;
+            appCache.giacenza = res.data;
         } catch (err) {
             alert('Errore caricamento: ' + err.message);
         } finally {
@@ -2705,7 +2725,6 @@ const handleUpdateNote = async () => {
     }
     load();
 }, []);
-
             useEffect(() => {
                 const handleUpdate = async (event) => {
                     if (event.detail && event.detail.giacenza) {
@@ -2731,18 +2750,28 @@ const handleUpdateNote = async () => {
             }, [filters, displayCount]);
 
             const applyFilters = () => {
-                let filtered = giacenza.filter(i => !i.inventariato);
-                if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                setFilteredData(filtered);
-                setDisplayCount(50);
-                setHasMore(filtered.length > 50);
-                setShowFilters(false);
-            };
+    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    const filtered = giacenza.reduce((acc, i) => {
+        // Controlla inventariato
+        if (i.inventariato) return acc;
+        
+        // Applica tutti i filtri in un solo check
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
@@ -3542,7 +3571,7 @@ const updateNoteLista = async (item, newNote) => {
             codSap: true,
             descrizione: false,
             cdc: true,
-            stato: true,
+             stato: true,
             ubicazione: true,
             serialeAtteso: false,
             partNumber: true,
@@ -3615,23 +3644,29 @@ const updateNoteLista = async (item, newNote) => {
         }, [filters]);
 
         const applyFilters = () => {
-            let filtered = [...storico];
-            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
-            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
-            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-            if (filters.dataOra) {
-                filtered = filtered.filter(i => {
-                    const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-                    return itemDate.includes(filters.dataOra);
-                });
-            }
-            setFilteredData(filtered);
-            setShowFilters(false);
-        };
+    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    const filtered = storico.reduce((acc, i) => {
+        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.match && i.Match !== filters.match) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.dataOra) {
+            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+            if (!itemDate.includes(filters.dataOra)) return acc;
+        }
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50); // ✅ Reset paginazione
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
         useEffect(() => {
     setHasMore(filteredData.length > displayCount);
 }, [filteredData, displayCount]);
