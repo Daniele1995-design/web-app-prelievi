@@ -508,7 +508,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   display: none;
 }
 
-/* MODAL OVERLAY */
+/* AGGIUNGERE AL CSS */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -520,6 +520,29 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   justify-content: center;
   align-items: center;
   z-index: 50;
+  overflow-y: auto; /* ← FIX: permette scroll */
+  padding: 1rem; /* ← FIX: spazio ai bordi */
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 500px; /* ← FIX: larghezza massima */
+  max-height: 90vh; /* ← FIX: altezza massima */
+  overflow-y: auto; /* ← FIX: scroll interno */
+  margin: auto; /* ← FIX: centrato */
+}
+
+/* Mobile optimization */
+@media (max-width: 640px) {
+  .modal-content {
+    max-width: 95vw;
+    padding: 1rem;
+    font-size: 14px;
+  }
 }
     .col-descrizione {
   max-width: 200px;  /* Larghezza massima fissa */
@@ -1709,6 +1732,7 @@ const [newItemData, setNewItemData] = useState({
     cdc: '',
     stato: '',
     partNumber: '',
+    poNr: '', // ← FIX: AGGIUNTO
     serSN: 'No',
     descrizione: ''
 });
@@ -2335,7 +2359,18 @@ const handleUpdateNote = async () => {
                                 placeholder="es. A-01-02-03"
                             />
                         </div>
-                        
+                        <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-1">
+        Po Nr <span className="text-gray-400">(opzionale)</span>
+    </label>
+    <input 
+        type="text" 
+        value={newItemData.poNr}
+        onChange={(e) => setNewItemData({...newItemData, poNr: e.target.value})}
+        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+        placeholder="es. 4500123456"
+    />
+</div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">
                                 CDC <span className="text-red-500">*</span>
@@ -3809,54 +3844,79 @@ const updateNoteStorico = async (item, newNote) => {
     }
 };
 
-        const updateBulkUbicazione = async () => {
-            if (selected.length === 0 || !bulkUbicazione.trim()) return;
-            if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
-            
-            try {
-                for (const item of selected) {
-                    await api('updateUbicazione', { seriale: item.Seriale_Riscontrato, ubicazione: bulkUbicazione });
-                }
-                const updated = storico.map(i => selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) ? { ...i, Ubicazioni: bulkUbicazione } : i);
-                setStorico(updated);
-                setFilteredData(updated);
-                appCache.storico = updated;
-                //await dbCache.set('storico', updated);
-                setSelected([]);
-                setBulkUbicazione('');
-                alert('Ubicazioni aggiornate');
-            } catch (err) {
-                alert('Errore aggiornamento');
-            }
-        };
+const updateBulkUbicazione = async () => {
+    if (selected.length === 0 || !bulkUbicazione.trim()) return;
+    if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
+    
+    try {
+        // ✅ FIX: Aggiorna INVENTARIO con ID corretto
+        for (const item of selected) {
+            await api('updateInventarioUbicazione', { 
+                id: item.id, // ← USA ID INVENTARIO
+                ubicazione: bulkUbicazione 
+            });
+        }
+        
+        // Aggiorna cache locale
+        const updated = storico.map(i => 
+            selected.find(s => s.id === i.id) 
+                ? { ...i, Ubicazioni: bulkUbicazione } 
+                : i
+        );
+        
+        setStorico(updated);
+        setFilteredData(updated);
+        appCache.storico = updated;
+        setSelected([]);
+        setBulkUbicazione('');
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { storico: updated }
+        }));
+        
+        alert('✅ Ubicazioni aggiornate!');
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore aggiornamento: ' + err.message);
+    }
+};
 
-        const updateBulkPartNumber = async () => {
-            if (selected.length === 0 || !bulkPartNumber.trim()) return;
-            if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
-            
-            try {
-                for (const item of selected) {
-                    await api('updatePartNumber', { 
-                        seriale: item.Seriale_Riscontrato, 
-                        partNumber: bulkPartNumber 
-                    });
-                }
-                const updated = storico.map(i => 
-                    selected.find(s => s.Seriale_Riscontrato === i.Seriale_Riscontrato) 
-                        ? { ...i, PartNumber: bulkPartNumber } 
-                        : i
-                );
-                setStorico(updated);
-                setFilteredData(updated);
-                appCache.storico = updated;
-                //await dbCache.set('storico', updated);
-                setSelected([]);
-                setBulkPartNumber('');
-                alert('Part Number aggiornati');
-            } catch (err) {
-                alert('Errore aggiornamento');
-            }
-        };
+const updateBulkPartNumber = async () => {
+    if (selected.length === 0 || !bulkPartNumber.trim()) return;
+    if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
+    
+    try {
+        // ✅ FIX: Aggiorna INVENTARIO con ID corretto
+        for (const item of selected) {
+            await api('updateInventarioPartNumber', { 
+                id: item.id, // ← USA ID INVENTARIO
+                partNumber: bulkPartNumber 
+            });
+        }
+        
+        // Aggiorna cache locale
+        const updated = storico.map(i => 
+            selected.find(s => s.id === i.id) 
+                ? { ...i, PartNumber: bulkPartNumber } 
+                : i
+        );
+        
+        setStorico(updated);
+        setFilteredData(updated);
+        appCache.storico = updated;
+        setSelected([]);
+        setBulkPartNumber('');
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { storico: updated }
+        }));
+        
+        alert('✅ Part Number aggiornati!');
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore aggiornamento: ' + err.message);
+    }
+};
         const stampaStorico = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
