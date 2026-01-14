@@ -2488,7 +2488,7 @@ const handleUpdateNote = async () => {
             </div>
         )}
         <div className="bg-white rounded-lg shadow p-6">
-    <div className="flex items-start gap-4 mb-4">
+    <div className="flex items-center gap-4 mb-4">
         {/* Campo Seriale - A SINISTRA */}
         <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2506,11 +2506,8 @@ const handleUpdateNote = async () => {
             />
         </div>
         
-        {/* Campo Ubicazione Attesa - A DESTRA */}
-        <div style={{width: '300px'}}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-                ​🛒​ Ubicazione Attesa
-            </label>
+        {/* Campo Ubicazione Attesa - A DESTRA COMPATTO */}
+        <div style={{width: '250px', marginTop: '28px'}}>
             <input 
                 ref={ubicazioneInputRef}
                 type="text" 
@@ -2523,7 +2520,7 @@ const handleUpdateNote = async () => {
                     }
                 }}
                 className="w-full px-4 py-3 text-lg border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500" 
-                placeholder="Barcode ubicazione..." 
+                placeholder="​🛒​ Barcode ubicazione attesa" 
             />
         </div>
     </div>
