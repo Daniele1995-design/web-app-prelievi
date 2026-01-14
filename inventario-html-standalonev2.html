@@ -1696,10 +1696,10 @@ const excelData = storico.map(item => ({
             const [newUbicazione, setNewUbicazione] = useState('');
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingPartNumber, setEditingPartNumber] = useState(false);
-const [newPartNumber, setNewPartNumber] = useState('');
-const [editingNote, setEditingNote] = useState(false);
-const [newNote, setNewNote] = useState('');
-const inputRef = useRef(null);
+            const [newPartNumber, setNewPartNumber] = useState('');
+            const [editingNote, setEditingNote] = useState(false);
+            const [newNote, setNewNote] = useState('');
+            const inputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
 const [newItemData, setNewItemData] = useState({
@@ -1897,6 +1897,7 @@ const [newItemData, setNewItemData] = useState({
         cdc: '',
         stato: '',
         partNumber: '',
+        poNr: '',
         serSN: 'No',
         descrizione: ''
     });
