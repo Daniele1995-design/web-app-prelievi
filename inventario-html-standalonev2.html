@@ -1825,37 +1825,10 @@ const [newItemData, setNewItemData] = useState({
                      if (found) {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
-    // ✅ NUOVO: Controllo ubicazione
-    const ubicazioneAttuale = found.Ubicazioni || '';
-    const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
-    
-    let ubicazioneFinale = ubicazioneAttuale;
-    
-    // Se c'è un'ubicazione attesa e NON corrisponde a quella attuale
-    if (ubicazioneAttesa && ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
-        const conferma = window.confirm(
-            `⚠️ ATTENZIONE UBICAZIONE DIVERSA!\n\n` +
-            `Seriale: ${scanned}\n` +
-            `Ubicazione in DB: ${ubicazioneAttuale || 'NON SPECIFICATA'}\n` +
-            `Ubicazione scansionata: ${expectedUbicazione}\n\n` +
-            `Vuoi aggiornare l'ubicazione con quella scansionata?`
-        );
-        
-        if (conferma) {
-            ubicazioneFinale = expectedUbicazione;
-            playBeep('success');
-        } else {
-            playBeep('error');
-            setMessage({ type: 'warning', text: '⚠️ Ubicazione NON aggiornata' });
-            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            return; // Ferma la scansione
-        }
-    }
-    
-    // 1. AGGIORNA UI LOCALE IMMEDIATAMENTE
+    // 1. SALVA SUBITO CON MATCH
     const updatedGiacenza = giacenza.map(item =>
         item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: ubicazioneFinale } 
+            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
             : item
     );
     
@@ -1869,7 +1842,7 @@ const [newItemData, setNewItemData] = useState({
         Descrizione: found.Descrizione,
         Cdc: found.Cdc,
         Stato: found.Stato,
-        Ubicazioni: ubicazioneFinale, // ✅ Usa ubicazione finale
+        Ubicazioni: found.Ubicazioni,
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
@@ -1880,30 +1853,28 @@ const [newItemData, setNewItemData] = useState({
     
     setGiacenza(updatedGiacenza);
     setStorico(updatedStorico);
-    setCurrentItem({...found, Ubicazioni: ubicazioneFinale});
-    setNewUbicazione(ubicazioneFinale);
+    setCurrentItem(found);
+    setNewUbicazione(found.Ubicazioni);
     setNewPartNumber(found.PartNumber || '');
     setNewNote(found.Note || '');
     setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
     playBeep(match ? 'success' : 'error');
     
-    // Salva cache locale
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
     
-    // 2. NOTIFICA ALTRI COMPONENTI
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
 
-    // 3. INVIA AL SERVER IN BACKGROUND
+    // 2. SALVA SU SERVER IN BACKGROUND
     try {
         await api('saveRiscontro', {
             data: {
                 operatore: user.nome || user.username,
                 codSap: found.CodSap,
                 descrizione: found.Descrizione,
-                ubicazione: ubicazioneFinale, // ✅ Usa ubicazione finale
+                ubicazione: found.Ubicazioni,
                 serialeAtteso: found.RISCONTROSERIALEF,
                 serialeRiscontrato: scanned,
                 match: match ? 'OK' : 'KO',
@@ -1920,20 +1891,83 @@ const [newItemData, setNewItemData] = useState({
         console.log('✅ Salvato su Supabase');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
-        
-        // ROLLBACK se server fallisce
         setGiacenza(giacenza);
         setStorico(storico);
         appCache.giacenza = giacenza;
         appCache.storico = storico;
-        
         window.dispatchEvent(new CustomEvent('ats-data-updated', {
             detail: { giacenza: giacenza, storico: storico }
         }));
-        
         setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
         alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
+        return;
     }
+    
+    // 3. DOPO IL SALVATAGGIO, CONTROLLA UBICAZIONE ATTESA (solo se match OK)
+    if (match) {
+        const ubicazioneAttuale = found.Ubicazioni || '';
+        const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
+        
+        // Se c'è un'ubicazione attesa e NON corrisponde a quella attuale
+        if (ubicazioneAttesa && ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
+            // Chiedi conferma in modo NON bloccante
+            setTimeout(async () => {
+                const conferma = window.confirm(
+                    `⚠️ ATTENZIONE UBICAZIONE DIVERSA!\n\n` +
+                    `Seriale: ${scanned}\n` +
+                    `Ubicazione in DB: ${ubicazioneAttuale || 'NON SPECIFICATA'}\n` +
+                    `Ubicazione scansionata: ${expectedUbicazione}\n\n` +
+                    `Vuoi aggiornare l'ubicazione con quella scansionata?`
+                );
+                
+                if (conferma) {
+                    // Aggiorna ubicazione
+                    const finalGiacenza = giacenza.map(item =>
+                        item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                            ? { ...item, Ubicazioni: expectedUbicazione } 
+                            : item
+                    );
+                    
+                    setGiacenza(finalGiacenza);
+                    appCache.giacenza = finalGiacenza;
+                    setCurrentItem({ ...found, Ubicazioni: expectedUbicazione });
+                    setNewUbicazione(expectedUbicazione);
+                    
+                    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                        detail: { giacenza: finalGiacenza }
+                    }));
+                    
+                    // Aggiorna su server
+                    try {
+                        const { data: invData } = await supabaseClient
+                            .from('inventario')
+                            .select('id')
+                            .eq('id_riga_giacenza', found.ID_Riga)
+                            .order('timestamp', { ascending: false })
+                            .limit(1)
+                            .single();
+                        
+                        if (invData) {
+                            await supabaseClient
+                                .from('inventario')
+                                .update({ ubicazione: expectedUbicazione })
+                                .eq('id', invData.id);
+                            
+                            await supabaseClient
+                                .from('giacenza')
+                                .update({ ubicazioni: expectedUbicazione })
+                                .eq('id_riga', found.ID_Riga);
+                            
+                            console.log('✅ Ubicazione aggiornata');
+                        }
+                    } catch (err) {
+                        console.error('❌ Errore aggiornamento ubicazione:', err);
+                    }
+                }
+            }, 500); // Ritardo per non bloccare il flusso
+        }
+    }
+}
                     } else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
