@@ -1731,6 +1731,7 @@ const excelData = storico.map(item => ({
             const [expectedUbicazione, setExpectedUbicazione] = useState('');
             const [autoUpdateUbicazione, setAutoUpdateUbicazione] = useState(false);
             const [scanCount, setScanCount] = useState(0);
+            const [lastScannedSerial, setLastScannedSerial] = useState('');
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
@@ -1748,21 +1749,23 @@ const [newItemData, setNewItemData] = useState({
 
            useEffect(() => {
     async function loadData() {
+        // ✅ USA SEMPRE cache se disponibile (no ricarica inutile)
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
             setLoading(false);
+            if (inputRef.current) inputRef.current.focus();
             return;
         }
         
         try {
             setLoadingProgress('Caricamento dati...');
             const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'), // ✅ Già sincronizzata
+                api('getGiacenza'),
                 api('getStorico')
             ]);
             
-            setGiacenza(resGiac.data); // ✅ Già ha inventariato corretto
+            setGiacenza(resGiac.data);
             setStorico(resStor.data);
             appCache.giacenza = resGiac.data;
             appCache.storico = resStor.data;
@@ -1772,12 +1775,30 @@ const [newItemData, setNewItemData] = useState({
         } finally {
             setLoading(false);
             setLoadingProgress('');
+            if (inputRef.current) inputRef.current.focus();
         }
     }
     
     loadData();
-    if (inputRef.current) inputRef.current.focus();
+    
+    // ✅ AGGIUNGI listener per aggiornamenti da altre sezioni
+    const handleUpdate = (event) => {
+        if (event.detail) {
+            if (event.detail.giacenza) setGiacenza(event.detail.giacenza);
+            if (event.detail.storico) setStorico(event.detail.storico);
+        }
+    };
+    
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
 }, []);
+useEffect(() => {
+    return () => {
+        setScanCount(0);
+        setLastScannedSerial(''); // Reset anche ultimo seriale
+    };
+}, []);
+            
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -1799,6 +1820,12 @@ const [newItemData, setNewItemData] = useState({
                     setTimeout(() => {
                         if (inputRef.current) inputRef.current.focus();
                     }, 100);
+                     if (scanned === lastScannedSerial) {
+            setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
+            playBeep('error');
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+            return;
+        }
 
                     // Controlla se già nello storico
               // ✅ FIX: Controlla usando ID_Riga invece di seriale
@@ -1860,6 +1887,7 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
     
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
+     setLastScannedSerial(scanned);                   
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
@@ -2871,7 +2899,11 @@ const handleUpdateNote = async () => {
             const [loading, setLoading] = useState(true);
             const [loadingProgress, setLoadingProgress] = useState('');
             const [showFilters, setShowFilters] = useState(false);
-            const [filters, setFilters] = useState({});
+            // ✅ Carica filtri salvati all'avvio
+const [filters, setFilters] = useState(() => {
+    const saved = sessionStorage.getItem('ats_lista_filters');
+    return saved ? JSON.parse(saved) : {};
+});
             const [selected, setSelected] = useState([]);
             const [bulkUbicazione, setBulkUbicazione] = useState('');
             const [bulkPartNumber, setBulkPartNumber] = useState('');
@@ -2926,12 +2958,7 @@ const handleUpdateNote = async () => {
     }
     load();
 }, []);
-            useEffect(() => {
-    // Reset contatore quando si cambia sezione
-    return () => {
-        setScanCount(0);
-    };
-}, []);
+            
             useEffect(() => {
                 const handleUpdate = async (event) => {
                     if (event.detail && event.detail.giacenza) {
@@ -2956,6 +2983,11 @@ const handleUpdateNote = async () => {
                 return () => window.removeEventListener('ats-data-updated', handleUpdate);
             }, [filters, displayCount]);
 
+            // ✅ Salva filtri ogni volta che cambiano
+useEffect(() => {
+    sessionStorage.setItem('ats_lista_filters', JSON.stringify(filters));
+}, [filters]);
+            
             const applyFilters = () => {
     // ✅ Usa UN SOLO ciclo invece di filter multipli
     const filtered = giacenza.reduce((acc, i) => {
@@ -3271,9 +3303,10 @@ const updateNoteLista = async (item, newNote) => {
     })();
 };
 
-            const stampaSelezionati = () => {
-                if (selected.length === 0) return alert('Seleziona almeno un articolo');
-                // ✅ CONTROLLO SE CI SONO MODIFICHE DA APPLICARE
+         const stampaSelezionati = async () => {
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    
+    // ✅ FIX: Applica modifiche PRIMA di stampare (se presenti)
     if (bulkUbicazione.trim() || bulkPartNumber.trim()) {
         const messaggi = [];
         if (bulkUbicazione.trim()) messaggi.push(`Ubicazione: ${bulkUbicazione}`);
@@ -3282,160 +3315,204 @@ const updateNoteLista = async (item, newNote) => {
         const conferma = window.confirm(
             `⚠️ HAI COMPILATO:\n${messaggi.join('\n')}\n\n` +
             `Vuoi PRIMA aggiornare questi campi per i ${selected.length} articoli selezionati?\n\n` +
-            `• Sì = Aggiorna e poi stampa\n` +
-            `• No = Stampa senza modificare`
+            `• OK = Aggiorna e poi stampa\n` +
+            `• Annulla = Stampa senza modificare`
         );
         
         if (conferma) {
-            // Esegui aggiornamenti
-            if (bulkUbicazione.trim()) {
-                updateBulkUbicazione(); // Usa funzione esistente
-            }
-            if (bulkPartNumber.trim()) {
-                updateBulkPartNumber(); // Usa funzione esistente
-            }
+            // Aggiorna GIACENZA locale PRIMA di stampare
+            const updatedGiacenza = giacenza.map(i => {
+                const isSelected = selected.find(s => s.ID_Riga === i.ID_Riga);
+                if (isSelected) {
+                    return {
+                        ...i,
+                        Ubicazioni: bulkUbicazione.trim() || i.Ubicazioni,
+                        PartNumber: bulkPartNumber.trim() || i.PartNumber
+                    };
+                }
+                return i;
+            });
             
-            // Attendi 1 secondo per sincronizzazione
-            setTimeout(() => {
-                // Poi continua con la stampa normale...
-                const printArea = document.getElementById('print-area');
-                // ...resto del codice di stampa...
-            }, 1000);
+            setGiacenza(updatedGiacenza);
+            appCache.giacenza = updatedGiacenza;
+            
+            // Aggiorna selected con nuovi valori
+            const updatedSelected = selected.map(s => ({
+                ...s,
+                Ubicazioni: bulkUbicazione.trim() || s.Ubicazioni,
+                PartNumber: bulkPartNumber.trim() || s.PartNumber
+            }));
+            setSelected(updatedSelected);
+            
+            // Salva su server in background
+            (async () => {
+                for (const item of selected) {
+                    try {
+                        if (bulkUbicazione.trim()) {
+                            await api('updateGiacenzaUbicazione', { 
+                                id_riga: item.ID_Riga,
+                                ubicazione: bulkUbicazione 
+                            });
+                        }
+                        if (bulkPartNumber.trim()) {
+                            await api('updateGiacenzaPartNumber', { 
+                                id_riga: item.ID_Riga,
+                                partNumber: bulkPartNumber,
+                                note: item.Note || ''
+                            });
+                        }
+                    } catch (err) {
+                        console.error('❌ Errore aggiornamento item:', err);
+                    }
+                }
+                console.log('✅ Aggiornamenti salvati su server');
+            })();
+            
+            // Continua con stampa usando updatedSelected
+            await new Promise(resolve => setTimeout(resolve, 300));
+            stampaEtichette(updatedSelected);
             return;
         }
     }
-                const printArea = document.getElementById('print-area');
-                const timestamp = Date.now();
+    
+    // Se nessuna modifica o user ha cliccato Annulla, stampa direttamente
+    stampaEtichette(selected);
+};
 
-                let html = '';
-                selected.forEach((item, idx) => {
-                    const bcId = `bc-multi-${idx}-${timestamp}`;
+// ✅ CREA QUESTA NUOVA FUNZIONE separata per la stampa
+const stampaEtichette = (items) => {
+    const printArea = document.getElementById('print-area');
+    const timestamp = Date.now();
 
-                    if (formatoStampa === '10x10') {
-                        html += `
-                            <div class="etichetta-10x10">
-                                <div class="logo-container">
-                                    <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                    <div class="label-cod-bp">COD BP</div>
-                                </div>
-                                <div class="bp-section">
-                                    <div class="bp-label">Codice BP</div>
-                                    <div class="bp-value">${item.CodSap || ''}</div>
-                                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr>
-                                <div class="art-label">Articolo</div>
-                                <svg class="barcode-svg" id="${bcId}"></svg>
-                                <div class="wms">${item.WMSCode || ''}</div>
-                                <hr>
-                                <div class="po-row">
-                                    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                                    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
-                                </div>
-                                <div class="label-tpn">TPN</div>
-                                <hr class="thin">
-                                <div class="part-section">
-                                    <span class="part-label">Part Number</span>
-                                    <span class="part-value">${item.PartNumber || ''}</span>
-                                    <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr class="thin">
-                                <div class="sn-section">
-                                    <span class="sn-label">SerialNumber/Lotto</span>
-                                    <span class="sn-value">${item.RISCONTROSERIALEF || ''}</span>
-                                    <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
-                                    <div class="label-sn">SN</div>
-                                </div>
-                                <div class="ubicazione-under-sn">
-                                    <span class="pos-label">Ubicazione</span>
-                                    <div class="pos-value">${item.Ubicazioni || ''}</div>
-                                </div>
-                            </div>`;
-                    } else if (formatoStampa === '10x5') {
-                        html += `
-                            <div class="etichetta-10x5">
-                                <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                                <svg class="et5-barcode" id="${bcId}"></svg>
-                                <div class="et5-wms">${item.WMSCode || ''}</div>
-                                <div class="et5-info">
-                                    <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
-                                    <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
-                                </div>
-                            </div>`;
-                    } else if (formatoStampa === '10x10g') {
-                        html += `
-                            <div class="etichetta-10x10g">
-                                <div class="logo-container">
-                                    <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                    <div class="label-cod-bp">COD BP</div>
-                                </div>
-                                <div class="bp-section">
-                                    <div class="bp-label">Codice BP</div>
-                                    <div class="bp-value">${item.CodSap || ''}</div>
-                                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr>
-                                <div class="art-label">Articolo</div>
-                                <svg class="barcode-svg" id="${bcId}"></svg>
-                                <div class="wms">${item.WMSCode || ''}</div>
-                                <hr>
-                                <div class="po-row">
-                                    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                                    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
-                                </div>
-                                <div class="label-tpn">TPN</div>
-                                <hr class="thin">
-                                <div class="part-section">
-                                    <span class="part-label">Part Number</span>
-                                    <span class="part-value">${item.PartNumber || ''}</span>
-                                    <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
-                                </div>
-                                <div class="ubicazione-large">
-                                    <div class="pos-label">Ubicazione</div>
-                                    <div class="pos-value">${item.Ubicazioni || ''}</div>
-                                </div>
-                            </div>`;
-                    }
+    let html = '';
+    items.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
+
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.PartNumber || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else if (formatoStampa === '10x5') {
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        } else if (formatoStampa === '10x10g') {
+            html += `
+                <div class="etichetta-10x10g">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.PartNumber || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
+                    </div>
+                    <div class="ubicazione-large">
+                        <div class="pos-label">Ubicazione</div>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        }
+    });
+
+    printArea.innerHTML = html;
+    printArea.style.display = 'block';
+
+    const images = Array.from(printArea.querySelectorAll('img'));
+    const imagePromises = images.map(img => {
+        return new Promise(resolve => {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000);
+            }
+        });
+    });
+
+    Promise.all(imagePromises).then(() => {
+        items.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${timestamp}`;
+            const element = document.getElementById(bcId);
+            if (item.WMSCode && element) {
+                JsBarcode(element, item.WMSCode, {
+                    format: "CODE128",
+                    height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18),
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
                 });
+            }
+        });
 
-                printArea.innerHTML = html;
-                printArea.style.display = 'block';
-
-                const images = Array.from(printArea.querySelectorAll('img'));
-                const imagePromises = images.map(img => {
-                    return new Promise(resolve => {
-                        if (img.complete && img.naturalHeight !== 0) resolve();
-                        else {
-                            img.onload = resolve;
-                            img.onerror = resolve;
-                            setTimeout(resolve, 3000);
-                        }
-                    });
-                });
-
-                Promise.all(imagePromises).then(() => {
-                    selected.forEach((item, idx) => {
-                        const bcId = `bc-multi-${idx}-${timestamp}`;
-                        const element = document.getElementById(bcId);
-                        if (item.WMSCode && element) {
-                            JsBarcode(element, item.WMSCode, {
-                                format: "CODE128",
-                                height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18),
-                                width: 1.5,
-                                displayValue: false,
-                                margin: 0
-                            });
-                        }
-                    });
-
-                    setTimeout(() => {
-                        window.print();
-                        printArea.style.display = 'none';
-                        printArea.innerHTML = '';
-                    }, 500);
-                });
-            };
+        setTimeout(() => {
+            window.print();
+            printArea.style.display = 'none';
+            printArea.innerHTML = '';
+        }, 500);
+    });
+};
 
             if (loading) return (
                 <div className="text-center py-12">
@@ -3788,7 +3865,11 @@ const updateNoteLista = async (item, newNote) => {
     function Storico({ user }) {
         const [storico, setStorico] = useState([]);
         const [filteredData, setFilteredData] = useState([]);
-        const [filters, setFilters] = useState({});
+        // ✅ Carica filtri salvati all'avvio
+const [filters, setFilters] = useState(() => {
+    const saved = sessionStorage.getItem('ats_storico_filters');
+    return saved ? JSON.parse(saved) : {};
+});
         const [loading, setLoading] = useState(true);
         const [loadingProgress, setLoadingProgress] = useState('');
         const [showFilters, setShowFilters] = useState(false);
@@ -3821,8 +3902,9 @@ const updateNoteLista = async (item, newNote) => {
         const [displayCount, setDisplayCount] = useState(50);
         const [hasMore, setHasMore] = useState(true);
 
-        useEffect(() => {
+ useEffect(() => {
     async function loadData() {
+        // Usa cache se disponibile
         if (appCache.storico) {
             setStorico(appCache.storico);
             setFilteredData(appCache.storico);
@@ -3847,7 +3929,31 @@ const updateNoteLista = async (item, newNote) => {
     }
     
     loadData();
-}, []);
+    
+    // ✅ AGGIUNGI QUESTO LISTENER
+    const handleUpdate = (event) => {
+        if (event.detail && event.detail.storico) {
+            const updatedStorico = event.detail.storico;
+            setStorico(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            // Riapplica filtri se presenti
+            let filtered = [...updatedStorico];
+            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
+            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+            
+            setFilteredData(filtered);
+        }
+    };
+    
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, [filters]); // ✅ Aggiungi filters come dipendenza
 
         useEffect(() => {
             const handleUpdate = async (event) => {
@@ -3880,6 +3986,11 @@ const updateNoteLista = async (item, newNote) => {
             return () => window.removeEventListener('ats-data-updated', handleUpdate);
         }, [filters]);
 
+        // ✅ Salva filtri ogni volta che cambiano
+useEffect(() => {
+    sessionStorage.setItem('ats_storico_filters', JSON.stringify(filters));
+}, [filters]);
+
         const applyFilters = () => {
     // ✅ Usa UN SOLO ciclo invece di filter multipli
     const filtered = storico.reduce((acc, i) => {
@@ -3907,6 +4018,7 @@ const updateNoteLista = async (item, newNote) => {
         useEffect(() => {
     setHasMore(filteredData.length > displayCount);
 }, [filteredData, displayCount]);
+        
 
 const displayedData = filteredData.slice(0, displayCount);
 
