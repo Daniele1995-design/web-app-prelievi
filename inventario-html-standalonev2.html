@@ -795,9 +795,12 @@ case 'registraScansione':
             })
             .eq('riscontro_seriale_f', sd.serialeRiscontrato);
     }
-    return { success: true };
-                id: insertedData[0]?.id // ← RITORNA ID REALE
-                };
+    
+    // ✅ FIX: RETURN UNICO CON ID
+    return { 
+        success: true, 
+        id: insertedData[0]?.id 
+    };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
           case 'updateInventarioUbicazione':
