@@ -559,6 +559,65 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+    /* ✅ COLONNE RIDIMENSIONABILI */
+.resizable-table th {
+  position: relative;
+  padding-right: 20px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resizable-table th.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: #3b82f6;
+}
+
+/* ✅ Colonne con larghezza controllata */
+.resizable-table th,
+.resizable-table td {
+  min-width: 80px;
+  max-width: 400px;
+}
+
+/* ✅ Colonne specifiche */
+.col-descrizione {
+  width: 200px;
+  min-width: 150px;
+  max-width: 400px;
+}
+
+.col-note {
+  width: 100px;
+  min-width: 80px;
+  max-width: 300px;
+}
+
+.col-ubicazione {
+  width: 120px;
+  min-width: 100px;
+}
+
+.col-seriale {
+  width: 150px;
+  min-width: 120px;
+}
 </style>
 </head>
 <body>
@@ -3128,6 +3187,101 @@ const handleUpdateNote = async () => {
                 </div>
             );
         }
+
+        // ============================================
+// COMPONENTE TABELLA RIDIMENSIONABILE
+// ============================================
+function ResizableTable({ children, columns, onColumnResize }) {
+    const tableRef = useRef(null);
+    const [activeIndex, setActiveIndex] = useState(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
+
+    const handleMouseDown = (index, e) => {
+        if (!tableRef.current) return;
+        
+        const th = tableRef.current.querySelectorAll('th')[index];
+        if (!th) return;
+        
+        setActiveIndex(index);
+        setStartX(e.clientX);
+        setStartWidth(th.offsetWidth);
+        
+        th.classList.add('resizing');
+    };
+
+    const handleMouseMove = (e) => {
+        if (activeIndex === null || !tableRef.current) return;
+        
+        const th = tableRef.current.querySelectorAll('th')[activeIndex];
+        if (!th) return;
+        
+        const diff = e.clientX - startX;
+        const newWidth = Math.max(80, Math.min(400, startWidth + diff));
+        
+        th.style.width = `${newWidth}px`;
+        th.style.minWidth = `${newWidth}px`;
+        th.style.maxWidth = `${newWidth}px`;
+        
+        // Applica anche alle celle della colonna
+        const tds = tableRef.current.querySelectorAll(`tbody tr td:nth-child(${activeIndex + 1})`);
+        tds.forEach(td => {
+            td.style.width = `${newWidth}px`;
+            td.style.minWidth = `${newWidth}px`;
+            td.style.maxWidth = `${newWidth}px`;
+        });
+    };
+
+    const handleMouseUp = () => {
+        if (activeIndex !== null && tableRef.current) {
+            const th = tableRef.current.querySelectorAll('th')[activeIndex];
+            if (th) th.classList.remove('resizing');
+        }
+        setActiveIndex(null);
+    };
+
+    useEffect(() => {
+        if (activeIndex !== null) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+        }
+    }, [activeIndex, startX, startWidth]);
+
+    return (
+        <table ref={tableRef} className="w-full text-sm resizable-table">
+            {React.Children.map(children, child => {
+                if (child.type === 'thead') {
+                    return React.cloneElement(child, {
+                        children: React.Children.map(child.props.children, (tr) => 
+                            React.cloneElement(tr, {
+                                children: React.Children.map(tr.props.children, (th, idx) => {
+                                    if (th.type === 'th') {
+                                        return (
+                                            <th {...th.props} style={{ position: 'relative', ...th.props.style }}>
+                                                {th.props.children}
+                                                <div 
+                                                    className="resize-handle"
+                                                    onMouseDown={(e) => handleMouseDown(idx, e)}
+                                                />
+                                            </th>
+                                        );
+                                    }
+                                    return th;
+                                })
+                            })
+                        )
+                    });
+                }
+                return child;
+            })}
+        </table>
+    );
+}
+        
         // ============================================
         // MODE LISTA
         // ============================================
@@ -4023,9 +4177,9 @@ const stampaEtichette = (items) => {
                     (Totali non inventariati: {giacenza.filter(i => !i.inventariato).length})
                 </p>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+<div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="overflow-x-auto">
+        <ResizableTable>
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-3 py-2">
@@ -4227,10 +4381,10 @@ const stampaEtichette = (items) => {
 </td>
                                     </tr>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            </tbody>
+       </ResizableTable>
+    </div>
+</div>
 
                 {hasMore && (
                     <div className="text-center">
@@ -5024,10 +5178,10 @@ const updateBulkPartNumber = async () => {
                     </div>
                 )}
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50">
+<div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="overflow-x-auto">
+        <ResizableTable>
+            <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-3 py-2">
                                         <input 
@@ -5198,9 +5352,9 @@ const updateBulkPartNumber = async () => {
                                     </tr>
                                 ))}
                             </tbody>
-                        </table>
-                    </div>
-                </div>
+        </ResizableTable>
+    </div>
+</div>
                 <p className="text-gray-600">
                     Visualizzati: <strong>{filteredData.length}</strong> di <strong>{storico.length}</strong> riscontri
                 </p>
