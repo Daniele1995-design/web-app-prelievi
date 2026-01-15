@@ -3037,7 +3037,7 @@ const updateNoteLista = async (item, newNote) => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-         const verificaMassivo = async () => {
+      const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
@@ -3045,92 +3045,114 @@ const updateNoteLista = async (item, newNote) => {
     
     if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
     
-    // ✅ FIX: Crea Set per lookup veloce
-    const selectedIds = new Set(selected.map(s => s.ID_Riga));
-    
-    // ✅ FIX: Usa Set invece di find per performance O(1)
-    const updatedGiacenza = giacenza.map(i => 
-        selectedIds.has(i.ID_Riga)
-            ? { 
-                ...i, 
-                inventariato: true, 
-                Match: 'OK', 
-                Ubicazioni: ubicazioneFinale, 
-                PartNumber: partNumberFinale, 
-                Stato: i.Stato 
-              } 
-            : i
-    );
-    
-    const newEntries = selected.map(item => ({
-        id: Date.now() + Math.random(),
-        Timestamp: new Date().toISOString(),
-        Operatore: user.nome || user.username,
-        Seriale_Riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-        Match: 'OK',
-        CodSap: item.CodSap,
-        Descrizione: item.Descrizione,
-        Cdc: item.Cdc,
-        Stato: item.Stato,
-        Ubicazioni: ubicazioneFinale,
-        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
-        WMSCode: item.WMSCode,
-        PoNr: item.PoNr,
-        PartNumber: partNumberFinale,
-        SerSN: item['SerS/No'],
-        id_riga_giacenza: item.ID_Riga
-    }));
-    
-    const currentStorico = appCache.storico || [];
-    const updatedStorico = [...newEntries, ...currentStorico];
-    
-    // ✅ Aggiorna stato PRIMA di salvare su server
-    setGiacenza(updatedGiacenza);
-    appCache.giacenza = updatedGiacenza;
-    appCache.storico = updatedStorico;
-    
-    // ✅ FIX: Filtra DOPO aver aggiornato giacenza
-    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-    setSelected([]);
-    setBulkUbicazione('');
-    setBulkPartNumber('');
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
-    
-    alert('✅ Verifica completata localmente!');
-    
-    // ✅ Salva su server in background
-    (async () => {
-        try {
-            await api('batchSaveRiscontro', {
-                items: selected.map(item => ({
+    try {
+        // ✅ 1. Inserisci su Supabase e ottieni ID REALI
+        const inventarioRecords = selected.map(item => ({
+            operatore: user.nome || user.username,
+            cod_sap: item.CodSap,
+            descrizione: item.Descrizione,
+            ubicazione: ubicazioneFinale,
+            seriale_atteso: item.RISCONTROSERIALEF,
+            seriale_riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+            match: true,
+            qta: item['Qtà'] || 1,
+            wms_code: item.WMSCode || '',
+            cdc: item.Cdc || '',
+            po_nr: item.PoNr || '',
+            part_number: partNumberFinale,
+            id_riga_giacenza: item.ID_Riga,
+            note: item.Note || '',
+            stato: item.Stato,
+            ser_sn: item['SerS/No'] || 'No'
+        }));
+        
+        const { data: insertedRecords, error: batchInvErr } = await supabaseClient
+            .from('inventario')
+            .insert(inventarioRecords)
+            .select(); // ← IMPORTANTE: recupera ID reali
+        
+        if (batchInvErr) throw batchInvErr;
+        
+        console.log(`✅ ${insertedRecords.length} record salvati su Supabase`);
+        
+        // ✅ 2. Crea entries storico con ID REALI
+        const newEntries = insertedRecords.map((record, idx) => ({
+            id: record.id, // ← ID REALE DA SUPABASE
+            Timestamp: record.timestamp,
+            Operatore: user.nome || user.username,
+            Seriale_Riscontrato: selected[idx].RISCONTROSERIALEF || `LOTTO-${selected[idx].ID_Riga}`,
+            Match: 'OK',
+            CodSap: selected[idx].CodSap,
+            Descrizione: selected[idx].Descrizione,
+            Cdc: selected[idx].Cdc,
+            Stato: selected[idx].Stato,
+            Ubicazioni: ubicazioneFinale,
+            RISCONTROSERIALEF: selected[idx].RISCONTROSERIALEF,
+            WMSCode: selected[idx].WMSCode,
+            PoNr: selected[idx].PoNr,
+            PartNumber: partNumberFinale,
+            SerSN: selected[idx]['SerS/No'],
+            Note: selected[idx].Note || '',
+            id_riga_giacenza: selected[idx].ID_Riga
+        }));
+        
+        // ✅ 3. Aggiorna giacenza
+        const selectedIds = new Set(selected.map(s => s.ID_Riga));
+        const updatedGiacenza = giacenza.map(i => 
+            selectedIds.has(i.ID_Riga)
+                ? { 
+                    ...i, 
+                    inventariato: true, 
+                    Match: 'OK', 
+                    Ubicazioni: ubicazioneFinale, 
+                    PartNumber: partNumberFinale, 
+                    Stato: i.Stato // ← MANTIENE STATO ORIGINALE
+                  } 
+                : i
+        );
+        
+        const currentStorico = appCache.storico || [];
+        const updatedStorico = [...newEntries, ...currentStorico];
+        
+        setGiacenza(updatedGiacenza);
+        appCache.giacenza = updatedGiacenza;
+        appCache.storico = updatedStorico;
+        
+        setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+        setSelected([]);
+        setBulkUbicazione('');
+        setBulkPartNumber('');
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+        }));
+        
+        alert('✅ Verifica completata!');
+        
+        // ✅ 4. Aggiorna giacenza su Supabase
+        for (const item of selected) {
+            await supabaseClient
+                .from('giacenza')
+                .update({
+                    match: 'OK',
+                    stato: item.Stato, // ← MANTIENE STATO ORIGINALE
+                    ubicazioni: ubicazioneFinale,
+                    part_number: partNumberFinale,
+                    seriale_riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
                     operatore: user.nome || user.username,
-                    codSap: item.CodSap,
-                    descrizione: item.Descrizione,
-                    ubicazione: ubicazioneFinale,
-                    serialeAtteso: item.RISCONTROSERIALEF,
-                    serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-                    qta: item['Qtà'] || 1,
-                    wmsCode: item.WMSCode || '',
-                    cdc: item.Cdc || '',
-                    poNr: item.PoNr || '',
-                    partNumber: partNumberFinale,
-                    idRigaGiacenza: item.ID_Riga,
-                    stato: item.Stato,
                     note: item.Note || '',
-                    serSN: item['SerS/No']
-                }))
-            });
-            console.log('✅ Verifica massiva salvata su Supabase');
-        } catch (err) {
-            console.error('❌ Errore Supabase:', err);
-            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
+                    timestamp: new Date().toISOString()
+                })
+                .eq('id_riga', item.ID_Riga);
         }
-    })();
+        
+        console.log('✅ Giacenza sincronizzata');
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore: ' + err.message);
+    }
 };
-
             const stampaSelezionati = () => {
                 if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
