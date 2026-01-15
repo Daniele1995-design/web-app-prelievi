@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario ATS - Supabase</title>
+    <title>Inventario ATS - INWIT</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -750,12 +750,12 @@ case 'getGiacenza':
     sData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     return { data: normalizeStorico(sData) };
 
-           case 'saveRiscontro': 
+case 'saveRiscontro': 
 case 'registraScansione':
     const sd = payload.data || payload;
     
-    // Insert Inventario
-    const { error: iErr } = await supabaseClient
+    // ✅ RITORNA L'ID REALE
+    const { data: insertedData, error: iErr } = await supabaseClient
         .from('inventario')
         .insert([{
             operatore: sd.operatore,
@@ -773,8 +773,9 @@ case 'registraScansione':
             id_riga_giacenza: sd.idRigaGiacenza,
             note: sd.note || '',
             stato: sd.stato,
-            ser_sn: sd.serSN || 'No' // ✅ NEW: Aggiunge ser_sn
-        }]);
+            ser_sn: sd.serSN || 'No'
+        }])
+        .select(); // ← QUESTO RITORNA L'ID!
     
     if (iErr) throw iErr;
 
@@ -794,7 +795,11 @@ case 'registraScansione':
             })
             .eq('riscontro_seriale_f', sd.serialeRiscontrato);
     }
-    return { success: true };
+    // ✅ FIX: RETURN UNICO CON ID
+    return {
+        success: true, 
+        id: insertedData[0]?.id 
+    };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
           case 'updateInventarioUbicazione':
@@ -1200,6 +1205,31 @@ operations: groups[action]
             });
 
             const [queueSize, setQueueSize] = useState(0);
+            const [syncing, setSyncing] = useState(false);
+
+            const reloadData = async () => {
+    setSyncing(true);
+    try {
+        // Ricarica giacenza
+        const resGiac = await api('getGiacenza');
+        appCache.giacenza = resGiac.data;
+        
+        // Ricarica storico
+        const resStor = await api('getStorico');
+        appCache.storico = resStor.data;
+        
+        // Notifica tutti i componenti
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: resGiac.data, storico: resStor.data }
+        }));
+        
+        console.log('✅ Dati aggiornati dal database');
+    } catch (err) {
+        console.error('❌ Errore aggiornamento:', err);
+    } finally {
+        setSyncing(false);
+    }
+};
 
             useEffect(() => {
                 if (user) {
@@ -1242,32 +1272,74 @@ operations: groups[action]
             return (
                 <div className="min-h-screen bg-gray-100 no-print">
                     <header className="bg-blue-600 text-white p-4 shadow-lg">
-                        <div className="max-w-7xl mx-auto flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold">Inventario ATS INWIT </h1>
-                                <p className="text-sm opacity-90">Operatore: {user.nome || user.username}</p>
-                            </div>
-                            <div className="flex gap-2">
-                                {queueSize > 0 && (
-                                    <div className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded text-white font-medium">
-                                        ⏳ {queueSize} operazioni in coda
-                                    </div>
-                                )}
-                                <button onClick={handleForceRefresh} className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600">
-                                    🔄 Refresh
-                                </button>
-                                <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600">
-                                    <Icons.LogOut /> Esci
-                                </button>
-                            </div>
-                        </div>
-                    </header>
+    <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div>
+            <h1 className="text-2xl font-bold">Inventario ATS INWIT </h1>
+            <p className="text-sm opacity-90">Operatore: {user.nome || user.username}</p>
+        </div>
+        <div className="flex gap-2">
+            {/* ✅ AGGIUNGI INDICATORE SYNC */}
+            {syncing && (
+                <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded text-white font-medium">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Sync...
+                </div>
+            )}
+            {queueSize > 0 && (
+                <div className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded text-white font-medium">
+                    ⏳ {queueSize} operazioni in coda
+                </div>
+            )}
+            <button onClick={handleForceRefresh} className="flex items-center gap-2 bg-yellow-500 px-2 py-1 rounded hover:bg-yellow-600">
+                🔄 Refresh
+            </button>
+            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded hover:bg-red-600">
+                <Icons.LogOut /> Esci
+            </button>
+        </div>
+    </div>
+</header>
                     <nav className="bg-white shadow-md">
                         <div className="max-w-7xl mx-auto flex overflow-x-auto">
-                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
-                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
-                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
+<NavButton 
+    icon={<Icons.BarChart />} 
+    label="Dashboard" 
+    active={currentView === 'dashboard'} 
+    onClick={() => {
+        setCurrentView('dashboard');
+
+    }} 
+/>
+<NavButton 
+    icon={<Icons.Camera />} 
+    label="Scanner" 
+    active={currentView === 'scanner'} 
+    onClick={() => {
+        setCurrentView('scanner');
+        reloadData(); // ✅ Ricarica quando vai su Scanner
+    }} 
+/>
+<NavButton 
+    icon={<Icons.List />} 
+    label="Lista" 
+    active={currentView === 'lista'} 
+    onClick={() => {
+        setCurrentView('lista');
+        reloadData(); // ✅ Ricarica quando vai su Lista
+    }} 
+/>
+<NavButton 
+    icon={<Icons.Package />} 
+    label="Storico" 
+    active={currentView === 'storico'} 
+    onClick={() => {
+        setCurrentView('storico');
+        reloadData(); // ✅ Ricarica quando vai su Storico
+    }} 
+/>
                         </div>
                     </nav>
                     <main className="max-w-7xl mx-auto p-4">
@@ -1723,6 +1795,13 @@ const excelData = storico.map(item => ({
             const [editingNote, setEditingNote] = useState(false);
             const [newNote, setNewNote] = useState('');
             const inputRef = useRef(null);
+            const [expectedUbicazione, setExpectedUbicazione] = useState('');
+            const [autoUpdateUbicazione, setAutoUpdateUbicazione] = useState(false);
+            const [scanCount, setScanCount] = useState(0);
+            const [lastScannedSerial, setLastScannedSerial] = useState('');
+            const [expectedPartNumber, setExpectedPartNumber] = useState('');
+const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
+const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
 const [newItemData, setNewItemData] = useState({
@@ -1739,21 +1818,23 @@ const [newItemData, setNewItemData] = useState({
 
            useEffect(() => {
     async function loadData() {
+        // ✅ USA SEMPRE cache se disponibile (no ricarica inutile)
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
             setLoading(false);
+            if (inputRef.current) inputRef.current.focus();
             return;
         }
         
         try {
             setLoadingProgress('Caricamento dati...');
             const [resGiac, resStor] = await Promise.all([
-                api('getGiacenza'), // ✅ Già sincronizzata
+                api('getGiacenza'),
                 api('getStorico')
             ]);
             
-            setGiacenza(resGiac.data); // ✅ Già ha inventariato corretto
+            setGiacenza(resGiac.data);
             setStorico(resStor.data);
             appCache.giacenza = resGiac.data;
             appCache.storico = resStor.data;
@@ -1763,12 +1844,30 @@ const [newItemData, setNewItemData] = useState({
         } finally {
             setLoading(false);
             setLoadingProgress('');
+            if (inputRef.current) inputRef.current.focus();
         }
     }
     
     loadData();
-    if (inputRef.current) inputRef.current.focus();
+    
+    // ✅ AGGIUNGI listener per aggiornamenti da altre sezioni
+    const handleUpdate = (event) => {
+        if (event.detail) {
+            if (event.detail.giacenza) setGiacenza(event.detail.giacenza);
+            if (event.detail.storico) setStorico(event.detail.storico);
+        }
+    };
+    
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
 }, []);
+useEffect(() => {
+    return () => {
+        setScanCount(0);
+        setLastScannedSerial(''); // Reset anche ultimo seriale
+    };
+}, []);
+            
             const playBeep = (type) => {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
@@ -1790,146 +1889,364 @@ const [newItemData, setNewItemData] = useState({
                     setTimeout(() => {
                         if (inputRef.current) inputRef.current.focus();
                     }, 100);
+                     if (scanned === lastScannedSerial) {
+            setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
+            playBeep('error');
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+            return;
+        }
 
                     // Controlla se già nello storico
-                    const alreadyInStorico = storico.find(item => 
-                        String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
-                    );
-                    
-                    if (alreadyInStorico) {
-                        setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO IN STORICO' });
-                        playBeep('error');
-                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                        return;
-                    }
+              // ✅ FIX: Controlla usando ID_Riga invece di seriale
+const foundInGiacenza = giacenza.find(item => 
+    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+);
 
-                    // Controlla se già inventariato in giacenza
-                    const alreadyInGiacenza = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && item.inventariato
-                    );
-                    
-                    if (alreadyInGiacenza) {
-                        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-                        playBeep('error');
-                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                        return;
-                    }
+if (foundInGiacenza) {
+    // Verifica se questo ID_Riga è già in inventario
+    if (foundInGiacenza.inventariato) {
+        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
+        playBeep('error');
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        return;
+    }
+}
 
-                    // Cerca in giacenza
-                    const found = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato
-                    );
+// Cerca articolo NON inventariato
+const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza : null;
 
                     if (found) {
-                        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
                         
-                        // 1. AGGIORNA UI LOCALE IMMEDIATAMENTE
-                        const updatedGiacenza = giacenza.map(item =>
+    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+    
+    // 1. SALVA SUBITO CON MATCH
+    const updatedGiacenza = giacenza.map(item =>
+        item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
+            : item
+    );
+    
+    const newEntry = { 
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(), 
+        Operatore: user.nome || user.username, 
+        Seriale_Riscontrato: scanned, 
+        Match: match ? 'OK' : 'KO',
+        CodSap: found.CodSap,
+        Descrizione: found.Descrizione,
+        Cdc: found.Cdc,
+        Stato: found.Stato,
+        Ubicazioni: found.Ubicazioni,
+        RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+        WMSCode: found.WMSCode,
+        PoNr: found.PoNr,
+        PartNumber: found.PartNumber || ''
+    };
+    
+    const updatedStorico = [newEntry, ...storico];
+    
+    setGiacenza(updatedGiacenza);
+    setStorico(updatedStorico);
+    setCurrentItem(found);
+    setNewUbicazione(found.Ubicazioni);
+    setNewPartNumber(found.PartNumber || '');
+    setNewNote(found.Note || '');
+    setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
+    playBeep(match ? 'success' : 'error');
+    
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+     setLastScannedSerial(scanned);                   
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+
+    // 2. SALVA SU SERVER IN BACKGROUND
+    try {
+        const saveResult = await api('saveRiscontro', {
+            data: {
+                operatore: user.nome || user.username,
+                codSap: found.CodSap,
+                descrizione: found.Descrizione,
+                ubicazione: found.Ubicazioni,
+                serialeAtteso: found.RISCONTROSERIALEF,
+                serialeRiscontrato: scanned,
+                match: match ? 'OK' : 'KO',
+                qta: found['Qtà'] || 1,
+                wmsCode: found.WMSCode || '',
+                cdc: found.Cdc || '',
+                poNr: found.PoNr || '',
+                partNumber: found.PartNumber || '',
+                idRigaGiacenza: found.ID_Riga || '',
+                stato: found.Stato || '',
+                note: ''
+            }
+        });
+        
+           // ✅ FIX: Aggiorna l'entry locale con l'ID reale
+    if (saveResult.id) {
+        newEntry.id = saveResult.id; // ← AGGIUNGI QUESTA RIGA
+        
+        const updatedStorico = storico.map(i => 
+            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+                ? { ...i, id: saveResult.id }
+                : i
+        );
+        setStorico(updatedStorico);
+        appCache.storico = updatedStorico;
+        
+        // ✅ FIX: Aggiorna anche setCurrentItem con l'ID
+        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+    }
+    
+    console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: giacenza, storico: storico }
+        }));
+    } catch (err) {
+        console.error('❌ Errore Supabase:', err);
+        setGiacenza(giacenza);
+        setStorico(storico);
+        appCache.giacenza = giacenza;
+        appCache.storico = storico;
+        
+        setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
+        alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
+        return;
+    }
+    
+    // 3. DOPO IL SALVATAGGIO, GESTISCI UBICAZIONE
+    if (match) {
+        const ubicazioneAttuale = found.Ubicazioni || '';
+        const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
+        
+        if (ubicazioneAttesa && ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
+            // ✅ SE AUTO-UPDATE È ATTIVO, AGGIORNA SUBITO
+            if (autoUpdateUbicazione) {
+                const oldUbic = ubicazioneAttuale;
+                const logMessage = `Ubicazione sostituita da: ${oldUbic || 'vuoto'}`;
+                const newNote = found.Note ? `${found.Note} | ${logMessage}` : logMessage;
+                
+                const finalGiacenza = giacenza.map(item =>
+                    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                        ? { ...item, Ubicazioni: expectedUbicazione, Note: newNote } 
+                        : item
+                );
+                
+                setGiacenza(finalGiacenza);
+                appCache.giacenza = finalGiacenza;
+                setCurrentItem({ ...found, Ubicazioni: expectedUbicazione, Note: newNote });
+                setNewUbicazione(expectedUbicazione);
+                setNewNote(newNote);
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { giacenza: finalGiacenza }
+                }));
+                
+                // Aggiorna su server
+                try {
+                    const { data: invData } = await supabaseClient
+                        .from('inventario')
+                        .select('id')
+                        .eq('id_riga_giacenza', found.ID_Riga)
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    if (invData) {
+                        await supabaseClient
+                            .from('inventario')
+                            .update({ 
+                                ubicazione: expectedUbicazione,
+                                note: newNote
+                            })
+                            .eq('id', invData.id);
+                        
+                        await supabaseClient
+                            .from('giacenza')
+                            .update({ 
+                                ubicazioni: expectedUbicazione,
+                                note: newNote
+                            })
+                            .eq('id_riga', found.ID_Riga);
+                        
+                        console.log('✅ Ubicazione aggiornata automaticamente');
+                    }
+                } catch (err) {
+                    console.error('❌ Errore aggiornamento ubicazione:', err);
+                }
+            } else {
+                // ALTRIMENTI CHIEDI CONFERMA
+                setTimeout(async () => {
+                    const conferma = window.confirm(
+                        `⚠️ ATTENZIONE UBICAZIONE DIVERSA!\n\n` +
+                        `Seriale: ${scanned}\n` +
+                        `Ubicazione in DB: ${ubicazioneAttuale || 'NON SPECIFICATA'}\n` +
+                        `Ubicazione scansionata: ${expectedUbicazione}\n\n` +
+                        `Vuoi aggiornare l'ubicazione con quella scansionata?`
+                    );
+                    
+                    if (conferma) {
+                        const finalGiacenza = giacenza.map(item =>
                             item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-                                ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO' } 
+                                ? { ...item, Ubicazioni: expectedUbicazione } 
                                 : item
                         );
                         
-                        setGiacenza(updatedGiacenza);
-                        setCurrentItem(found);
-                        setNewUbicazione(found.Ubicazioni || '');
-                        setNewPartNumber(found.PartNumber || '');
-                        setNewNote(found.Note || '');
-                        setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
-                        playBeep(match ? 'success' : 'error');
+                        setGiacenza(finalGiacenza);
+                        appCache.giacenza = finalGiacenza;
+                        setCurrentItem({ ...found, Ubicazioni: expectedUbicazione });
+                        setNewUbicazione(expectedUbicazione);
                         
-                        // Salva cache giacenza
-                        appCache.giacenza = updatedGiacenza;
-                        
-                        // 2. NOTIFICA GIACENZA AGGIORNATA
                         window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                            detail: { giacenza: updatedGiacenza }
+                            detail: { giacenza: finalGiacenza }
                         }));
-
-                        // 3. INVIA AL SERVER E OTTIENI ID REALE
+                        
                         try {
-                            const { data: newInventarioRecord } = await supabaseClient
+                            const { data: invData } = await supabaseClient
                                 .from('inventario')
-                                .insert([{
-                                    operatore: user.nome || user.username,
-                                    cod_sap: found.CodSap,
-                                    descrizione: found.Descrizione,
-                                    ubicazione: found.Ubicazioni,
-                                    seriale_atteso: found.RISCONTROSERIALEF,
-                                    seriale_riscontrato: scanned,
-                                    match: match,
-                                    qta: found['Qtà'] || 1,
-                                    wms_code: found.WMSCode || '',
-                                    cdc: found.Cdc || '',
-                                    po_nr: found.PoNr || '',
-                                    part_number: found.PartNumber || '',
-                                    id_riga_giacenza: found.ID_Riga,
-                                    note: found.Note || '',
-                                    stato: found.Stato || '',
-                                    ser_sn: found['SerS/No'] || 'No'
-                                }])
-                                .select()
+                                .select('id')
+                                .eq('id_riga_giacenza', found.ID_Riga)
+                                .order('timestamp', { ascending: false })
+                                .limit(1)
                                 .single();
                             
-                            if (!newInventarioRecord) throw new Error('Nessun record restituito');
-                            
-                            // ✅ Crea entry storico con ID REALE dal server
-                            const newEntry = { 
-                                id: newInventarioRecord.id, // ← ID REALE
-                                Timestamp: newInventarioRecord.timestamp,
-                                Operatore: user.nome || user.username, 
-                                Seriale_Riscontrato: scanned, 
-                                Match: match ? 'OK' : 'KO',
-                                CodSap: found.CodSap,
-                                Descrizione: found.Descrizione,
-                                Cdc: found.Cdc,
-                                Stato: found.Stato,
-                                Ubicazioni: found.Ubicazioni,
-                                RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                                WMSCode: found.WMSCode,
-                                PoNr: found.PoNr,
-                                PartNumber: found.PartNumber || '',
-                                SerSN: found['SerS/No'],
-                                Note: found.Note || '',
-                                id_riga_giacenza: found.ID_Riga
-                            };
-                            
-                            const updatedStorico = [newEntry, ...storico];
-                            setStorico(updatedStorico);
-                            appCache.storico = updatedStorico;
-                            
-                            // Aggiorna giacenza su Supabase
-                            await supabaseClient
-                                .from('giacenza')
-                                .update({ 
-                                    match: 'OK',
-                                    stato: found.Stato,
-                                    ubicazioni: found.Ubicazioni,
-                                    part_number: found.PartNumber,
-                                    seriale_riscontrato: scanned,
-                                    operatore: user.nome || user.username,
-                                    note: found.Note || '',
-                                    timestamp: new Date().toISOString()
-                                })
-                                .eq('riscontro_seriale_f', scanned);
-                            
-                            console.log('✅ Salvato su Supabase con ID:', newInventarioRecord.id);
-                            
+                            if (invData) {
+                                await supabaseClient
+                                    .from('inventario')
+                                    .update({ ubicazione: expectedUbicazione })
+                                    .eq('id', invData.id);
+                                
+                                await supabaseClient
+                                    .from('giacenza')
+                                    .update({ ubicazioni: expectedUbicazione })
+                                    .eq('id_riga', found.ID_Riga);
+                                
+                                console.log('✅ Ubicazione aggiornata');
+                            }
                         } catch (err) {
-                            console.error('❌ Errore Supabase:', err);
-                            
-                            // ROLLBACK giacenza
-                            setGiacenza(giacenza);
-                            appCache.giacenza = giacenza;
-                            
-                            window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                                detail: { giacenza: giacenza }
-                            }));
-                            
-                            setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
-                            alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
+                            console.error('❌ Errore aggiornamento ubicazione:', err);
                         }
-                    } else {
+                    }
+                }, 500);
+            }
+        }
+    
+    // ✅ GESTIONE PART NUMBER ATTESO
+        const partNumberAttuale = found.PartNumber || '';
+        const partNumberAtteso = expectedPartNumber.trim().toUpperCase();
+        
+        if (partNumberAtteso && partNumberAtteso !== partNumberAttuale.toUpperCase()) {
+            if (autoUpdatePartNumber) {
+                const oldPN = partNumberAttuale;
+                const logMessage = `PartNumber sostituito da: ${oldPN || 'vuoto'}`;
+                const newNote = found.Note ? `${found.Note} | ${logMessage}` : logMessage;
+                
+                const finalGiacenza = giacenza.map(item =>
+                    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                        ? { ...item, PartNumber: expectedPartNumber, Note: newNote } 
+                        : item
+                );
+                
+                setGiacenza(finalGiacenza);
+                appCache.giacenza = finalGiacenza;
+                setCurrentItem({ ...found, PartNumber: expectedPartNumber, Note: newNote });
+                setNewPartNumber(expectedPartNumber);
+                setNewNote(newNote);
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { giacenza: finalGiacenza }
+                }));
+                
+                try {
+                    const { data: invData } = await supabaseClient
+                        .from('inventario')
+                        .select('id')
+                        .eq('id_riga_giacenza', found.ID_Riga)
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    if (invData) {
+                        await supabaseClient
+                            .from('inventario')
+                            .update({ 
+                                part_number: expectedPartNumber,
+                                note: newNote
+                            })
+                            .eq('id', invData.id);
+                        
+                        await supabaseClient
+                            .from('giacenza')
+                            .update({ 
+                                part_number: expectedPartNumber,
+                                note: newNote
+                            })
+                            .eq('id_riga', found.ID_Riga);
+                        
+                        console.log('✅ Part Number aggiornato automaticamente');
+                    }
+                } catch (err) {
+                    console.error('❌ Errore aggiornamento part number:', err);
+                }
+            } else {
+                setTimeout(async () => {
+                    const conferma = window.confirm(
+                        `⚠️ PART NUMBER DIVERSO!\n\n` +
+                        `Seriale: ${scanned}\n` +
+                        `Part Number in DB: ${partNumberAttuale || 'VUOTO'}\n` +
+                        `Part Number scansionato: ${expectedPartNumber}\n\n` +
+                        `Vuoi aggiornare?`
+                    );
+                    
+                    if (conferma) {
+                        const finalGiacenza = giacenza.map(item =>
+                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                                ? { ...item, PartNumber: expectedPartNumber } 
+                                : item
+                        );
+                        
+                        setGiacenza(finalGiacenza);
+                        appCache.giacenza = finalGiacenza;
+                        setCurrentItem({ ...found, PartNumber: expectedPartNumber });
+                        setNewPartNumber(expectedPartNumber);
+                        
+                        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                            detail: { giacenza: finalGiacenza }
+                        }));
+                        
+                        try {
+                            const { data: invData } = await supabaseClient
+                                .from('inventario')
+                                .select('id')
+                                .eq('id_riga_giacenza', found.ID_Riga)
+                                .order('timestamp', { ascending: false })
+                                .limit(1)
+                                .single();
+                            
+                            if (invData) {
+                                await supabaseClient
+                                    .from('inventario')
+                                    .update({ part_number: expectedPartNumber })
+                                    .eq('id', invData.id);
+                                
+                                await supabaseClient
+                                    .from('giacenza')
+                                    .update({ part_number: expectedPartNumber })
+                                    .eq('id_riga', found.ID_Riga);
+                                
+                                console.log('✅ Part Number aggiornato');
+                            }
+                        } catch (err) {
+                            console.error('❌ Errore aggiornamento part number:', err);
+                        }
+                    }
+                }, 500);
+            }
+        }
+    }                     
+} else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
     setNewItemData({
@@ -1945,6 +2262,7 @@ const [newItemData, setNewItemData] = useState({
     });
     setShowAddModal(true);
 }
+                    setScanCount(prev => prev + 1);
 
 setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 }
@@ -1952,16 +2270,24 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = currentItem.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = currentItem.Note 
+        ? `${currentItem.Note} | ${logMessage}` 
+        : logMessage;
+    
     // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
+            ? { ...i, Ubicazioni: newUbicazione, Note: updatedNote } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
-    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
+    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione, Note: updatedNote });
+    setNewNote(updatedNote); // ✅ Aggiorna anche il campo note
     setEditingUbicazione(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -1981,9 +2307,12 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         if (invData) {
             await supabaseClient
                 .from('inventario')
-                .update({ ubicazione: newUbicazione })
+                .update({ 
+                    ubicazione: newUbicazione,
+                    note: updatedNote // ✅ Salva nota aggiornata
+                })
                 .eq('id', invData.id);
-            console.log('✅ Ubicazione salvata solo in INVENTARIO');
+            console.log('✅ Ubicazione salvata in INVENTARIO con nota aggiornata');
         } else {
             console.warn('⚠️ Nessun record trovato in inventario');
         }
@@ -1992,20 +2321,27 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
     }
 };
-
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
+    
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldPN = currentItem.PartNumber || 'vuoto';
+    const logMessage = `Part Number modificato da: ${oldPN}`;
+    const updatedNote = currentItem.Note 
+        ? `${currentItem.Note} | ${logMessage}` 
+        : logMessage;
     
     // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
+            ? { ...i, PartNumber: newPartNumber, Note: updatedNote } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber, Note: updatedNote });
+    setNewNote(updatedNote); // ✅ Aggiorna anche il campo note
     setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2025,9 +2361,12 @@ const handleUpdatePartNumber = async () => {
         if (invData) {
             await supabaseClient
                 .from('inventario')
-                .update({ part_number: newPartNumber })
+                .update({ 
+                    part_number: newPartNumber,
+                    note: updatedNote // ✅ Salva nota aggiornata
+                })
                 .eq('id', invData.id);
-            console.log('✅ PartNumber salvato solo in INVENTARIO');
+            console.log('✅ PartNumber salvato in INVENTARIO con nota aggiornata');
         } else {
             console.warn('⚠️ Nessun record trovato in inventario');
         }
@@ -2327,13 +2666,16 @@ const handleUpdateNote = async () => {
                     }, 500);
                 });
             };
+            // ✅ AGGIUNGI  CHECK LOADING QUI
+            if (loading) {
+                return (
+                    <div className="text-center py-12">
+                        <div className="text-xl font-bold mb-2">Caricamento...</div>
+                        {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
+                    </div>
+                );
+            }
 
-            if (loading) return (
-                <div className="text-center py-12">
-                    <div className="text-xl font-bold mb-2">Caricamento...</div>
-                    {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
-                </div>
-            );
 
             const giacenzaDaMostrare = giacenza.filter(i => !i.inventariato);
 
@@ -2482,33 +2824,99 @@ const handleUpdateNote = async () => {
                 </div>
             </div>
         )}
+         <div className="bg-white rounded-lg shadow p-6">
+    <div className="space-y-3 mb-4">
+        {/* Campo Seriale - LARGHEZZA PIENA */}
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Icons.Camera /> Scansiona Seriale
+            </label>
+            <input 
+                ref={inputRef} 
+                type="text" 
+                value={scanInput} 
+                onChange={(e) => setScanInput(e.target.value)} 
+                onKeyDown={handleScan} 
+                className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+                placeholder="Trigger scanner..." 
+                autoFocus 
+            />
+        </div>
         
-        <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex justify-between items-center">
+        {/* ✅ NUOVA GRIGLIA 2 COLONNE - Ubicazione + Part Number */}
+        <div className="grid grid-cols-2 gap-3">
+            {/* Ubicazione Attesa */}
+            <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+                    🛒 Ubicazione attesa
+                    <label className="flex items-center gap-1 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={autoUpdateUbicazione}
+                            onChange={(e) => setAutoUpdateUbicazione(e.target.checked)}
+                        />
+                        <span className="text-xs">Auto</span>
+                    </label>
+                </label>
+                <input 
+                    type="text" 
+                    value={expectedUbicazione} 
+                    onChange={(e) => setExpectedUbicazione(e.target.value.toUpperCase())} 
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputRef.current) inputRef.current.focus();
+                        }
+                    }}
+                    className="w-full px-3 py-2 text-sm border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500" 
+                    placeholder="Barcode ubicazione..." 
+                />
+            </div>
+            
+            {/* ✅ NUOVO - Part Number Atteso */}
+            <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+                    🔧 Part Number atteso
+                    <label className="flex items-center gap-1 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={autoUpdatePartNumber}
+                            onChange={(e) => setAutoUpdatePartNumber(e.target.checked)}
+                        />
+                        <span className="text-xs">Auto</span>
+                    </label>
+                </label>
+                <input 
+                    type="text" 
+                    value={expectedPartNumber} 
+                    onChange={(e) => setExpectedPartNumber(e.target.value.toUpperCase())} 
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputRef.current) inputRef.current.focus();
+                        }
+                    }}
+                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500" 
+                    placeholder="Barcode part number..." 
+                />
+            </div>
+        </div>
+    </div>
     
-    {/* ULTIMO SERIALE SCANSIONATO */}
+    {/* Ultimo seriale scansionato */}
     {currentItem && (
-        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg px-4 py-2">
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg px-4 py-2 mt-2">
             <p className="text-xs text-blue-600 font-semibold">Ultimo Seriale Scansionato:</p>
             <p className="text-lg font-bold text-blue-800">{currentItem.RISCONTROSERIALEF || '-'}</p>
+            {(expectedUbicazione || expectedPartNumber) && (
+                <div className="text-xs text-gray-600 mt-1 space-y-1">
+                    {expectedUbicazione && <p>✓ Ubicazione: {currentItem.Ubicazioni}</p>}
+                    {expectedPartNumber && <p>✓ Part Number: {currentItem.PartNumber}</p>}
+                </div>
+            )}
         </div>
     )}
 </div>
-                    
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Icons.Camera /> Scansiona Seriale
-                        </label>
-                        <input 
-                            ref={inputRef} 
-                            type="text" 
-                            value={scanInput} 
-                            onChange={(e) => setScanInput(e.target.value)} 
-                            onKeyDown={handleScan} 
-                            className="w-full px-4 py-3 text-2xl border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
-                            placeholder="Trigger scanner..." 
-                            autoFocus 
-                        />
-                    </div>
 
                     {message.text && (
                         <div className={`p-4 rounded-lg text-white text-xl font-bold text-center ${
@@ -2702,6 +3110,11 @@ const handleUpdateNote = async () => {
                             <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
                             <p className="text-2xl font-bold text-yellow-600">{giacenzaDaMostrare.length}</p>
                         </div>
+                        {/* ✅ NUOVO: Contatore scansioni */}
+    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+        <p className="text-sm text-purple-700 font-medium">Scansionati ora</p>
+        <p className="text-2xl font-bold text-purple-600">{scanCount}</p>
+    </div>
                     </div>
                 </div>
             );
@@ -2724,7 +3137,11 @@ const handleUpdateNote = async () => {
             const [loading, setLoading] = useState(true);
             const [loadingProgress, setLoadingProgress] = useState('');
             const [showFilters, setShowFilters] = useState(false);
-            const [filters, setFilters] = useState({});
+            // ✅ Carica filtri salvati all'avvio
+const [filters, setFilters] = useState(() => {
+    const saved = sessionStorage.getItem('ats_lista_filters');
+    return saved ? JSON.parse(saved) : {};
+});
             const [selected, setSelected] = useState([]);
             const [bulkUbicazione, setBulkUbicazione] = useState('');
             const [bulkPartNumber, setBulkPartNumber] = useState('');
@@ -2736,6 +3153,27 @@ const handleUpdateNote = async () => {
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
+            const applyFilters = () => {
+    const filtered = giacenza.reduce((acc, i) => {
+        if (i.inventariato) return acc;
+        
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
+
             const [editingSeriale, setEditingSeriale] = useState({});
             const [visibleColumns, setVisibleColumns] = useState({
                 poNr: true,
@@ -2779,6 +3217,7 @@ const handleUpdateNote = async () => {
     }
     load();
 }, []);
+            
             useEffect(() => {
                 const handleUpdate = async (event) => {
                     if (event.detail && event.detail.giacenza) {
@@ -2803,29 +3242,28 @@ const handleUpdateNote = async () => {
                 return () => window.removeEventListener('ats-data-updated', handleUpdate);
             }, [filters, displayCount]);
 
-            const applyFilters = () => {
-    // ✅ Usa UN SOLO ciclo invece di filter multipli
-    const filtered = giacenza.reduce((acc, i) => {
-        // Controlla inventariato
-        if (i.inventariato) return acc;
-        
-        // Applica tutti i filtri in un solo check
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50);
-    setHasMore(filtered.length > 50);
-    setShowFilters(false);
-};
+            //  Salva filtri ogni volta che cambiano
+useEffect(() => {
+    sessionStorage.setItem('ats_lista_filters', JSON.stringify(filters));
+}, [filters]);
+            // - Applica automaticamente filtri all'avvio
+useEffect(() => {
+    if (Object.keys(filters).some(key => filters[key])) {
+        // Se ci sono filtri salvati, applicali
+        applyFilters();
+    }
+}, []); // Solo al mount
+
+                if (loading) {
+        return (
+            <div className="text-center py-12">
+                <div className="text-xl font-bold mb-2">Caricamento...</div>
+                {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
+            </div>
+        );
+    }
+            
+
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
@@ -2870,15 +3308,22 @@ const toggleSelectWithShift = (item, index, event) => {
                 setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
             };
 
-            const updateUbicazioneLista = async (item, newUbic) => {
+const updateUbicazioneLista = async (item, newUbic) => {
     if (!newUbic.trim()) return;
     
-    // Aggiorna GIACENZA (articoli NON inventariati)
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbic } 
-            : i
-    );
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = item.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
+    
+    // ✅ CORRETTO - usa ID_Riga univoco
+const updatedGiacenza = giacenza.map(i => 
+    i.ID_Riga === item.ID_Riga  // ← MODIFICA SOLO QUESTO SPECIFICO ARTICOLO
+        ? { ...i, Ubicazioni: newUbic } 
+        : i
+);
     setGiacenza(updatedGiacenza);
     appCache.giacenza = updatedGiacenza;
     
@@ -2901,7 +3346,14 @@ const toggleSelectWithShift = (item, index, event) => {
             id_riga: item.ID_Riga,
             ubicazione: newUbic 
         });
-        console.log('✅ Ubicazione salvata in GIACENZA');
+        
+        // ✅ Aggiorna anche la nota in giacenza
+        await api('updateGiacenzaNote', { 
+            id_riga: item.ID_Riga,
+            note: updatedNote 
+        });
+        
+        console.log('✅ Ubicazione salvata in GIACENZA con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -2911,9 +3363,9 @@ const toggleSelectWithShift = (item, index, event) => {
 const updatePartNumberLista = async (item, newPN) => {
     if (!newPN.trim()) return;
     
-    const oldPN = item.PartNumber;
-    const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${newPN}`;
-    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+    const oldPN = item.PartNumber || 'vuoto';
+    const logMessage = `PartNumber modificato da ${oldPN} a ${newPN}`; 
+    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage; 
     
     // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
@@ -2956,7 +3408,7 @@ const updatePartNumberLista = async (item, newPN) => {
 const updateNoteLista = async (item, newNote) => {
     // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+        i.ID_Riga === item.ID_Riga  // ✅ CORRETTO
             ? { ...i, Note: newNote } 
             : i
     );
@@ -2964,7 +3416,7 @@ const updateNoteLista = async (item, newNote) => {
     appCache.giacenza = updatedGiacenza;
     setEditingNote(prev => { 
         const n = {...prev}; 
-        delete n[item.RISCONTROSERIALEF]; 
+        delete n[item.ID_Riga]; 
         return n; 
     });
     
@@ -2991,6 +3443,120 @@ const updateNoteLista = async (item, newNote) => {
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
+};
+            // ✅ MODIFICA MASSIVA UBICAZIONE (SENZA VERIFICA)
+const aggiornaMassivoUbicazione = async () => {
+    if (selected.length === 0 || !bulkUbicazione.trim()) {
+        alert('⚠️ Inserisci una ubicazione');
+        return;
+    }
+    
+    if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?\n(SENZA verifica inventario)`)) return;
+    
+    try {
+        // Aggiorna GIACENZA locale
+        const selectedIds = new Set(selected.map(s => s.ID_Riga));
+        const updatedGiacenza = giacenza.map(i => 
+            selectedIds.has(i.ID_Riga)
+                ? { ...i, Ubicazioni: bulkUbicazione } 
+                : i
+        );
+        
+        setGiacenza(updatedGiacenza);
+        appCache.giacenza = updatedGiacenza;
+        
+        // Aggiorna filteredData
+        let filtered = updatedGiacenza.filter(i => !i.inventariato);
+        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        setFilteredData(filtered);
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza }
+        }));
+        
+        // Aggiorna DB
+        for (const item of selected) {
+            await api('updateGiacenzaUbicazione', { 
+                id_riga: item.ID_Riga,
+                ubicazione: bulkUbicazione 
+            });
+        }
+        
+        setSelected([]);
+        setBulkUbicazione('');
+        alert(`✅ Ubicazione aggiornata per ${selected.length} articoli!`);
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore: ' + err.message);
+    }
+};
+
+// ✅ MODIFICA MASSIVA PART NUMBER (SENZA VERIFICA)
+const aggiornaMassivoPartNumber = async () => {
+    if (selected.length === 0 || !bulkPartNumber.trim()) {
+        alert('⚠️ Inserisci un Part Number');
+        return;
+    }
+    
+    if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?\n(SENZA verifica inventario)`)) return;
+    
+    try {
+        // Aggiorna GIACENZA locale
+        const selectedIds = new Set(selected.map(s => s.ID_Riga));
+        const updatedGiacenza = giacenza.map(i => {
+            if (!selectedIds.has(i.ID_Riga)) return i;
+            
+            const oldPN = i.PartNumber;
+            const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${bulkPartNumber}`;
+            const newNote = i.Note ? `${i.Note} | ${logMessage}` : logMessage;
+            
+            return { ...i, PartNumber: bulkPartNumber, Note: newNote };
+        });
+        
+        setGiacenza(updatedGiacenza);
+        appCache.giacenza = updatedGiacenza;
+        
+        // Aggiorna filteredData
+        let filtered = updatedGiacenza.filter(i => !i.inventariato);
+        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        setFilteredData(filtered);
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza }
+        }));
+        
+        // Aggiorna DB
+        for (const item of selected) {
+            const oldPN = item.PartNumber;
+            const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${bulkPartNumber}`;
+            const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+            
+            await api('updateGiacenzaPartNumber', { 
+                id_riga: item.ID_Riga,
+                partNumber: bulkPartNumber,
+                note: newNote
+            });
+        }
+        
+        setSelected([]);
+        setBulkPartNumber('');
+        alert(`✅ Part Number aggiornato per ${selected.length} articoli!`);
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore: ' + err.message);
     }
 };
             const updateSerialeLista = async (item, newSeriale) => {
@@ -3037,257 +3603,297 @@ const updateNoteLista = async (item, newNote) => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-      const verificaMassivo = async () => {
+            const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
-    
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
     
     if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
     
-    try {
-        // ✅ 1. Inserisci su Supabase e ottieni ID REALI
-        const inventarioRecords = selected.map(item => ({
-            operatore: user.nome || user.username,
-            cod_sap: item.CodSap,
-            descrizione: item.Descrizione,
-            ubicazione: ubicazioneFinale,
-            seriale_atteso: item.RISCONTROSERIALEF,
-            seriale_riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-            match: true,
-            qta: item['Qtà'] || 1,
-            wms_code: item.WMSCode || '',
-            cdc: item.Cdc || '',
-            po_nr: item.PoNr || '',
-            part_number: partNumberFinale,
-            id_riga_giacenza: item.ID_Riga,
-            note: item.Note || '',
-            stato: item.Stato,
-            ser_sn: item['SerS/No'] || 'No'
-        }));
+    // ✅ FIX: Match per ID_Riga invece di RISCONTROSERIALEF (supporta lotti)
+    const updatedGiacenza = giacenza.map(i => 
+        selected.find(s => s.ID_Riga === i.ID_Riga) 
+            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale, Stato: i.Stato } 
+            : i
+    );
+    
+    const newEntries = selected.map(item => ({
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(),
+        Operatore: user.nome || user.username,
+        Seriale_Riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+        Match: 'OK',
+        CodSap: item.CodSap,
+        Descrizione: item.Descrizione,
+        Cdc: item.Cdc,
+        Stato: item.Stato, // ✅ FIX: Passa lo stato corretto
+        Ubicazioni: ubicazioneFinale,
+        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
+        WMSCode: item.WMSCode,
+        PoNr: item.PoNr,
+        PartNumber: partNumberFinale,
+        SerSN: item['SerS/No'], // ✅ NEW: Aggiunge ser_sn
+        id_riga_giacenza: item.ID_Riga
+    }));
+    
+    const currentStorico = appCache.storico || [];
+    const updatedStorico = [...newEntries, ...currentStorico];
+    
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    
+    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkUbicazione('');
+    setBulkPartNumber('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    alert('Verifica completata localmente!');
+    
+    (async () => {
+        try {
+            // ✅ FIX: Passa stato corretto + ser_sn
+            await api('batchSaveRiscontro', {
+                items: selected.map(item => ({
+                    operatore: user.nome || user.username,
+                    codSap: item.CodSap,
+                    descrizione: item.Descrizione,
+                    ubicazione: ubicazioneFinale,
+                    serialeAtteso: item.RISCONTROSERIALEF,
+                    serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+                    qta: item['Qtà'] || 1,
+                    wmsCode: item.WMSCode || '',
+                    cdc: item.Cdc || '',
+                    poNr: item.PoNr || '',
+                    partNumber: partNumberFinale,
+                    idRigaGiacenza: item.ID_Riga,
+                    stato: item.Stato, // ✅ FIX
+                    note: item.Note || '',
+                    serSN: item['SerS/No'] // ✅ FIX
+                }))
+            });
+            console.log('✅ Verifica massiva salvata su Supabase');
+        } catch (err) {
+            console.error('❌ Errore Supabase:', err);
+            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
+        }
+    })();
+};
+
+         const stampaSelezionati = async () => {
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    
+    // ✅ FIX: Applica modifiche PRIMA di stampare (se presenti)
+    if (bulkUbicazione.trim() || bulkPartNumber.trim()) {
+        const messaggi = [];
+        if (bulkUbicazione.trim()) messaggi.push(`Ubicazione: ${bulkUbicazione}`);
+        if (bulkPartNumber.trim()) messaggi.push(`Part Number: ${bulkPartNumber}`);
         
-        const { data: insertedRecords, error: batchInvErr } = await supabaseClient
-            .from('inventario')
-            .insert(inventarioRecords)
-            .select(); // ← IMPORTANTE: recupera ID reali
-        
-        if (batchInvErr) throw batchInvErr;
-        
-        console.log(`✅ ${insertedRecords.length} record salvati su Supabase`);
-        
-        // ✅ 2. Crea entries storico con ID REALI
-        const newEntries = insertedRecords.map((record, idx) => ({
-            id: record.id, // ← ID REALE DA SUPABASE
-            Timestamp: record.timestamp,
-            Operatore: user.nome || user.username,
-            Seriale_Riscontrato: selected[idx].RISCONTROSERIALEF || `LOTTO-${selected[idx].ID_Riga}`,
-            Match: 'OK',
-            CodSap: selected[idx].CodSap,
-            Descrizione: selected[idx].Descrizione,
-            Cdc: selected[idx].Cdc,
-            Stato: selected[idx].Stato,
-            Ubicazioni: ubicazioneFinale,
-            RISCONTROSERIALEF: selected[idx].RISCONTROSERIALEF,
-            WMSCode: selected[idx].WMSCode,
-            PoNr: selected[idx].PoNr,
-            PartNumber: partNumberFinale,
-            SerSN: selected[idx]['SerS/No'],
-            Note: selected[idx].Note || '',
-            id_riga_giacenza: selected[idx].ID_Riga
-        }));
-        
-        // ✅ 3. Aggiorna giacenza
-        const selectedIds = new Set(selected.map(s => s.ID_Riga));
-        const updatedGiacenza = giacenza.map(i => 
-            selectedIds.has(i.ID_Riga)
-                ? { 
-                    ...i, 
-                    inventariato: true, 
-                    Match: 'OK', 
-                    Ubicazioni: ubicazioneFinale, 
-                    PartNumber: partNumberFinale, 
-                    Stato: i.Stato // ← MANTIENE STATO ORIGINALE
-                  } 
-                : i
+        const conferma = window.confirm(
+            `⚠️ HAI COMPILATO:\n${messaggi.join('\n')}\n\n` +
+            `Vuoi PRIMA aggiornare questi campi per i ${selected.length} articoli selezionati?\n\n` +
+            `• OK = Aggiorna e poi stampa\n` +
+            `• Annulla = Stampa senza modificare`
         );
         
-        const currentStorico = appCache.storico || [];
-        const updatedStorico = [...newEntries, ...currentStorico];
-        
-        setGiacenza(updatedGiacenza);
-        appCache.giacenza = updatedGiacenza;
-        appCache.storico = updatedStorico;
-        
-        setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-        setSelected([]);
-        setBulkUbicazione('');
-        setBulkPartNumber('');
-        
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-        }));
-        
-        alert('✅ Verifica completata!');
-        
-        // ✅ 4. Aggiorna giacenza su Supabase
-        for (const item of selected) {
-            await supabaseClient
-                .from('giacenza')
-                .update({
-                    match: 'OK',
-                    stato: item.Stato, // ← MANTIENE STATO ORIGINALE
-                    ubicazioni: ubicazioneFinale,
-                    part_number: partNumberFinale,
-                    seriale_riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-                    operatore: user.nome || user.username,
-                    note: item.Note || '',
-                    timestamp: new Date().toISOString()
-                })
-                .eq('id_riga', item.ID_Riga);
-        }
-        
-        console.log('✅ Giacenza sincronizzata');
-        
-    } catch (err) {
-        console.error('❌ Errore:', err);
-        alert('Errore: ' + err.message);
-    }
-};
-            const stampaSelezionati = () => {
-                if (selected.length === 0) return alert('Seleziona almeno un articolo');
-
-                const printArea = document.getElementById('print-area');
-                const timestamp = Date.now();
-
-                let html = '';
-                selected.forEach((item, idx) => {
-                    const bcId = `bc-multi-${idx}-${timestamp}`;
-
-                    if (formatoStampa === '10x10') {
-                        html += `
-                            <div class="etichetta-10x10">
-                                <div class="logo-container">
-                                    <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                    <div class="label-cod-bp">COD BP</div>
-                                </div>
-                                <div class="bp-section">
-                                    <div class="bp-label">Codice BP</div>
-                                    <div class="bp-value">${item.CodSap || ''}</div>
-                                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr>
-                                <div class="art-label">Articolo</div>
-                                <svg class="barcode-svg" id="${bcId}"></svg>
-                                <div class="wms">${item.WMSCode || ''}</div>
-                                <hr>
-                                <div class="po-row">
-                                    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                                    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
-                                </div>
-                                <div class="label-tpn">TPN</div>
-                                <hr class="thin">
-                                <div class="part-section">
-                                    <span class="part-label">Part Number</span>
-                                    <span class="part-value">${item.PartNumber || ''}</span>
-                                    <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr class="thin">
-                                <div class="sn-section">
-                                    <span class="sn-label">SerialNumber/Lotto</span>
-                                    <span class="sn-value">${item.RISCONTROSERIALEF || ''}</span>
-                                    <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
-                                    <div class="label-sn">SN</div>
-                                </div>
-                                <div class="ubicazione-under-sn">
-                                    <span class="pos-label">Ubicazione</span>
-                                    <div class="pos-value">${item.Ubicazioni || ''}</div>
-                                </div>
-                            </div>`;
-                    } else if (formatoStampa === '10x5') {
-                        html += `
-                            <div class="etichetta-10x5">
-                                <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                                <svg class="et5-barcode" id="${bcId}"></svg>
-                                <div class="et5-wms">${item.WMSCode || ''}</div>
-                                <div class="et5-info">
-                                    <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
-                                    <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
-                                </div>
-                            </div>`;
-                    } else if (formatoStampa === '10x10g') {
-                        html += `
-                            <div class="etichetta-10x10g">
-                                <div class="logo-container">
-                                    <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                                    <div class="label-cod-bp">COD BP</div>
-                                </div>
-                                <div class="bp-section">
-                                    <div class="bp-label">Codice BP</div>
-                                    <div class="bp-value">${item.CodSap || ''}</div>
-                                    <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
-                                </div>
-                                <hr>
-                                <div class="art-label">Articolo</div>
-                                <svg class="barcode-svg" id="${bcId}"></svg>
-                                <div class="wms">${item.WMSCode || ''}</div>
-                                <hr>
-                                <div class="po-row">
-                                    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                                    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
-                                </div>
-                                <div class="label-tpn">TPN</div>
-                                <hr class="thin">
-                                <div class="part-section">
-                                    <span class="part-label">Part Number</span>
-                                    <span class="part-value">${item.PartNumber || ''}</span>
-                                    <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
-                                </div>
-                                <div class="ubicazione-large">
-                                    <div class="pos-label">Ubicazione</div>
-                                    <div class="pos-value">${item.Ubicazioni || ''}</div>
-                                </div>
-                            </div>`;
-                    }
-                });
-
-                printArea.innerHTML = html;
-                printArea.style.display = 'block';
-
-                const images = Array.from(printArea.querySelectorAll('img'));
-                const imagePromises = images.map(img => {
-                    return new Promise(resolve => {
-                        if (img.complete && img.naturalHeight !== 0) resolve();
-                        else {
-                            img.onload = resolve;
-                            img.onerror = resolve;
-                            setTimeout(resolve, 3000);
-                        }
-                    });
-                });
-
-                Promise.all(imagePromises).then(() => {
-                    selected.forEach((item, idx) => {
-                        const bcId = `bc-multi-${idx}-${timestamp}`;
-                        const element = document.getElementById(bcId);
-                        if (item.WMSCode && element) {
-                            JsBarcode(element, item.WMSCode, {
-                                format: "CODE128",
-                                height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18),
-                                width: 1.5,
-                                displayValue: false,
-                                margin: 0
+        if (conferma) {
+            // Aggiorna GIACENZA locale PRIMA di stampare
+            const updatedGiacenza = giacenza.map(i => {
+                const isSelected = selected.find(s => s.ID_Riga === i.ID_Riga);
+                if (isSelected) {
+                    return {
+                        ...i,
+                        Ubicazioni: bulkUbicazione.trim() || i.Ubicazioni,
+                        PartNumber: bulkPartNumber.trim() || i.PartNumber
+                    };
+                }
+                return i;
+            });
+            
+            setGiacenza(updatedGiacenza);
+            appCache.giacenza = updatedGiacenza;
+            
+            // Aggiorna selected con nuovi valori
+            const updatedSelected = selected.map(s => ({
+                ...s,
+                Ubicazioni: bulkUbicazione.trim() || s.Ubicazioni,
+                PartNumber: bulkPartNumber.trim() || s.PartNumber
+            }));
+            setSelected(updatedSelected);
+            
+            // Salva su server in background
+            (async () => {
+                for (const item of selected) {
+                    try {
+                        if (bulkUbicazione.trim()) {
+                            await api('updateGiacenzaUbicazione', { 
+                                id_riga: item.ID_Riga,
+                                ubicazione: bulkUbicazione 
                             });
                         }
-                    });
+                        if (bulkPartNumber.trim()) {
+                            await api('updateGiacenzaPartNumber', { 
+                                id_riga: item.ID_Riga,
+                                partNumber: bulkPartNumber,
+                                note: item.Note || ''
+                            });
+                        }
+                    } catch (err) {
+                        console.error('❌ Errore aggiornamento item:', err);
+                    }
+                }
+                console.log('✅ Aggiornamenti salvati su server');
+            })();
+            
+            // Continua con stampa usando updatedSelected
+            await new Promise(resolve => setTimeout(resolve, 300));
+            stampaEtichette(updatedSelected);
+            return;
+        }
+    }
+    
+    // Se nessuna modifica o user ha cliccato Annulla, stampa direttamente
+    stampaEtichette(selected);
+};
 
-                    setTimeout(() => {
-                        window.print();
-                        printArea.style.display = 'none';
-                        printArea.innerHTML = '';
-                    }, 500);
+// ✅ CREA QUESTA NUOVA FUNZIONE separata per la stampa
+const stampaEtichette = (items) => {
+    const printArea = document.getElementById('print-area');
+    const timestamp = Date.now();
+
+    let html = '';
+    items.forEach((item, idx) => {
+        const bcId = `bc-multi-${idx}-${timestamp}`;
+
+        if (formatoStampa === '10x10') {
+            html += `
+                <div class="etichetta-10x10">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.PartNumber || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr class="thin">
+                    <div class="sn-section">
+                        <span class="sn-label">SerialNumber/Lotto</span>
+                        <span class="sn-value">${item.RISCONTROSERIALEF || ''}</span>
+                        <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
+                        <div class="label-sn">SN</div>
+                    </div>
+                    <div class="ubicazione-under-sn">
+                        <span class="pos-label">Ubicazione</span>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        } else if (formatoStampa === '10x5') {
+            html += `
+                <div class="etichetta-10x5">
+                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <svg class="et5-barcode" id="${bcId}"></svg>
+                    <div class="et5-wms">${item.WMSCode || ''}</div>
+                    <div class="et5-info">
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
+                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
+                    </div>
+                </div>`;
+        } else if (formatoStampa === '10x10g') {
+            html += `
+                <div class="etichetta-10x10g">
+                    <div class="logo-container">
+                        <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+                        <div class="label-cod-bp">COD BP</div>
+                    </div>
+                    <div class="bp-section">
+                        <div class="bp-label">Codice BP</div>
+                        <div class="bp-value">${item.CodSap || ''}</div>
+                        <img class="qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+                    </div>
+                    <hr>
+                    <div class="art-label">Articolo</div>
+                    <svg class="barcode-svg" id="${bcId}"></svg>
+                    <div class="wms">${item.WMSCode || ''}</div>
+                    <hr>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                    </div>
+                    <div class="label-tpn">TPN</div>
+                    <hr class="thin">
+                    <div class="part-section">
+                        <span class="part-label">Part Number</span>
+                        <span class="part-value">${item.PartNumber || ''}</span>
+                        <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
+                    </div>
+                    <div class="ubicazione-large">
+                        <div class="pos-label">Ubicazione</div>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
+                    </div>
+                </div>`;
+        }
+    });
+
+    printArea.innerHTML = html;
+    printArea.style.display = 'block';
+
+    const images = Array.from(printArea.querySelectorAll('img'));
+    const imagePromises = images.map(img => {
+        return new Promise(resolve => {
+            if (img.complete && img.naturalHeight !== 0) resolve();
+            else {
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 3000);
+            }
+        });
+    });
+
+    Promise.all(imagePromises).then(() => {
+        items.forEach((item, idx) => {
+            const bcId = `bc-multi-${idx}-${timestamp}`;
+            const element = document.getElementById(bcId);
+            if (item.WMSCode && element) {
+                JsBarcode(element, item.WMSCode, {
+                    format: "CODE128",
+                    height: formatoStampa === '10x10' ? 20 : (formatoStampa === '10x10g' ? 24 : 18),
+                    width: 1.5,
+                    displayValue: false,
+                    margin: 0
                 });
-            };
+            }
+        });
+
+        setTimeout(() => {
+            window.print();
+            printArea.style.display = 'none';
+            printArea.innerHTML = '';
+        }, 500);
+    });
+};
 
             if (loading) return (
                 <div className="text-center py-12">
@@ -3402,6 +4008,12 @@ const updateNoteLista = async (item, newNote) => {
                                 <Icons.Printer /> Stampa
                             </button>
                             <button onClick={() => setSelected([])} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Deseleziona</button>
+                            <button onClick={aggiornaMassivoUbicazione} className="flex items-center gap-1 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600">
+    📍 Aggiorna Solo Ubicazione
+</button>
+<button onClick={aggiornaMassivoPartNumber} className="flex items-center gap-1 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+    🔧 Aggiorna Solo Part Number
+</button>
                         </div>
                     </div>
                 )}
@@ -3478,7 +4090,7 @@ const updateNoteLista = async (item, newNote) => {
                                             </span>
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>
-                                            {editingUbicazione[item.RISCONTROSERIALEF] ? (
+                                            {editingUbicazione[item.ID_Riga] ? (
                                                 <div className="flex gap-1">
                                                     <input 
                                                         type="text" 
@@ -3487,7 +4099,7 @@ const updateNoteLista = async (item, newNote) => {
                                                             updateUbicazioneLista(item, e.target.value);
                                                             setEditingUbicazione(prev => {
                                                                 const n = {...prev};
-                                                                delete n[item.RISCONTROSERIALEF];
+                                                                delete n[item.ID_Riga];
                                                                 return n;
                                                             });
                                                         }}
@@ -3499,7 +4111,7 @@ const updateNoteLista = async (item, newNote) => {
                                                 <div className="flex gap-1 items-center">
                                                     <span>{item.Ubicazioni}</span>
                                                     <button 
-                                                        onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                                                        onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.ID_Riga]: true }))} 
                                                         className="text-blue-500 hover:text-blue-700"
                                                     >
                                                         <Icons.Edit />
@@ -3508,7 +4120,7 @@ const updateNoteLista = async (item, newNote) => {
                                             )}
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
-                                            {editingPartNumber[item.RISCONTROSERIALEF] ? (
+                                            {editingPartNumber[item.ID_Riga] ? (
                                                 <div className="flex gap-1">
                                                     <input 
                                                         type="text" 
@@ -3517,7 +4129,7 @@ const updateNoteLista = async (item, newNote) => {
                                                             updatePartNumberLista(item, e.target.value);
                                                             setEditingPartNumber(prev => {
                                                                 const n = {...prev};
-                                                                delete n[item.RISCONTROSERIALEF];
+                                                                delete n[item.ID_Riga];
                                                                 return n;
                                                             });
                                                         }}
@@ -3529,7 +4141,7 @@ const updateNoteLista = async (item, newNote) => {
                                                 <div className="flex gap-1 items-center">
                                                     <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
                                                     <button 
-                                                        onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                                                        onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.ID_Riga]: true }))} 
                                                         className="text-blue-500 hover:text-blue-700"
                                                     >
                                                         <Icons.Edit />
@@ -3640,7 +4252,11 @@ const updateNoteLista = async (item, newNote) => {
     function Storico({ user }) {
         const [storico, setStorico] = useState([]);
         const [filteredData, setFilteredData] = useState([]);
-        const [filters, setFilters] = useState({});
+        // ✅ Carica filtri salvati all'avvio
+const [filters, setFilters] = useState(() => {
+    const saved = sessionStorage.getItem('ats_storico_filters');
+    return saved ? JSON.parse(saved) : {};
+});
         const [loading, setLoading] = useState(true);
         const [loadingProgress, setLoadingProgress] = useState('');
         const [showFilters, setShowFilters] = useState(false);
@@ -3672,9 +4288,34 @@ const updateNoteLista = async (item, newNote) => {
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
         const [displayCount, setDisplayCount] = useState(50);
         const [hasMore, setHasMore] = useState(true);
+        // ✅ FUNZIONE APPLICAZIONE FILTRI (PRIMA DEL RENDER)
+const applyFilters = () => {
+    const filtered = storico.reduce((acc, i) => {
+        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.match && i.Match !== filters.match) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.dataOra) {
+            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+            if (!itemDate.includes(filters.dataOra)) return acc;
+        }
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
 
-        useEffect(() => {
+ useEffect(() => {
     async function loadData() {
+        // Usa cache se disponibile
         if (appCache.storico) {
             setStorico(appCache.storico);
             setFilteredData(appCache.storico);
@@ -3699,7 +4340,31 @@ const updateNoteLista = async (item, newNote) => {
     }
     
     loadData();
-}, []);
+    
+    // ✅ AGGIUNGI QUESTO LISTENER
+    const handleUpdate = (event) => {
+        if (event.detail && event.detail.storico) {
+            const updatedStorico = event.detail.storico;
+            setStorico(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            // Riapplica filtri se presenti
+            let filtered = [...updatedStorico];
+            if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+            if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+            if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+            if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+            if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
+            if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+            if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+            
+            setFilteredData(filtered);
+        }
+    };
+    
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, [filters]); // ✅ Aggiungi filters come dipendenza
 
         useEffect(() => {
             const handleUpdate = async (event) => {
@@ -3732,33 +4397,22 @@ const updateNoteLista = async (item, newNote) => {
             return () => window.removeEventListener('ats-data-updated', handleUpdate);
         }, [filters]);
 
-        const applyFilters = () => {
-    // ✅ Usa UN SOLO ciclo invece di filter multipli
-    const filtered = storico.reduce((acc, i) => {
-        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.match && i.Match !== filters.match) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.dataOra) {
-            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-            if (!itemDate.includes(filters.dataOra)) return acc;
-        }
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50); // ✅ Reset paginazione
-    setHasMore(filtered.length > 50);
-    setShowFilters(false);
-};
+        // Salva filtri ogni volta che cambiano
+useEffect(() => {
+    sessionStorage.setItem('ats_storico_filters', JSON.stringify(filters));
+}, [filters]);
+        // - Applica automaticamente filtri all'avvio
+useEffect(() => {
+    if (Object.keys(filters).some(key => filters[key])) {
+        applyFilters();
+    }
+}, []); // Solo al mount
+
+
         useEffect(() => {
     setHasMore(filteredData.length > displayCount);
 }, [filteredData, displayCount]);
+        
 
 const displayedData = filteredData.slice(0, displayCount);
 
@@ -3795,10 +4449,17 @@ const loadMore = () => {
     setLastSelectedIndex(index);
 };
 
-       const updateUbicazione = async (item, newUbic) => {
+const updateUbicazione = async (item, newUbic) => {
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = item.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
+    
     const updated = storico.map(i => 
         i.id === item.id 
-            ? { ...i, Ubicazioni: newUbic } 
+            ? { ...i, Ubicazioni: newUbic, Note: updatedNote } 
             : i
     );
     setStorico(updated);
@@ -3820,7 +4481,14 @@ const loadMore = () => {
             id: item.id,
             ubicazione: newUbic 
         });
-        console.log('✅ Ubicazione salvata in INVENTARIO');
+        
+        // ✅ Aggiorna anche la nota
+        await api('updateInventarioNote', { 
+            id: item.id,
+            note: updatedNote 
+        });
+        
+        console.log('✅ Ubicazione salvata in INVENTARIO con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
@@ -3828,9 +4496,16 @@ const loadMore = () => {
 };
 
 const updatePartNumberStorico = async (item, newPN) => {
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldPN = item.PartNumber || 'vuoto';
+    const logMessage = `Part Number modificato da: ${oldPN}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
+    
     const updated = storico.map(i => 
         i.id === item.id 
-            ? { ...i, PartNumber: newPN } 
+            ? { ...i, PartNumber: newPN, Note: updatedNote } 
             : i
     );
     setStorico(updated);
@@ -3852,7 +4527,14 @@ const updatePartNumberStorico = async (item, newPN) => {
             id: item.id,
             partNumber: newPN 
         });
-        console.log('✅ PartNumber salvato in INVENTARIO');
+        
+        // ✅ Aggiorna anche la nota
+        await api('updateInventarioNote', { 
+            id: item.id,
+            note: updatedNote 
+        });
+        
+        console.log('✅ PartNumber salvato in INVENTARIO con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
@@ -3868,7 +4550,7 @@ const updateNoteStorico = async (item, newNote) => {
     setStorico(updated);
     setEditingNote(prev => { 
         const n = {...prev}; 
-        delete n[item.Seriale_Riscontrato]; 
+        delete n[item.id]; 
         return n; 
     });
     
@@ -3970,8 +4652,35 @@ const updateBulkPartNumber = async () => {
         alert('Errore aggiornamento: ' + err.message);
     }
 };
-        const stampaStorico = () => {
+        const stampaStorico = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    
+    // ✅ FIX: Controlla se ci sono modifiche da applicare
+    if (bulkUbicazione.trim() || bulkPartNumber.trim()) {
+        const messaggi = [];
+        if (bulkUbicazione.trim()) messaggi.push(`Ubicazione: ${bulkUbicazione}`);
+        if (bulkPartNumber.trim()) messaggi.push(`Part Number: ${bulkPartNumber}`);
+        
+        const conferma = window.confirm(
+            `⚠️ HAI COMPILATO:\n${messaggi.join('\n')}\n\n` +
+            `Vuoi PRIMA aggiornare questi campi per i ${selected.length} articoli selezionati?\n\n` +
+            `• Sì = Aggiorna e poi stampa\n` +
+            `• No = Stampa senza modificare`
+        );
+        
+        if (conferma) {
+            // Esegui aggiornamenti
+            if (bulkUbicazione.trim()) {
+                await updateBulkUbicazione();
+            }
+            if (bulkPartNumber.trim()) {
+                await updateBulkPartNumber();
+            }
+            
+            // Attendi 500ms per sincronizzazione
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
 
     const printArea = document.getElementById('print-area');
     const timestamp = Date.now();
@@ -4144,7 +4853,6 @@ const updateBulkPartNumber = async () => {
                     return {
                         ...g,
                         Match: null,
-                        Stato: 'DA INVENTARIARE',
                         inventariato: false,
                         timestamp: null,
                         operatore: null
