@@ -2270,16 +2270,24 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = currentItem.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = currentItem.Note 
+        ? `${currentItem.Note} | ${logMessage}` 
+        : logMessage;
+    
     // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbicazione } 
+            ? { ...i, Ubicazioni: newUbicazione, Note: updatedNote } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
-    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione });
+    setCurrentItem({ ...currentItem, Ubicazioni: newUbicazione, Note: updatedNote });
+    setNewNote(updatedNote); // ✅ Aggiorna anche il campo note
     setEditingUbicazione(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2299,9 +2307,12 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         if (invData) {
             await supabaseClient
                 .from('inventario')
-                .update({ ubicazione: newUbicazione })
+                .update({ 
+                    ubicazione: newUbicazione,
+                    note: updatedNote // ✅ Salva nota aggiornata
+                })
                 .eq('id', invData.id);
-            console.log('✅ Ubicazione salvata solo in INVENTARIO');
+            console.log('✅ Ubicazione salvata in INVENTARIO con nota aggiornata');
         } else {
             console.warn('⚠️ Nessun record trovato in inventario');
         }
@@ -2310,20 +2321,27 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
     }
 };
-
 const handleUpdatePartNumber = async () => {
     if (!currentItem || !newPartNumber.trim()) return;
+    
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldPN = currentItem.PartNumber || 'vuoto';
+    const logMessage = `Part Number modificato da: ${oldPN}`;
+    const updatedNote = currentItem.Note 
+        ? `${currentItem.Note} | ${logMessage}` 
+        : logMessage;
     
     // ✅ Aggiorna solo STORICO locale (non giacenza)
     const updatedStorico = storico.map(i => 
         i.Seriale_Riscontrato === currentItem.RISCONTROSERIALEF 
-            ? { ...i, PartNumber: newPartNumber } 
+            ? { ...i, PartNumber: newPartNumber, Note: updatedNote } 
             : i
     );
     setStorico(updatedStorico);
     appCache.storico = updatedStorico;
     
-    setCurrentItem({ ...currentItem, PartNumber: newPartNumber });
+    setCurrentItem({ ...currentItem, PartNumber: newPartNumber, Note: updatedNote });
+    setNewNote(updatedNote); // ✅ Aggiorna anche il campo note
     setEditingPartNumber(false);
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2343,9 +2361,12 @@ const handleUpdatePartNumber = async () => {
         if (invData) {
             await supabaseClient
                 .from('inventario')
-                .update({ part_number: newPartNumber })
+                .update({ 
+                    part_number: newPartNumber,
+                    note: updatedNote // ✅ Salva nota aggiornata
+                })
                 .eq('id', invData.id);
-            console.log('✅ PartNumber salvato solo in INVENTARIO');
+            console.log('✅ PartNumber salvato in INVENTARIO con nota aggiornata');
         } else {
             console.warn('⚠️ Nessun record trovato in inventario');
         }
@@ -3288,13 +3309,20 @@ const toggleSelectWithShift = (item, index, event) => {
                 setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }));
             };
 
-            const updateUbicazioneLista = async (item, newUbic) => {
+const updateUbicazioneLista = async (item, newUbic) => {
     if (!newUbic.trim()) return;
+    
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = item.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
     
     // Aggiorna GIACENZA (articoli NON inventariati)
     const updatedGiacenza = giacenza.map(i => 
         i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbic } 
+            ? { ...i, Ubicazioni: newUbic, Note: updatedNote } 
             : i
     );
     setGiacenza(updatedGiacenza);
@@ -3319,7 +3347,14 @@ const toggleSelectWithShift = (item, index, event) => {
             id_riga: item.ID_Riga,
             ubicazione: newUbic 
         });
-        console.log('✅ Ubicazione salvata in GIACENZA');
+        
+        // ✅ Aggiorna anche la nota in giacenza
+        await api('updateGiacenzaNote', { 
+            id_riga: item.ID_Riga,
+            note: updatedNote 
+        });
+        
+        console.log('✅ Ubicazione salvata in GIACENZA con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
@@ -3329,9 +3364,9 @@ const toggleSelectWithShift = (item, index, event) => {
 const updatePartNumberLista = async (item, newPN) => {
     if (!newPN.trim()) return;
     
-    const oldPN = item.PartNumber;
-    const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${newPN}`;
-    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+    const oldPN = item.PartNumber || 'vuoto';
+    const logMessage = `PartNumber modificato da ${oldPN} a ${newPN}`; 
+    const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage; 
     
     // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
@@ -4294,10 +4329,17 @@ const loadMore = () => {
     setLastSelectedIndex(index);
 };
 
-       const updateUbicazione = async (item, newUbic) => {
+const updateUbicazione = async (item, newUbic) => {
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldUbic = item.Ubicazioni || 'vuoto';
+    const logMessage = `Ubicazione modificata da: ${oldUbic}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
+    
     const updated = storico.map(i => 
         i.id === item.id 
-            ? { ...i, Ubicazioni: newUbic } 
+            ? { ...i, Ubicazioni: newUbic, Note: updatedNote } 
             : i
     );
     setStorico(updated);
@@ -4319,7 +4361,14 @@ const loadMore = () => {
             id: item.id,
             ubicazione: newUbic 
         });
-        console.log('✅ Ubicazione salvata in INVENTARIO');
+        
+        // ✅ Aggiorna anche la nota
+        await api('updateInventarioNote', { 
+            id: item.id,
+            note: updatedNote 
+        });
+        
+        console.log('✅ Ubicazione salvata in INVENTARIO con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione ubicazione: ' + err.message);
@@ -4327,9 +4376,16 @@ const loadMore = () => {
 };
 
 const updatePartNumberStorico = async (item, newPN) => {
+    // ✅ AGGIUNGI LOG ALLA NOTA
+    const oldPN = item.PartNumber || 'vuoto';
+    const logMessage = `Part Number modificato da: ${oldPN}`;
+    const updatedNote = item.Note 
+        ? `${item.Note} | ${logMessage}` 
+        : logMessage;
+    
     const updated = storico.map(i => 
         i.id === item.id 
-            ? { ...i, PartNumber: newPN } 
+            ? { ...i, PartNumber: newPN, Note: updatedNote } 
             : i
     );
     setStorico(updated);
@@ -4351,7 +4407,14 @@ const updatePartNumberStorico = async (item, newPN) => {
             id: item.id,
             partNumber: newPN 
         });
-        console.log('✅ PartNumber salvato in INVENTARIO');
+        
+        // ✅ Aggiorna anche la nota
+        await api('updateInventarioNote', { 
+            id: item.id,
+            note: updatedNote 
+        });
+        
+        console.log('✅ PartNumber salvato in INVENTARIO con nota aggiornata');
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         alert('⚠️ Errore sincronizzazione Part Number: ' + err.message);
