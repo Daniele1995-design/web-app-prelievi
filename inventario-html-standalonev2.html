@@ -1205,6 +1205,31 @@ operations: groups[action]
             });
 
             const [queueSize, setQueueSize] = useState(0);
+            const [syncing, setSyncing] = useState(false);
+
+            const reloadData = async () => {
+    setSyncing(true);
+    try {
+        // Ricarica giacenza
+        const resGiac = await api('getGiacenza');
+        appCache.giacenza = resGiac.data;
+        
+        // Ricarica storico
+        const resStor = await api('getStorico');
+        appCache.storico = resStor.data;
+        
+        // Notifica tutti i componenti
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: resGiac.data, storico: resStor.data }
+        }));
+        
+        console.log('✅ Dati aggiornati dal database');
+    } catch (err) {
+        console.error('❌ Errore aggiornamento:', err);
+    } finally {
+        setSyncing(false);
+    }
+};
 
             useEffect(() => {
                 if (user) {
@@ -1269,10 +1294,42 @@ operations: groups[action]
                     </header>
                     <nav className="bg-white shadow-md">
                         <div className="max-w-7xl mx-auto flex overflow-x-auto">
-                            <NavButton icon={<Icons.BarChart />} label="Dashboard" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                            <NavButton icon={<Icons.Camera />} label="Scanner" active={currentView === 'scanner'} onClick={() => setCurrentView('scanner')} />
-                            <NavButton icon={<Icons.List />} label="Lista" active={currentView === 'lista'} onClick={() => setCurrentView('lista')} />
-                            <NavButton icon={<Icons.Package />} label="Storico" active={currentView === 'storico'} onClick={() => setCurrentView('storico')} />
+<NavButton 
+    icon={<Icons.BarChart />} 
+    label="Dashboard" 
+    active={currentView === 'dashboard'} 
+    onClick={() => {
+        setCurrentView('dashboard');
+
+    }} 
+/>
+<NavButton 
+    icon={<Icons.Camera />} 
+    label="Scanner" 
+    active={currentView === 'scanner'} 
+    onClick={() => {
+        setCurrentView('scanner');
+        reloadData(); // ✅ Ricarica quando vai su Scanner
+    }} 
+/>
+<NavButton 
+    icon={<Icons.List />} 
+    label="Lista" 
+    active={currentView === 'lista'} 
+    onClick={() => {
+        setCurrentView('lista');
+        reloadData(); // ✅ Ricarica quando vai su Lista
+    }} 
+/>
+<NavButton 
+    icon={<Icons.Package />} 
+    label="Storico" 
+    active={currentView === 'storico'} 
+    onClick={() => {
+        setCurrentView('storico');
+        reloadData(); // ✅ Ricarica quando vai su Storico
+    }} 
+/>
                         </div>
                     </nav>
                     <main className="max-w-7xl mx-auto p-4">
