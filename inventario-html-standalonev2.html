@@ -2578,6 +2578,15 @@ const handleUpdateNote = async () => {
                     }, 500);
                 });
             };
+            // ✅ AGGIUNGI  CHECK LOADING QUI
+            if (loading) {
+                return (
+                    <div className="text-center py-12">
+                        <div className="text-xl font-bold mb-2">Caricamento...</div>
+                        {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
+                    </div>
+                );
+            }
 
 
             const giacenzaDaMostrare = giacenza.filter(i => !i.inventariato);
