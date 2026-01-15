@@ -4014,6 +4014,30 @@ const updateBulkUbicazione = async () => {
                 ubicazione: bulkUbicazione 
             });
         }
+        
+        // Aggiorna cache locale
+        const updated = storico.map(i => 
+            selected.find(s => s.id === i.id) 
+                ? { ...i, Ubicazioni: bulkUbicazione } 
+                : i
+        );
+        
+        setStorico(updated);
+        setFilteredData(updated);
+        appCache.storico = updated;
+        setSelected([]);
+        setBulkUbicazione('');
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { storico: updated }
+        }));
+        
+        alert('✅ Ubicazioni aggiornate!');
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore aggiornamento: ' + err.message);
+    }
+};
 
 const updateBulkPartNumber = async () => {
     if (selected.length === 0 || !bulkPartNumber.trim()) return;
@@ -4041,6 +4065,30 @@ const updateBulkPartNumber = async () => {
                 partNumber: bulkPartNumber 
             });
         }
+        
+        // Aggiorna cache locale
+        const updated = storico.map(i => 
+            selected.find(s => s.id === i.id) 
+                ? { ...i, PartNumber: bulkPartNumber } 
+                : i
+        );
+        
+        setStorico(updated);
+        setFilteredData(updated);
+        appCache.storico = updated;
+        setSelected([]);
+        setBulkPartNumber('');
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { storico: updated }
+        }));
+        
+        alert('✅ Part Number aggiornati!');
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore aggiornamento: ' + err.message);
+    }
+};
         const stampaStorico = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
