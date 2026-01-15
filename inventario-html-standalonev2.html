@@ -1732,6 +1732,8 @@ const excelData = storico.map(item => ({
             const [autoUpdateUbicazione, setAutoUpdateUbicazione] = useState(false);
             const [scanCount, setScanCount] = useState(0);
             const [lastScannedSerial, setLastScannedSerial] = useState('');
+            const [expectedPartNumber, setExpectedPartNumber] = useState('');
+const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
@@ -1932,15 +1934,16 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
     }
     
     console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: giacenza, storico: storico }
+        }));
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         setGiacenza(giacenza);
         setStorico(storico);
         appCache.giacenza = giacenza;
         appCache.storico = storico;
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { giacenza: giacenza, storico: storico }
-        }));
+        
         setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
         alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
         return;
@@ -2063,6 +2066,119 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
             }
         }
     }
+    // ✅ GESTIONE PART NUMBER ATTESO
+        const partNumberAttuale = found.PartNumber || '';
+        const partNumberAtteso = expectedPartNumber.trim().toUpperCase();
+        
+        if (partNumberAtteso && partNumberAtteso !== partNumberAttuale.toUpperCase()) {
+            if (autoUpdatePartNumber) {
+                const oldPN = partNumberAttuale;
+                const logMessage = `PartNumber sostituito da: ${oldPN || 'vuoto'}`;
+                const newNote = found.Note ? `${found.Note} | ${logMessage}` : logMessage;
+                
+                const finalGiacenza = giacenza.map(item =>
+                    item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                        ? { ...item, PartNumber: expectedPartNumber, Note: newNote } 
+                        : item
+                );
+                
+                setGiacenza(finalGiacenza);
+                appCache.giacenza = finalGiacenza;
+                setCurrentItem({ ...found, PartNumber: expectedPartNumber, Note: newNote });
+                setNewPartNumber(expectedPartNumber);
+                setNewNote(newNote);
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { giacenza: finalGiacenza }
+                }));
+                
+                try {
+                    const { data: invData } = await supabaseClient
+                        .from('inventario')
+                        .select('id')
+                        .eq('id_riga_giacenza', found.ID_Riga)
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    if (invData) {
+                        await supabaseClient
+                            .from('inventario')
+                            .update({ 
+                                part_number: expectedPartNumber,
+                                note: newNote
+                            })
+                            .eq('id', invData.id);
+                        
+                        await supabaseClient
+                            .from('giacenza')
+                            .update({ 
+                                part_number: expectedPartNumber,
+                                note: newNote
+                            })
+                            .eq('id_riga', found.ID_Riga);
+                        
+                        console.log('✅ Part Number aggiornato automaticamente');
+                    }
+                } catch (err) {
+                    console.error('❌ Errore aggiornamento part number:', err);
+                }
+            } else {
+                setTimeout(async () => {
+                    const conferma = window.confirm(
+                        `⚠️ PART NUMBER DIVERSO!\n\n` +
+                        `Seriale: ${scanned}\n` +
+                        `Part Number in DB: ${partNumberAttuale || 'VUOTO'}\n` +
+                        `Part Number scansionato: ${expectedPartNumber}\n\n` +
+                        `Vuoi aggiornare?`
+                    );
+                    
+                    if (conferma) {
+                        const finalGiacenza = giacenza.map(item =>
+                            item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                                ? { ...item, PartNumber: expectedPartNumber } 
+                                : item
+                        );
+                        
+                        setGiacenza(finalGiacenza);
+                        appCache.giacenza = finalGiacenza;
+                        setCurrentItem({ ...found, PartNumber: expectedPartNumber });
+                        setNewPartNumber(expectedPartNumber);
+                        
+                        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                            detail: { giacenza: finalGiacenza }
+                        }));
+                        
+                        try {
+                            const { data: invData } = await supabaseClient
+                                .from('inventario')
+                                .select('id')
+                                .eq('id_riga_giacenza', found.ID_Riga)
+                                .order('timestamp', { ascending: false })
+                                .limit(1)
+                                .single();
+                            
+                            if (invData) {
+                                await supabaseClient
+                                    .from('inventario')
+                                    .update({ part_number: expectedPartNumber })
+                                    .eq('id', invData.id);
+                                
+                                await supabaseClient
+                                    .from('giacenza')
+                                    .update({ part_number: expectedPartNumber })
+                                    .eq('id_riga', found.ID_Riga);
+                                
+                                console.log('✅ Part Number aggiornato');
+                            }
+                        } catch (err) {
+                            console.error('❌ Errore aggiornamento part number:', err);
+                        }
+                    }
+                }, 500);
+            }
+        }
+    }                     
 } else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
@@ -2636,34 +2752,64 @@ const handleUpdateNote = async () => {
             />
         </div>
         
-        {/* Campo Ubicazione Attesa - SOTTO */}
-        <div>
-    <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
-        🛒 Barcode ubicazione attesa (opzionale)
-        <label className="flex items-center gap-1 cursor-pointer">
-            <input 
-                type="checkbox" 
-                checked={autoUpdateUbicazione}
-                onChange={(e) => setAutoUpdateUbicazione(e.target.checked)}
-            />
-            <span className="text-xs">Auto-aggiorna</span>
-        </label>
-    </label>
-    <input 
-        ref={ubicazioneInputRef}
-        type="text" 
-        value={expectedUbicazione} 
-        onChange={(e) => setExpectedUbicazione(e.target.value.toUpperCase())} 
-        onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (inputRef.current) inputRef.current.focus();
-            }
-        }}
-        className="w-full px-3 py-2 text-sm border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500" 
-        placeholder="Scansiona barcode ubicazione..." 
-    />
-</div>
+        {/* ✅ NUOVA GRIGLIA 2 COLONNE - Ubicazione + Part Number */}
+        <div className="grid grid-cols-2 gap-3">
+            {/* Ubicazione Attesa */}
+            <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+                    🛒 Ubicazione attesa
+                    <label className="flex items-center gap-1 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={autoUpdateUbicazione}
+                            onChange={(e) => setAutoUpdateUbicazione(e.target.checked)}
+                        />
+                        <span className="text-xs">Auto</span>
+                    </label>
+                </label>
+                <input 
+                    type="text" 
+                    value={expectedUbicazione} 
+                    onChange={(e) => setExpectedUbicazione(e.target.value.toUpperCase())} 
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputRef.current) inputRef.current.focus();
+                        }
+                    }}
+                    className="w-full px-3 py-2 text-sm border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500" 
+                    placeholder="Barcode ubicazione..." 
+                />
+            </div>
+            
+            {/* ✅ NUOVO - Part Number Atteso */}
+            <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+                    🔧 Part Number atteso
+                    <label className="flex items-center gap-1 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={autoUpdatePartNumber}
+                            onChange={(e) => setAutoUpdatePartNumber(e.target.checked)}
+                        />
+                        <span className="text-xs">Auto</span>
+                    </label>
+                </label>
+                <input 
+                    type="text" 
+                    value={expectedPartNumber} 
+                    onChange={(e) => setExpectedPartNumber(e.target.value.toUpperCase())} 
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputRef.current) inputRef.current.focus();
+                        }
+                    }}
+                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500" 
+                    placeholder="Barcode part number..." 
+                />
+            </div>
+        </div>
     </div>
     
     {/* Ultimo seriale scansionato */}
@@ -2671,10 +2817,11 @@ const handleUpdateNote = async () => {
         <div className="bg-blue-50 border-2 border-blue-300 rounded-lg px-4 py-2 mt-2">
             <p className="text-xs text-blue-600 font-semibold">Ultimo Seriale Scansionato:</p>
             <p className="text-lg font-bold text-blue-800">{currentItem.RISCONTROSERIALEF || '-'}</p>
-            {expectedUbicazione && (
-                <p className="text-xs text-gray-600 mt-1">
-                    Ubicazione verificata: {currentItem.Ubicazioni}
-                </p>
+            {(expectedUbicazione || expectedPartNumber) && (
+                <div className="text-xs text-gray-600 mt-1 space-y-1">
+                    {expectedUbicazione && <p>✓ Ubicazione: {currentItem.Ubicazioni}</p>}
+                    {expectedPartNumber && <p>✓ Part Number: {currentItem.PartNumber}</p>}
+                </div>
             )}
         </div>
     )}
@@ -2983,13 +3130,20 @@ const [filters, setFilters] = useState(() => {
                 return () => window.removeEventListener('ats-data-updated', handleUpdate);
             }, [filters, displayCount]);
 
-            // ✅ Salva filtri ogni volta che cambiano
+            //  Salva filtri ogni volta che cambiano
 useEffect(() => {
     sessionStorage.setItem('ats_lista_filters', JSON.stringify(filters));
 }, [filters]);
+            // - Applica automaticamente filtri all'avvio
+useEffect(() => {
+    if (Object.keys(filters).some(key => filters[key])) {
+        // Se ci sono filtri salvati, applicali
+        applyFilters();
+    }
+}, []); // Solo al mount
             
             const applyFilters = () => {
-    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    // Usa UN SOLO ciclo invece di filter multipli
     const filtered = giacenza.reduce((acc, i) => {
         // Controlla inventariato
         if (i.inventariato) return acc;
@@ -3986,13 +4140,19 @@ const [filters, setFilters] = useState(() => {
             return () => window.removeEventListener('ats-data-updated', handleUpdate);
         }, [filters]);
 
-        // ✅ Salva filtri ogni volta che cambiano
+        // Salva filtri ogni volta che cambiano
 useEffect(() => {
     sessionStorage.setItem('ats_storico_filters', JSON.stringify(filters));
 }, [filters]);
+        // - Applica automaticamente filtri all'avvio
+useEffect(() => {
+    if (Object.keys(filters).some(key => filters[key])) {
+        applyFilters();
+    }
+}, []); // Solo al mount
 
         const applyFilters = () => {
-    // ✅ Usa UN SOLO ciclo invece di filter multipli
+    //  Usa UN SOLO ciclo invece di filter multipli
     const filtered = storico.reduce((acc, i) => {
         if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
         if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
