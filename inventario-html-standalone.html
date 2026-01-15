@@ -1830,27 +1830,7 @@ const [newItemData, setNewItemData] = useState({
                                 : item
                         );
                         
-                        const newEntry = { 
-                            id: Date.now() + Math.random(),
-                            Timestamp: new Date().toISOString(), 
-                            Operatore: user.nome || user.username, 
-                            Seriale_Riscontrato: scanned, 
-                            Match: match ? 'OK' : 'KO',
-                            CodSap: found.CodSap,
-                            Descrizione: found.Descrizione,
-                            Cdc: found.Cdc,
-                            Stato: found.Stato,
-                            Ubicazioni: found.Ubicazioni,
-                            RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-                            WMSCode: found.WMSCode,
-                            PoNr: found.PoNr,
-                            PartNumber: found.PartNumber || ''
-                        };
-                        
-                        const updatedStorico = [newEntry, ...storico];
-                        
                         setGiacenza(updatedGiacenza);
-                        setStorico(updatedStorico);
                         setCurrentItem(found);
                         setNewUbicazione(found.Ubicazioni || '');
                         setNewPartNumber(found.PartNumber || '');
@@ -1858,54 +1838,92 @@ const [newItemData, setNewItemData] = useState({
                         setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
                         playBeep(match ? 'success' : 'error');
                         
-                        // Salva cache locale
+                        // Salva cache giacenza
                         appCache.giacenza = updatedGiacenza;
-                        appCache.storico = updatedStorico;
                         
-                        
-                        // 2. NOTIFICA ALTRI COMPONENTI
+                        // 2. NOTIFICA GIACENZA AGGIORNATA
                         window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+                            detail: { giacenza: updatedGiacenza }
                         }));
 
-                        // 3. INVIA AL SERVER IN BACKGROUND
+                        // 3. INVIA AL SERVER E OTTIENI ID REALE
                         try {
-                            await api('saveRiscontro', {
-                                data: {
+                            const { data: newInventarioRecord } = await supabaseClient
+                                .from('inventario')
+                                .insert([{
                                     operatore: user.nome || user.username,
-                                    codSap: found.CodSap,
+                                    cod_sap: found.CodSap,
                                     descrizione: found.Descrizione,
                                     ubicazione: found.Ubicazioni,
-                                    serialeAtteso: found.RISCONTROSERIALEF,
-                                    serialeRiscontrato: scanned,
-                                    match: match ? 'OK' : 'KO',
+                                    seriale_atteso: found.RISCONTROSERIALEF,
+                                    seriale_riscontrato: scanned,
+                                    match: match,
                                     qta: found['Qtà'] || 1,
-                                    wmsCode: found.WMSCode || '',
+                                    wms_code: found.WMSCode || '',
                                     cdc: found.Cdc || '',
-                                    poNr: found.PoNr || '',
-                                    partNumber: found.PartNumber || '',
-                                    idRigaGiacenza: found.ID_Riga || '',
+                                    po_nr: found.PoNr || '',
+                                    part_number: found.PartNumber || '',
+                                    id_riga_giacenza: found.ID_Riga,
+                                    note: found.Note || '',
                                     stato: found.Stato || '',
-                                    note: ''
-                                }
-                            });
-                            console.log('✅ Salvato su Supabase');
+                                    ser_sn: found['SerS/No'] || 'No'
+                                }])
+                                .select()
+                                .single();
+                            
+                            if (!newInventarioRecord) throw new Error('Nessun record restituito');
+                            
+                            // ✅ Crea entry storico con ID REALE dal server
+                            const newEntry = { 
+                                id: newInventarioRecord.id, // ← ID REALE
+                                Timestamp: newInventarioRecord.timestamp,
+                                Operatore: user.nome || user.username, 
+                                Seriale_Riscontrato: scanned, 
+                                Match: match ? 'OK' : 'KO',
+                                CodSap: found.CodSap,
+                                Descrizione: found.Descrizione,
+                                Cdc: found.Cdc,
+                                Stato: found.Stato,
+                                Ubicazioni: found.Ubicazioni,
+                                RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+                                WMSCode: found.WMSCode,
+                                PoNr: found.PoNr,
+                                PartNumber: found.PartNumber || '',
+                                SerSN: found['SerS/No'],
+                                Note: found.Note || '',
+                                id_riga_giacenza: found.ID_Riga
+                            };
+                            
+                            const updatedStorico = [newEntry, ...storico];
+                            setStorico(updatedStorico);
+                            appCache.storico = updatedStorico;
+                            
+                            // Aggiorna giacenza su Supabase
+                            await supabaseClient
+                                .from('giacenza')
+                                .update({ 
+                                    match: 'OK',
+                                    stato: found.Stato,
+                                    ubicazioni: found.Ubicazioni,
+                                    part_number: found.PartNumber,
+                                    seriale_riscontrato: scanned,
+                                    operatore: user.nome || user.username,
+                                    note: found.Note || '',
+                                    timestamp: new Date().toISOString()
+                                })
+                                .eq('riscontro_seriale_f', scanned);
+                            
+                            console.log('✅ Salvato su Supabase con ID:', newInventarioRecord.id);
+                            
                         } catch (err) {
                             console.error('❌ Errore Supabase:', err);
                             
-                            // ROLLBACK se server fallisce
+                            // ROLLBACK giacenza
                             setGiacenza(giacenza);
-                            setStorico(storico);
                             appCache.giacenza = giacenza;
-                            appCache.storico = storico;
-                            
-                            await Promise.all([
-                                //dbCache.set('giacenza', giacenza),
-                                //dbCache.set('storico', storico)
-                            ]);
                             
                             window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                                detail: { giacenza: giacenza, storico: storico }
+                                detail: { giacenza: giacenza }
                             }));
                             
                             setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
@@ -4083,7 +4101,6 @@ const updateBulkPartNumber = async () => {
                 .from('giacenza')
                 .update({
                     match: null,
-                    stato: 'DA INVENTARIARE',
                     timestamp: null,
                     operatore: null,
                     seriale_riscontrato: null
