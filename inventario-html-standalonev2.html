@@ -3153,6 +3153,27 @@ const [filters, setFilters] = useState(() => {
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
+            const applyFilters = () => {
+    const filtered = giacenza.reduce((acc, i) => {
+        if (i.inventariato) return acc;
+        
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
+
             const [editingSeriale, setEditingSeriale] = useState({});
             const [visibleColumns, setVisibleColumns] = useState({
                 poNr: true,
@@ -3242,29 +3263,7 @@ useEffect(() => {
         );
     }
             
-            const applyFilters = () => {
-    // Usa UN SOLO ciclo invece di filter multipli
-    const filtered = giacenza.reduce((acc, i) => {
-        // Controlla inventariato
-        if (i.inventariato) return acc;
-        
-        // Applica tutti i filtri in un solo check
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50);
-    setHasMore(filtered.length > 50);
-    setShowFilters(false);
-};
+
 
             const loadMore = () => {
                 const newCount = displayCount + 50;
@@ -4169,6 +4168,30 @@ const [filters, setFilters] = useState(() => {
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
         const [displayCount, setDisplayCount] = useState(50);
         const [hasMore, setHasMore] = useState(true);
+        // ✅ FUNZIONE APPLICAZIONE FILTRI (PRIMA DEL RENDER)
+const applyFilters = () => {
+    const filtered = storico.reduce((acc, i) => {
+        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
+        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
+        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
+        if (filters.match && i.Match !== filters.match) return acc;
+        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
+        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.dataOra) {
+            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+            if (!itemDate.includes(filters.dataOra)) return acc;
+        }
+        
+        acc.push(i);
+        return acc;
+    }, []);
+    
+    setFilteredData(filtered);
+    setDisplayCount(50);
+    setHasMore(filtered.length > 50);
+    setShowFilters(false);
+};
 
  useEffect(() => {
     async function loadData() {
@@ -4265,30 +4288,7 @@ useEffect(() => {
     }
 }, []); // Solo al mount
 
-        const applyFilters = () => {
-    //  Usa UN SOLO ciclo invece di filter multipli
-    const filtered = storico.reduce((acc, i) => {
-        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.match && i.Match !== filters.match) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.dataOra) {
-            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-            if (!itemDate.includes(filters.dataOra)) return acc;
-        }
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50); // ✅ Reset paginazione
-    setHasMore(filtered.length > 50);
-    setShowFilters(false);
-};
+
         useEffect(() => {
     setHasMore(filteredData.length > displayCount);
 }, [filteredData, displayCount]);
