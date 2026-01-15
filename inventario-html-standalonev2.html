@@ -3318,12 +3318,12 @@ const updateUbicazioneLista = async (item, newUbic) => {
         ? `${item.Note} | ${logMessage}` 
         : logMessage;
     
-    // Aggiorna GIACENZA (articoli NON inventariati)
-    const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
-            ? { ...i, Ubicazioni: newUbic, Note: updatedNote } 
-            : i
-    );
+    // ✅ CORRETTO - usa ID_Riga univoco
+const updatedGiacenza = giacenza.map(i => 
+    i.ID_Riga === item.ID_Riga  // ← MODIFICA SOLO QUESTO SPECIFICO ARTICOLO
+        ? { ...i, Ubicazioni: newUbic } 
+        : i
+);
     setGiacenza(updatedGiacenza);
     appCache.giacenza = updatedGiacenza;
     
@@ -3408,7 +3408,7 @@ const updatePartNumberLista = async (item, newPN) => {
 const updateNoteLista = async (item, newNote) => {
     // Aggiorna GIACENZA
     const updatedGiacenza = giacenza.map(i => 
-        i.RISCONTROSERIALEF === item.RISCONTROSERIALEF 
+        i.ID_Riga === item.ID_Riga  // ✅ CORRETTO
             ? { ...i, Note: newNote } 
             : i
     );
@@ -3416,7 +3416,7 @@ const updateNoteLista = async (item, newNote) => {
     appCache.giacenza = updatedGiacenza;
     setEditingNote(prev => { 
         const n = {...prev}; 
-        delete n[item.RISCONTROSERIALEF]; 
+        delete n[item.ID_Riga]; 
         return n; 
     });
     
@@ -3443,6 +3443,120 @@ const updateNoteLista = async (item, newNote) => {
     } catch (err) {
         console.error('❌ Errore server:', err);
         alert('⚠️ Errore sincronizzazione: ' + err.message);
+    }
+};
+            // ✅ MODIFICA MASSIVA UBICAZIONE (SENZA VERIFICA)
+const aggiornaMassivoUbicazione = async () => {
+    if (selected.length === 0 || !bulkUbicazione.trim()) {
+        alert('⚠️ Inserisci una ubicazione');
+        return;
+    }
+    
+    if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?\n(SENZA verifica inventario)`)) return;
+    
+    try {
+        // Aggiorna GIACENZA locale
+        const selectedIds = new Set(selected.map(s => s.ID_Riga));
+        const updatedGiacenza = giacenza.map(i => 
+            selectedIds.has(i.ID_Riga)
+                ? { ...i, Ubicazioni: bulkUbicazione } 
+                : i
+        );
+        
+        setGiacenza(updatedGiacenza);
+        appCache.giacenza = updatedGiacenza;
+        
+        // Aggiorna filteredData
+        let filtered = updatedGiacenza.filter(i => !i.inventariato);
+        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        setFilteredData(filtered);
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza }
+        }));
+        
+        // Aggiorna DB
+        for (const item of selected) {
+            await api('updateGiacenzaUbicazione', { 
+                id_riga: item.ID_Riga,
+                ubicazione: bulkUbicazione 
+            });
+        }
+        
+        setSelected([]);
+        setBulkUbicazione('');
+        alert(`✅ Ubicazione aggiornata per ${selected.length} articoli!`);
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore: ' + err.message);
+    }
+};
+
+// ✅ MODIFICA MASSIVA PART NUMBER (SENZA VERIFICA)
+const aggiornaMassivoPartNumber = async () => {
+    if (selected.length === 0 || !bulkPartNumber.trim()) {
+        alert('⚠️ Inserisci un Part Number');
+        return;
+    }
+    
+    if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?\n(SENZA verifica inventario)`)) return;
+    
+    try {
+        // Aggiorna GIACENZA locale
+        const selectedIds = new Set(selected.map(s => s.ID_Riga));
+        const updatedGiacenza = giacenza.map(i => {
+            if (!selectedIds.has(i.ID_Riga)) return i;
+            
+            const oldPN = i.PartNumber;
+            const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${bulkPartNumber}`;
+            const newNote = i.Note ? `${i.Note} | ${logMessage}` : logMessage;
+            
+            return { ...i, PartNumber: bulkPartNumber, Note: newNote };
+        });
+        
+        setGiacenza(updatedGiacenza);
+        appCache.giacenza = updatedGiacenza;
+        
+        // Aggiorna filteredData
+        let filtered = updatedGiacenza.filter(i => !i.inventariato);
+        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        setFilteredData(filtered);
+        
+        window.dispatchEvent(new CustomEvent('ats-data-updated', {
+            detail: { giacenza: updatedGiacenza }
+        }));
+        
+        // Aggiorna DB
+        for (const item of selected) {
+            const oldPN = item.PartNumber;
+            const logMessage = `PartNumber modificato da ${oldPN || 'vuoto'} a ${bulkPartNumber}`;
+            const newNote = item.Note ? `${item.Note} | ${logMessage}` : logMessage;
+            
+            await api('updateGiacenzaPartNumber', { 
+                id_riga: item.ID_Riga,
+                partNumber: bulkPartNumber,
+                note: newNote
+            });
+        }
+        
+        setSelected([]);
+        setBulkPartNumber('');
+        alert(`✅ Part Number aggiornato per ${selected.length} articoli!`);
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('Errore: ' + err.message);
     }
 };
             const updateSerialeLista = async (item, newSeriale) => {
@@ -3894,6 +4008,12 @@ const stampaEtichette = (items) => {
                                 <Icons.Printer /> Stampa
                             </button>
                             <button onClick={() => setSelected([])} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Deseleziona</button>
+                            <button onClick={aggiornaMassivoUbicazione} className="flex items-center gap-1 bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600">
+    📍 Aggiorna Solo Ubicazione
+</button>
+<button onClick={aggiornaMassivoPartNumber} className="flex items-center gap-1 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+    🔧 Aggiorna Solo Part Number
+</button>
                         </div>
                     </div>
                 )}
@@ -3970,7 +4090,7 @@ const stampaEtichette = (items) => {
                                             </span>
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs ${!visibleColumns.ubicazione ? 'col-hidden' : ''}`}>
-                                            {editingUbicazione[item.RISCONTROSERIALEF] ? (
+                                            {editingUbicazione[item.ID_Riga] ? (
                                                 <div className="flex gap-1">
                                                     <input 
                                                         type="text" 
@@ -3979,7 +4099,7 @@ const stampaEtichette = (items) => {
                                                             updateUbicazioneLista(item, e.target.value);
                                                             setEditingUbicazione(prev => {
                                                                 const n = {...prev};
-                                                                delete n[item.RISCONTROSERIALEF];
+                                                                delete n[item.ID_Riga];
                                                                 return n;
                                                             });
                                                         }}
@@ -3991,7 +4111,7 @@ const stampaEtichette = (items) => {
                                                 <div className="flex gap-1 items-center">
                                                     <span>{item.Ubicazioni}</span>
                                                     <button 
-                                                        onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                                                        onClick={() => setEditingUbicazione(prev => ({ ...prev, [item.ID_Riga]: true }))} 
                                                         className="text-blue-500 hover:text-blue-700"
                                                     >
                                                         <Icons.Edit />
@@ -4000,7 +4120,7 @@ const stampaEtichette = (items) => {
                                             )}
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>
-                                            {editingPartNumber[item.RISCONTROSERIALEF] ? (
+                                            {editingPartNumber[item.ID_Riga] ? (
                                                 <div className="flex gap-1">
                                                     <input 
                                                         type="text" 
@@ -4009,7 +4129,7 @@ const stampaEtichette = (items) => {
                                                             updatePartNumberLista(item, e.target.value);
                                                             setEditingPartNumber(prev => {
                                                                 const n = {...prev};
-                                                                delete n[item.RISCONTROSERIALEF];
+                                                                delete n[item.ID_Riga];
                                                                 return n;
                                                             });
                                                         }}
@@ -4021,7 +4141,7 @@ const stampaEtichette = (items) => {
                                                 <div className="flex gap-1 items-center">
                                                     <span className="font-mono text-xs">{item.PartNumber || '-'}</span>
                                                     <button 
-                                                        onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.RISCONTROSERIALEF]: true }))} 
+                                                        onClick={() => setEditingPartNumber(prev => ({ ...prev, [item.ID_Riga]: true }))} 
                                                         className="text-blue-500 hover:text-blue-700"
                                                     >
                                                         <Icons.Edit />
@@ -4430,7 +4550,7 @@ const updateNoteStorico = async (item, newNote) => {
     setStorico(updated);
     setEditingNote(prev => { 
         const n = {...prev}; 
-        delete n[item.Seriale_Riscontrato]; 
+        delete n[item.id]; 
         return n; 
     });
     
