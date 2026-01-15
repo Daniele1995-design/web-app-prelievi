@@ -1724,6 +1724,7 @@ const excelData = storico.map(item => ({
             const [newNote, setNewNote] = useState('');
             const inputRef = useRef(null);
             const [expectedUbicazione, setExpectedUbicazione] = useState('');
+            const [autoUpdateUbicazione, setAutoUpdateUbicazione] = useState(false);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
@@ -1904,13 +1905,55 @@ const [newItemData, setNewItemData] = useState({
     }
     
     // 3. DOPO IL SALVATAGGIO, CONTROLLA UBICAZIONE ATTESA (solo se match OK)
-    if (match) {
-        const ubicazioneAttuale = found.Ubicazioni || '';
-        const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
-        
-        // Se c'è un'ubicazione attesa e NON corrisponde a quella attuale
-        if (ubicazioneAttesa && ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
-            // Chiedi conferma in modo NON bloccante
+if (match && expectedUbicazione.trim()) {
+    const ubicazioneAttuale = found.Ubicazioni || '';
+    const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
+    
+    if (ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
+        if (autoUpdateUbicazione) {
+            // ✅ AUTO-UPDATE ATTIVO: Aggiorna senza chiedere
+            const logMessage = `Ubicazione sostituita da: ${ubicazioneAttuale || 'vuota'}`;
+            const newNote = found.Note ? `${found.Note} | ${logMessage}` : logMessage;
+            
+            // Aggiorna giacenza locale
+            const finalGiacenza = giacenza.map(item =>
+                item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
+                    ? { ...item, Ubicazioni: expectedUbicazione, Note: newNote } 
+                    : item
+            );
+            
+            setGiacenza(finalGiacenza);
+            appCache.giacenza = finalGiacenza;
+            setCurrentItem({ ...found, Ubicazioni: expectedUbicazione, Note: newNote });
+            setNewUbicazione(expectedUbicazione);
+            setNewNote(newNote);
+            
+            // Aggiorna DB
+            (async () => {
+                try {
+                    const { data: invData } = await supabaseClient
+                        .from('inventario')
+                        .select('id')
+                        .eq('id_riga_giacenza', found.ID_Riga)
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    if (invData) {
+                        await supabaseClient.from('inventario')
+                            .update({ ubicazione: expectedUbicazione, note: newNote })
+                            .eq('id', invData.id);
+                        
+                        await supabaseClient.from('giacenza')
+                            .update({ ubicazioni: expectedUbicazione, note: newNote })
+                            .eq('id_riga', found.ID_Riga);
+                    }
+                } catch (err) {
+                    console.error('❌ Errore aggiornamento ubicazione:', err);
+                }
+            })();
+        } else {
+            // ❌ AUTO-UPDATE DISATTIVO: Chiedi conferma (codice esistente)
             setTimeout(async () => {
                 const conferma = window.confirm(
                     `⚠️ ATTENZIONE UBICAZIONE DIVERSA!\n\n` +
@@ -2558,7 +2601,23 @@ const handleUpdateNote = async () => {
                 className="w-full px-3 py-2 text-sm border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500" 
                 placeholder="Scansiona barcode ubicazione..." 
             />
+            <div className="flex items-center gap-2 mt-2 bg-yellow-50 border border-yellow-300 rounded px-3 py-2">
+        <input 
+            type="checkbox" 
+            id="autoUpdateToggle"
+            checked={autoUpdateUbicazione}
+            onChange={(e) => setAutoUpdateUbicazione(e.target.checked)}
+            className="w-4 h-4 cursor-pointer"
+        />
+        <label 
+            htmlFor="autoUpdateToggle" 
+            className="text-xs font-medium cursor-pointer select-none flex-1"
+        >
+            {autoUpdateUbicazione ? '🟢 AUTO-UPDATE ATTIVO' : '⚪ Chiedi conferma per cambio ubicazione'}
+        </label>
+    </div>
         </div>
+        
     </div>
     
     {/* Ultimo seriale scansionato */}
@@ -3932,75 +3991,88 @@ const updateBulkUbicazione = async () => {
     if (!window.confirm(`Aggiornare ubicazione per ${selected.length} articoli?`)) return;
     
     try {
-        // ✅ FIX: Aggiorna INVENTARIO con ID corretto
+        // ✅ NUOVO: Ottieni l'ID reale da Supabase
         for (const item of selected) {
+            // Cerca l'ID reale in inventario usando id_riga_giacenza
+            const { data: invData } = await supabaseClient
+                .from('inventario')
+                .select('id')
+                .eq('id_riga_giacenza', item.id_riga_giacenza)
+                .eq('seriale_riscontrato', item.Seriale_Riscontrato)
+                .order('timestamp', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (!invData) {
+                console.warn('⚠️ Record inventario non trovato per:', item.Seriale_Riscontrato);
+                continue;
+            }
+            
+            // Ora usa l'ID reale
             await api('updateInventarioUbicazione', { 
-                id: item.id, // ← USA ID INVENTARIO
+                id: invData.id, // ← ID VERO DA SUPABASE
                 ubicazione: bulkUbicazione 
             });
         }
-        
-        // Aggiorna cache locale
-        const updated = storico.map(i => 
-            selected.find(s => s.id === i.id) 
-                ? { ...i, Ubicazioni: bulkUbicazione } 
-                : i
-        );
-        
-        setStorico(updated);
-        setFilteredData(updated);
-        appCache.storico = updated;
-        setSelected([]);
-        setBulkUbicazione('');
-        
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { storico: updated }
-        }));
-        
-        alert('✅ Ubicazioni aggiornate!');
-    } catch (err) {
-        console.error('❌ Errore:', err);
-        alert('Errore aggiornamento: ' + err.message);
-    }
-};
 
 const updateBulkPartNumber = async () => {
     if (selected.length === 0 || !bulkPartNumber.trim()) return;
     if (!window.confirm(`Aggiornare Part Number per ${selected.length} articoli?`)) return;
     
     try {
-        // ✅ FIX: Aggiorna INVENTARIO con ID corretto
+        // ✅ NUOVO: Ottieni l'ID reale da Supabase
         for (const item of selected) {
+            const { data: invData } = await supabaseClient
+                .from('inventario')
+                .select('id')
+                .eq('id_riga_giacenza', item.id_riga_giacenza)
+                .eq('seriale_riscontrato', item.Seriale_Riscontrato)
+                .order('timestamp', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (!invData) {
+                console.warn('⚠️ Record inventario non trovato per:', item.Seriale_Riscontrato);
+                continue;
+            }
+            
             await api('updateInventarioPartNumber', { 
-                id: item.id, // ← USA ID INVENTARIO
+                id: invData.id, // ← ID VERO DA SUPABASE
                 partNumber: bulkPartNumber 
             });
         }
-        
-        // Aggiorna cache locale
-        const updated = storico.map(i => 
-            selected.find(s => s.id === i.id) 
-                ? { ...i, PartNumber: bulkPartNumber } 
-                : i
-        );
-        
-        setStorico(updated);
-        setFilteredData(updated);
-        appCache.storico = updated;
-        setSelected([]);
-        setBulkPartNumber('');
-        
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { storico: updated }
-        }));
-        
-        alert('✅ Part Number aggiornati!');
-    } catch (err) {
-        console.error('❌ Errore:', err);
-        alert('Errore aggiornamento: ' + err.message);
-    }
-};
         const stampaStorico = () => {
+    if (selected.length === 0) return alert('Seleziona almeno un articolo');
+
+    // ✅ NUOVO: Controllo campi compilati
+    if (bulkUbicazione.trim() || bulkPartNumber.trim()) {
+        let msg = "⚠️ HAI COMPILATO:\n";
+        if (bulkUbicazione.trim()) msg += `\n• Ubicazione: ${bulkUbicazione}`;
+        if (bulkPartNumber.trim()) msg += `\n• Part Number: ${bulkPartNumber}`;
+        msg += "\n\nVuoi aggiornare questi campi PRIMA di stampare?";
+        
+        const conferma = window.confirm(msg);
+        
+        if (conferma) {
+            // Aggiorna prima di stampare
+            if (bulkUbicazione.trim()) {
+                updateBulkUbicazione(); // ← Esegui aggiornamento ubicazione
+            }
+            if (bulkPartNumber.trim()) {
+                updateBulkPartNumber(); // ← Esegui aggiornamento partnumber
+            }
+            
+            // Aspetta 1 secondo per sync
+            setTimeout(() => {
+                proceduStampa(); // ← Stampa DOPO aggiornamento
+            }, 1000);
+            return;
+        }
+    }
+    
+    proceduStampa(); // ← Stampa normale
+};
+        const proceduStampa = () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
 
     const printArea = document.getElementById('print-area');
