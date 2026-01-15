@@ -2579,12 +2579,6 @@ const handleUpdateNote = async () => {
                 });
             };
 
-            if (loading) return (
-                <div className="text-center py-12">
-                    <div className="text-xl font-bold mb-2">Caricamento...</div>
-                    {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
-                </div>
-            );
 
             const giacenzaDaMostrare = giacenza.filter(i => !i.inventariato);
 
@@ -3533,6 +3527,14 @@ const updateNoteLista = async (item, newNote) => {
     stampaEtichette(selected);
 };
 
+            if (loading) {
+    return (
+        <div className="text-center py-12">
+            <div className="text-xl font-bold mb-2">Caricamento...</div>
+            {loadingProgress && <div className="text-gray-600">{loadingProgress}</div>}
+        </div>
+    );
+}
 // ✅ CREA QUESTA NUOVA FUNZIONE separata per la stampa
 const stampaEtichette = (items) => {
     const printArea = document.getElementById('print-area');
