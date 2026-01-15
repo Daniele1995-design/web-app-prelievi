@@ -1730,6 +1730,7 @@ const excelData = storico.map(item => ({
             const inputRef = useRef(null);
             const [expectedUbicazione, setExpectedUbicazione] = useState('');
             const [autoUpdateUbicazione, setAutoUpdateUbicazione] = useState(false);
+            const [scanCount, setScanCount] = useState(0);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
@@ -1800,35 +1801,26 @@ const [newItemData, setNewItemData] = useState({
                     }, 100);
 
                     // Controlla se già nello storico
-                    const alreadyInStorico = storico.find(item => 
-                        String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
-                    );
-                    
-                    if (alreadyInStorico) {
-                        setMessage({ type: 'warning', text: '⚠️ GIÀ REGISTRATO IN STORICO' });
-                        playBeep('error');
-                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                        return;
-                    }
+              // ✅ FIX: Controlla usando ID_Riga invece di seriale
+const foundInGiacenza = giacenza.find(item => 
+    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+);
 
-                    // Controlla se già inventariato in giacenza
-                    const alreadyInGiacenza = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && item.inventariato
-                    );
-                    
-                    if (alreadyInGiacenza) {
-                        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-                        playBeep('error');
-                        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-                        return;
-                    }
+if (foundInGiacenza) {
+    // Verifica se questo ID_Riga è già in inventario
+    if (foundInGiacenza.inventariato) {
+        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
+        playBeep('error');
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        return;
+    }
+}
 
-                    // Cerca in giacenza
-                    const found = giacenza.find(item => 
-                        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && !item.inventariato
-                    );
+// Cerca articolo NON inventariato
+const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza : null;
 
                     if (found) {
+                        
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
     // 1. SALVA SUBITO CON MATCH
@@ -1895,17 +1887,23 @@ const [newItemData, setNewItemData] = useState({
             }
         });
         
-        if (saveResult.id) {
-            const updatedStorico = storico.map(i => 
-                i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                    ? { ...i, id: saveResult.id }
-                    : i
-            );
-            setStorico(updatedStorico);
-            appCache.storico = updatedStorico;
-        }
+           // ✅ FIX: Aggiorna l'entry locale con l'ID reale
+    if (saveResult.id) {
+        newEntry.id = saveResult.id; // ← AGGIUNGI QUESTA RIGA
         
-        console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+        const updatedStorico = storico.map(i => 
+            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+                ? { ...i, id: saveResult.id }
+                : i
+        );
+        setStorico(updatedStorico);
+        appCache.storico = updatedStorico;
+        
+        // ✅ FIX: Aggiorna anche setCurrentItem con l'ID
+        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+    }
+    
+    console.log('✅ Salvato su Supabase con ID:', saveResult.id);
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
         setGiacenza(giacenza);
@@ -2053,6 +2051,7 @@ const [newItemData, setNewItemData] = useState({
     });
     setShowAddModal(true);
 }
+                    setScanCount(prev => prev + 1);
 
 setTimeout(() => setMessage({ type: '', text: '' }), 3000);
                 }
@@ -2845,6 +2844,11 @@ const handleUpdateNote = async () => {
                             <p className="text-sm text-yellow-700 font-medium">Rimanenti</p>
                             <p className="text-2xl font-bold text-yellow-600">{giacenzaDaMostrare.length}</p>
                         </div>
+                        {/* ✅ NUOVO: Contatore scansioni */}
+    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+        <p className="text-sm text-purple-700 font-medium">Scansionati ora</p>
+        <p className="text-2xl font-bold text-purple-600">{scanCount}</p>
+    </div>
                     </div>
                 </div>
             );
@@ -2921,6 +2925,12 @@ const handleUpdateNote = async () => {
         }
     }
     load();
+}, []);
+            useEffect(() => {
+    // Reset contatore quando si cambia sezione
+    return () => {
+        setScanCount(0);
+    };
 }, []);
             useEffect(() => {
                 const handleUpdate = async (event) => {
@@ -4108,8 +4118,35 @@ const updateBulkPartNumber = async () => {
         alert('Errore aggiornamento: ' + err.message);
     }
 };
-        const stampaStorico = () => {
+        const stampaStorico = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    
+    // ✅ FIX: Controlla se ci sono modifiche da applicare
+    if (bulkUbicazione.trim() || bulkPartNumber.trim()) {
+        const messaggi = [];
+        if (bulkUbicazione.trim()) messaggi.push(`Ubicazione: ${bulkUbicazione}`);
+        if (bulkPartNumber.trim()) messaggi.push(`Part Number: ${bulkPartNumber}`);
+        
+        const conferma = window.confirm(
+            `⚠️ HAI COMPILATO:\n${messaggi.join('\n')}\n\n` +
+            `Vuoi PRIMA aggiornare questi campi per i ${selected.length} articoli selezionati?\n\n` +
+            `• Sì = Aggiorna e poi stampa\n` +
+            `• No = Stampa senza modificare`
+        );
+        
+        if (conferma) {
+            // Esegui aggiornamenti
+            if (bulkUbicazione.trim()) {
+                await updateBulkUbicazione();
+            }
+            if (bulkPartNumber.trim()) {
+                await updateBulkPartNumber();
+            }
+            
+            // Attendi 500ms per sincronizzazione
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
 
     const printArea = document.getElementById('print-area');
     const timestamp = Date.now();
