@@ -3831,255 +3831,85 @@ const aggiornaMassivoPartNumber = async () => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-            const verificaMassivo = async () => {
+             const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
     
     if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
     
-    // ✅ NUOVO: Crea elemento di progresso a video
-    const progressDiv = document.createElement('div');
-    progressDiv.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        z-index: 9999;
-        min-width: 400px;
-        text-align: center;
-    `;
-    progressDiv.innerHTML = `
-        <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
-            ✅ Verifica Massiva in corso...
-        </h3>
-        <div id="progress-bar" style="
-            width: 100%;
-            height: 20px;
-            background: #e5e7eb;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        ">
-            <div id="progress-fill" style="
-                width: 0%;
-                height: 100%;
-                background: linear-gradient(90deg, #10b981, #059669);
-                transition: width 0.3s ease;
-            "></div>
-        </div>
-        <div id="progress-text" style="color: #6b7280; font-size: 14px;">
-            0 / ${selected.length}
-        </div>
-        <div id="progress-details" style="
-            margin-top: 15px;
-            font-size: 12px;
-            color: #9ca3af;
-            max-height: 150px;
-            overflow-y: auto;
-            text-align: left;
-        "></div>
-    `;
-    document.body.appendChild(progressDiv);
+    // ✅ FIX: Match per ID_Riga invece di RISCONTROSERIALEF (supporta lotti)
+    const updatedGiacenza = giacenza.map(i => 
+        selected.find(s => s.ID_Riga === i.ID_Riga) 
+            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale, Stato: i.Stato } 
+            : i
+    );
     
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-    const progressDetails = document.getElementById('progress-details');
+    const newEntries = selected.map(item => ({
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(),
+        Operatore: user.nome || user.username,
+        Seriale_Riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+        Match: 'OK',
+        CodSap: item.CodSap,
+        Descrizione: item.Descrizione,
+        Cdc: item.Cdc,
+        Stato: item.Stato, // ✅ FIX: Passa lo stato corretto
+        Ubicazioni: ubicazioneFinale,
+        RISCONTROSERIALEF: item.RISCONTROSERIALEF,
+        WMSCode: item.WMSCode,
+        PoNr: item.PoNr,
+        PartNumber: partNumberFinale,
+        SerSN: item['SerS/No'], // ✅ NEW: Aggiunge ser_sn
+        id_riga_giacenza: item.ID_Riga
+    }));
     
-    try {
-        // ✅ STEP 1: Aggiorna cache locale IMMEDIATAMENTE
-        const updatedGiacenza = giacenza.map(i => 
-            selected.find(s => s.ID_Riga === i.ID_Riga) 
-                ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale, Stato: i.Stato } 
-                : i
-        );
-        
-        const newEntries = selected.map(item => ({
-            id: Date.now() + Math.random(),
-            Timestamp: new Date().toISOString(),
-            Operatore: user.nome || user.username,
-            Seriale_Riscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-            Match: 'OK',
-            CodSap: item.CodSap,
-            Descrizione: item.Descrizione,
-            Cdc: item.Cdc,
-            Stato: item.Stato,
-            Ubicazioni: ubicazioneFinale,
-            RISCONTROSERIALEF: item.RISCONTROSERIALEF,
-            WMSCode: item.WMSCode,
-            PoNr: item.PoNr,
-            PartNumber: partNumberFinale,
-            SerSN: item['SerS/No'],
-            id_riga_giacenza: item.ID_Riga
-        }));
-        
-        const currentStorico = appCache.storico || [];
-        const updatedStorico = [...newEntries, ...currentStorico];
-        
-        setGiacenza(updatedGiacenza);
-        appCache.giacenza = updatedGiacenza;
-        appCache.storico = updatedStorico;
-        
-        setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
-        setSelected([]);
-        setBulkUbicazione('');
-        setBulkPartNumber('');
-        
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-        }));
-        
-        // ✅ STEP 2: Salva su server con barra di avanzamento
-        let successCount = 0;
-        let errorCount = 0;
-        const errors = [];
-        
-        for (let i = 0; i < selected.length; i++) {
-            const item = selected[i];
-            
-            // ✅ Aggiorna barra progresso
-            const progress = ((i + 1) / selected.length) * 100;
-            progressFill.style.width = `${progress}%`;
-            progressText.textContent = `${i + 1} / ${selected.length}`;
-            
-            // Mostra dettaglio corrente
-            const detail = document.createElement('div');
-            detail.style.cssText = 'padding: 5px; margin: 2px 0; background: #f3f4f6; border-radius: 4px;';
-            detail.innerHTML = `⏳ ${item.RISCONTROSERIALEF || item.CodSap || `LOTTO-${item.ID_Riga}`}...`;
-            progressDetails.appendChild(detail);
-            progressDetails.scrollTop = progressDetails.scrollHeight;
-            
-            try {
-                const saveResult = await api('saveRiscontro', {
-                    data: {
-                        operatore: user.nome || user.username,
-                        codSap: item.CodSap,
-                        descrizione: item.Descrizione,
-                        ubicazione: ubicazioneFinale,
-                        serialeAtteso: item.RISCONTROSERIALEF,
-                        serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-                        match: 'OK',
-                        qta: item['Qtà'] || 1,
-                        wmsCode: item.WMSCode || '',
-                        cdc: item.Cdc || '',
-                        poNr: item.PoNr || '',
-                        partNumber: partNumberFinale,
-                        idRigaGiacenza: item.ID_Riga,
-                        stato: item.Stato,
-                        note: item.Note || '',
-                        serSN: item['SerS/No']
-                    }
-                });
-                
-                // ✅ Verifica successo
-                if (saveResult.success && saveResult.id) {
-                    successCount++;
-                    detail.innerHTML = `✅ ${item.RISCONTROSERIALEF || item.CodSap || `LOTTO-${item.ID_Riga}`}`;
-                    detail.style.background = '#d1fae5';
-                    
-                    // Verifica giacenza aggiornata
-                    if (saveResult.giacenzaUpdated === 0) {
-                        detail.innerHTML = `⚠️ ${item.RISCONTROSERIALEF || item.CodSap} - Giacenza non aggiornata`;
-                        detail.style.background = '#fef3c7';
-                        errors.push(`${item.RISCONTROSERIALEF || item.CodSap}: Giacenza non aggiornata`);
-                    }
-                } else {
-                    errorCount++;
-                    detail.innerHTML = `❌ ${item.RISCONTROSERIALEF || item.CodSap} - Salvataggio fallito`;
-                    detail.style.background = '#fee2e2';
-                    errors.push(`${item.RISCONTROSERIALEF || item.CodSap}: Salvataggio fallito`);
-                }
-                
-            } catch (err) {
-                errorCount++;
-                console.error('❌ Errore salvataggio item:', err);
-                detail.innerHTML = `❌ ${item.RISCONTROSERIALEF || item.CodSap} - ${err.message}`;
-                detail.style.background = '#fee2e2';
-                errors.push(`${item.RISCONTROSERIALEF || item.CodSap}: ${err.message}`);
-            }
+    const currentStorico = appCache.storico || [];
+    const updatedStorico = [...newEntries, ...currentStorico];
+    
+    setGiacenza(updatedGiacenza);
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    
+    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
+    setSelected([]);
+    setBulkUbicazione('');
+    setBulkPartNumber('');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    alert('Verifica completata localmente!');
+    
+    (async () => {
+        try {
+            // ✅ FIX: Passa stato corretto + ser_sn
+            await api('batchSaveRiscontro', {
+                items: selected.map(item => ({
+                    operatore: user.nome || user.username,
+                    codSap: item.CodSap,
+                    descrizione: item.Descrizione,
+                    ubicazione: ubicazioneFinale,
+                    serialeAtteso: item.RISCONTROSERIALEF,
+                    serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+                    qta: item['Qtà'] || 1,
+                    wmsCode: item.WMSCode || '',
+                    cdc: item.Cdc || '',
+                    poNr: item.PoNr || '',
+                    partNumber: partNumberFinale,
+                    idRigaGiacenza: item.ID_Riga,
+                    stato: item.Stato, // ✅ FIX
+                    note: item.Note || '',
+                    serSN: item['SerS/No'] // ✅ FIX
+                }))
+            });
+            console.log('✅ Verifica massiva salvata su Supabase');
+        } catch (err) {
+            console.error('❌ Errore Supabase:', err);
+            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
         }
-        
-        // ✅ MOSTRA RISULTATO FINALE A VIDEO
-        progressDiv.innerHTML = `
-            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
-                ${successCount > 0 ? '✅' : '❌'} Verifica Completata
-            </h3>
-            <div style="
-                background: ${successCount > 0 ? '#d1fae5' : '#fee2e2'};
-                padding: 20px;
-                border-radius: 8px;
-                margin-bottom: 15px;
-            ">
-                <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">
-                    ${successCount} / ${selected.length}
-                </div>
-                <div style="color: #6b7280; font-size: 14px;">
-                    Successi: <strong>${successCount}</strong> | Errori: <strong>${errorCount}</strong>
-                </div>
-            </div>
-            ${errors.length > 0 ? `
-                <div style="
-                    background: #fef3c7;
-                    padding: 15px;
-                    border-radius: 8px;
-                    text-align: left;
-                    max-height: 200px;
-                    overflow-y: auto;
-                    margin-bottom: 15px;
-                ">
-                    <div style="font-weight: bold; margin-bottom: 10px; color: #92400e;">
-                        ⚠️ Dettagli Errori:
-                    </div>
-                    ${errors.map((err, idx) => `
-                        <div style="font-size: 12px; color: #78350f; padding: 3px 0;">
-                            ${idx + 1}. ${err}
-                        </div>
-                    `).join('')}
-                </div>
-            ` : ''}
-            <button onclick="this.parentElement.remove()" style="
-                background: #10b981;
-                color: white;
-                border: none;
-                padding: 10px 30px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-            ">Chiudi</button>
-        `;
-        
-    } catch (err) {
-        console.error('❌ Errore verifica massiva:', err);
-        progressDiv.innerHTML = `
-            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #dc2626;">
-                ❌ Errore Critico
-            </h3>
-            <div style="
-                background: #fee2e2;
-                padding: 20px;
-                border-radius: 8px;
-                margin-bottom: 15px;
-                color: #991b1b;
-            ">
-                ${err.message}
-            </div>
-            <button onclick="this.parentElement.remove()" style="
-                background: #dc2626;
-                color: white;
-                border: none;
-                padding: 10px 30px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-            ">Chiudi</button>
-        `;
-    }
+    })();
 };
 
          const stampaSelezionati = async () => {
