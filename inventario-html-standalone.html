@@ -570,8 +570,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         // ============================================
         // CONFIGURAZIONE SUPABASE
         // ============================================
-        const SUPABASE_URL = 'https://gggkjzbggdaujoyxmvxa.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnZ2tqemJnZ2RhdWpveXhtdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMjY3NjcsImV4cCI6MjA4MzYwMjc2N30.8Qikb54_UnZdVj71mISuoZytByI2sosk57noLebU76A';
+        const SUPABASE_URL = 'https://khzvsyundgsjizwmtqpt.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoenZzeXVuZGdzaml6d210cXB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NzMzODAsImV4cCI6MjA4NDE0OTM4MH0.ifxnaNEAB3lpLcU0NQuOcIF-IA6i4uPdJIVm8MqCbcE';
         
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -3381,7 +3381,7 @@ const [filters, setFilters] = useState(() => {
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-            const applyFilters = () => {
+     const applyFilters = () => {
     const filtered = giacenza.reduce((acc, i) => {
         if (i.inventariato) return acc;
         
@@ -3391,6 +3391,7 @@ const [filters, setFilters] = useState(() => {
         if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
         if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
         if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.seriale && !(i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
         
         acc.push(i);
         return acc;
@@ -3460,7 +3461,7 @@ const [filters, setFilters] = useState(() => {
                         if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
                         if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
                         if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                        
+                        if (filters.seriale) filtered = filtered.filter(i => (i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())); // ✅ NUOVO
                         setFilteredData(filtered);
                         setHasMore(filtered.length > displayCount);
                     }
@@ -3831,7 +3832,7 @@ const aggiornaMassivoPartNumber = async () => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-            const verificaMassivo = async () => {
+             const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
@@ -4202,14 +4203,15 @@ const stampaEtichette = (items) => {
                         <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                             <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
-                                </div>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Seriale" value={filters.seriale || ''} onChange={(e) => setFilters({ ...filters, seriale: e.target.value })} className="px-3 py-2 border rounded" />
+                            </div>
                                 <div className="flex gap-2">
                                     <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
                                     <button onClick={() => { setFilters({}); setFilteredData(giacenza.filter(i => !i.inventariato)); setDisplayCount(50); setHasMore(true); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
@@ -4495,7 +4497,6 @@ const [filters, setFilters] = useState(() => {
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
         const [formatoStampa, setFormatoStampa] = useState('10x10');
-        
         const [showColumnSelector, setShowColumnSelector] = useState(false);
         const [visibleColumns, setVisibleColumns] = useState({
             dataOra: true,
@@ -4526,6 +4527,7 @@ const applyFilters = () => {
         if (filters.match && i.Match !== filters.match) return acc;
         if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
         if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.seriale && !(i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
         if (filters.dataOra) {
             const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
             if (!itemDate.includes(filters.dataOra)) return acc;
@@ -4609,6 +4611,7 @@ const applyFilters = () => {
                     if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
                     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
                     if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+                    if (filters.seriale) filtered = filtered.filter(i => (i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase())); // ✅ NUOVO
                     if (filters.dataOra) {
                         filtered = filtered.filter(i => {
                             const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
@@ -5042,7 +5045,7 @@ const updateBulkPartNumber = async () => {
         }, 500);
     });
 };
-        const ripristinaSelezionati = async () => {
+      const ripristinaSelezionati = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
     if (!window.confirm(`Ripristinare ${selected.length} articoli in giacenza? Verranno rimossi dallo storico inventariato.`)) return;
@@ -5398,20 +5401,21 @@ const updateBulkPartNumber = async () => {
                     <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                         <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Data (gg/mm/aaaa)" value={filters.dataOra || ''} onChange={(e) => setFilters({ ...filters, dataOra: e.target.value })} className="px-3 py-2 border rounded" />
-                                <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
-                                    <option value="">Tutti i match</option>
-                                    <option value="OK">Solo OK</option>
-                                    <option value="KO">Solo KO</option>
-                                   </select>
-                                     </div>
+             <div className="grid grid-cols-2 gap-4 mb-4">
+    <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Seriale" value={filters.seriale || ''} onChange={(e) => setFilters({ ...filters, seriale: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Data (gg/mm/aaaa)" value={filters.dataOra || ''} onChange={(e) => setFilters({ ...filters, dataOra: e.target.value })} className="px-3 py-2 border rounded" />
+    <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
+        <option value="">Tutti i match</option>
+        <option value="OK">Solo OK</option>
+        <option value="KO">Solo KO</option>
+    </select>
+                 </div>
                             <div className="flex gap-2">
                                 <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
                                 <button onClick={() => { setFilters({}); setFilteredData(storico); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
