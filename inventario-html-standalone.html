@@ -5047,61 +5047,260 @@ const updateBulkPartNumber = async () => {
     
     if (!window.confirm(`Ripristinare ${selected.length} articoli in giacenza? Verranno rimossi dallo storico inventariato.`)) return;
     
+    // ✅ NUOVO: Crea elemento di progresso a video
+    const progressDiv = document.createElement('div');
+    progressDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        z-index: 9999;
+        min-width: 400px;
+        text-align: center;
+    `;
+    progressDiv.innerHTML = `
+        <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
+            🔄 Ripristino in corso...
+        </h3>
+        <div id="progress-bar" style="
+            width: 100%;
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        ">
+            <div id="progress-fill" style="
+                width: 0%;
+                height: 100%;
+                background: linear-gradient(90deg, #3b82f6, #2563eb);
+                transition: width 0.3s ease;
+            "></div>
+        </div>
+        <div id="progress-text" style="color: #6b7280; font-size: 14px;">
+            0 / ${selected.length}
+        </div>
+        <div id="progress-details" style="
+            margin-top: 15px;
+            font-size: 12px;
+            color: #9ca3af;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+        "></div>
+    `;
+    document.body.appendChild(progressDiv);
+    
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const progressDetails = document.getElementById('progress-details');
+    
     try {
-        // 1. Per ogni item selezionato, elimina da inventario
-        for (const item of selected) {
-            await supabaseClient
-                .from('inventario')
-                .delete()
-                .eq('id', item.id);
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+        
+        // 1. Per ogni item selezionato
+        for (let i = 0; i < selected.length; i++) {
+            const item = selected[i];
             
-            // 2. Aggiorna giacenza: rimuovi match, timestamp, operatore
-            await supabaseClient
-                .from('giacenza')
-                .update({
-                    match: null,
-                    timestamp: null,
-                    operatore: null,
-                    seriale_riscontrato: null
-                })
-                .eq('id_riga', item.id_riga_giacenza);
+            // ✅ Aggiorna barra progresso
+            const progress = ((i + 1) / selected.length) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${i + 1} / ${selected.length}`;
+            
+            try {
+                console.log('🔄 Ripristino item:', item);
+                
+                // Mostra dettaglio corrente
+                const detail = document.createElement('div');
+                detail.style.cssText = 'padding: 5px; margin: 2px 0; background: #f3f4f6; border-radius: 4px;';
+                detail.innerHTML = `⏳ ${item.Seriale_Riscontrato || item.CodSap}...`;
+                progressDetails.appendChild(detail);
+                progressDetails.scrollTop = progressDetails.scrollHeight;
+                
+                // ✅ CONTROLLO 1: Verifica che esista id_riga_giacenza
+                if (!item.id_riga_giacenza) {
+                    console.error('❌ Item senza id_riga_giacenza:', item);
+                    errors.push(`${item.Seriale_Riscontrato || item.CodSap}: ID Riga mancante`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato || item.CodSap} - ID mancante`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                // ✅ STEP 1: Elimina da inventario
+                const { error: deleteError } = await supabaseClient
+                    .from('inventario')
+                    .delete()
+                    .eq('id', item.id);
+                
+                if (deleteError) {
+                    console.error('❌ Errore delete inventario:', deleteError);
+                    errors.push(`${item.Seriale_Riscontrato}: ${deleteError.message}`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato} - Errore delete`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                console.log('✅ Eliminato da inventario ID:', item.id);
+                
+                // ✅ STEP 2: Aggiorna giacenza
+                const { data: updatedRows, error: updateError } = await supabaseClient
+                    .from('giacenza')
+                    .update({
+                        match: null,
+                        timestamp: null,
+                        operatore: null,
+                        seriale_riscontrato: null
+                    })
+                    .eq('id_riga', item.id_riga_giacenza)
+                    .select();
+                
+                if (updateError) {
+                    console.error('❌ Errore update giacenza:', updateError);
+                    errors.push(`${item.Seriale_Riscontrato}: ${updateError.message}`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato} - Errore giacenza`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                // ✅ CONTROLLO 2: Verifica che giacenza sia stata aggiornata
+                const rowsUpdated = updatedRows?.length || 0;
+                if (rowsUpdated === 0) {
+                    console.warn('⚠️ Giacenza NON aggiornata per ID_Riga:', item.id_riga_giacenza);
+                    errors.push(`${item.Seriale_Riscontrato}: Giacenza non trovata (ID_Riga: ${item.id_riga_giacenza})`);
+                    errorCount++;
+                    detail.innerHTML = `⚠️ ${item.Seriale_Riscontrato} - Giacenza non trovata`;
+                    detail.style.background = '#fef3c7';
+                } else {
+                    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+                    successCount++;
+                    detail.innerHTML = `✅ ${item.Seriale_Riscontrato || item.CodSap}`;
+                    detail.style.background = '#d1fae5';
+                }
+                
+            } catch (itemErr) {
+                console.error('❌ Errore processamento item:', itemErr);
+                errors.push(`${item.Seriale_Riscontrato || item.CodSap}: ${itemErr.message}`);
+                errorCount++;
+            }
         }
         
-        // 3. Aggiorna cache locale
-        const updatedStorico = storico.filter(i => !selected.find(s => s.id === i.id));
-        setStorico(updatedStorico);
-        setFilteredData(updatedStorico);
-        appCache.storico = updatedStorico;
-        
-        // 4. Aggiorna giacenza locale se caricata
-        if (appCache.giacenza) {
-            const updatedGiacenza = appCache.giacenza.map(g => {
-                const matchedItem = selected.find(s => s.id_riga_giacenza === g.ID_Riga);
-                if (matchedItem) {
-                    return {
-                        ...g,
-                        Match: null,
-                        inventariato: false,
-                        timestamp: null,
-                        operatore: null
-                    };
-                }
-                return g;
-            });
-            appCache.giacenza = updatedGiacenza;
+        // 3. Aggiorna cache locale (SOLO se almeno 1 successo)
+        if (successCount > 0) {
+            const updatedStorico = storico.filter(i => !selected.find(s => s.id === i.id));
+            setStorico(updatedStorico);
+            setFilteredData(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            // 4. Aggiorna giacenza locale se caricata
+            if (appCache.giacenza) {
+                const updatedGiacenza = appCache.giacenza.map(g => {
+                    const matchedItem = selected.find(s => s.id_riga_giacenza === g.ID_Riga);
+                    if (matchedItem) {
+                        return {
+                            ...g,
+                            Match: null,
+                            inventariato: false,
+                            timestamp: null,
+                            operatore: null
+                        };
+                    }
+                    return g;
+                });
+                appCache.giacenza = updatedGiacenza;
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { storico: updatedStorico, giacenza: updatedGiacenza }
+                }));
+            }
         }
         
         setSelected([]);
         
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { storico: updatedStorico, giacenza: appCache.giacenza }
-        }));
-        
-        alert(`✅ ${selected.length} articoli ripristinati in giacenza!`);
+        // ✅ MOSTRA RISULTATO FINALE A VIDEO
+        progressDiv.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
+                ${successCount > 0 ? '✅' : '❌'} Ripristino Completato
+            </h3>
+            <div style="
+                background: ${successCount > 0 ? '#d1fae5' : '#fee2e2'};
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+            ">
+                <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">
+                    ${successCount} / ${selected.length}
+                </div>
+                <div style="color: #6b7280; font-size: 14px;">
+                    Successi: <strong>${successCount}</strong> | Errori: <strong>${errorCount}</strong>
+                </div>
+            </div>
+            ${errors.length > 0 ? `
+                <div style="
+                    background: #fef3c7;
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: left;
+                    max-height: 200px;
+                    overflow-y: auto;
+                    margin-bottom: 15px;
+                ">
+                    <div style="font-weight: bold; margin-bottom: 10px; color: #92400e;">
+                        ⚠️ Dettagli Errori:
+                    </div>
+                    ${errors.map((err, idx) => `
+                        <div style="font-size: 12px; color: #78350f; padding: 3px 0;">
+                            ${idx + 1}. ${err}
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            <button onclick="this.parentElement.remove()" style="
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+            ">Chiudi</button>
+        `;
         
     } catch (err) {
         console.error('❌ Errore ripristino:', err);
-        alert('Errore durante il ripristino: ' + err.message);
+        progressDiv.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #dc2626;">
+                ❌ Errore Critico
+            </h3>
+            <div style="
+                background: #fee2e2;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                color: #991b1b;
+            ">
+                ${err.message}
+            </div>
+            <button onclick="this.parentElement.remove()" style="
+                background: #dc2626;
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+            ">Chiudi</button>
+        `;
     }
 };
 
