@@ -2045,29 +2045,9 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
+// ✅ CASO 3: Match unico - Procedi normale
+const found = allMatches[0];
 
-        // ✅ CASO 3: Match unico - Procedi normale
-        const found = allMatches[0];
-                    // Controlla se già nello storico
-              // ✅ FIX: Controlla usando ID_Riga invece di seriale
-const foundInGiacenza = giacenza.find(item => 
-    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-);
-
-if (foundInGiacenza) {
-    // Verifica se questo ID_Riga è già in inventario
-    if (foundInGiacenza.inventariato) {
-        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-        playBeep('error');
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-        return;
-    }
-}
-
-// Cerca articolo NON inventariato
-const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza : null;
-
-                    if (found) {
                         
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
@@ -2419,7 +2399,7 @@ if (saveResult.giacenzaUpdated === 0) {
             }
         }
     }                     
-} else {
+ else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
     setNewItemData({
