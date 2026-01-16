@@ -754,7 +754,13 @@ case 'saveRiscontro':
 case 'registraScansione':
     const sd = payload.data || payload;
     
-    // ✅ RITORNA L'ID REALE
+    // ✅ CONTROLLO 1: Verifica che ci sia ID_Riga
+    if (!sd.idRigaGiacenza) {
+        console.error('❌ Manca ID_Riga!', sd);
+        throw new Error('ID Riga mancante');
+    }
+    
+    // ✅ STEP 1: Inserisci in INVENTARIO
     const { data: insertedData, error: iErr } = await supabaseClient
         .from('inventario')
         .insert([{
@@ -775,30 +781,46 @@ case 'registraScansione':
             stato: sd.stato,
             ser_sn: sd.serSN || 'No'
         }])
-        .select(); // ← QUESTO RITORNA L'ID!
+        .select();
     
     if (iErr) throw iErr;
-
-    // Update Giacenza
-    if (sd.match === 'OK' || sd.match === true) {
-        await supabaseClient
-            .from('giacenza')
-            .update({ 
-                match: 'OK',
-                stato: sd.stato,
-                ubicazioni: sd.ubicazione,
-                part_number: sd.partNumber,
-                seriale_riscontrato: sd.serialeRiscontrato,
-                operatore: sd.operatore,
-                note: sd.note,
-                timestamp: new Date().toISOString()
-            })
-            .eq('riscontro_seriale_f', sd.serialeRiscontrato);
+    
+    // ✅ CONTROLLO 2: Verifica che insert sia riuscito
+    if (!insertedData || insertedData.length === 0) {
+        throw new Error('Insert fallito');
     }
-    // ✅ FIX: RETURN UNICO CON ID
+    
+    console.log('✅ Salvato in inventario ID:', insertedData[0].id);
+    
+    // ✅ STEP 2: Aggiorna GIACENZA (usa ID_RIGA invece di seriale!)
+    const { data: updatedRows, error: uErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            match: sd.match === 'OK' ? 'OK' : 'KO',
+            stato: sd.stato,
+            ubicazioni: sd.ubicazione,
+            part_number: sd.partNumber,
+            seriale_riscontrato: sd.serialeRiscontrato,
+            operatore: sd.operatore,
+            note: sd.note || '',
+            timestamp: new Date().toISOString()
+        })
+        .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID univoco
+        .select();
+    
+    // ✅ CONTROLLO 3: Verifica che update sia riuscito
+    if (uErr) {
+        console.error('❌ Errore update giacenza:', uErr);
+    }
+    
+    const rowsUpdated = updatedRows?.length || 0;
+    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+    
+    // ✅ RETURN con dettagli
     return {
         success: true, 
-        id: insertedData[0]?.id 
+        id: insertedData[0]?.id,
+        giacenzaUpdated: rowsUpdated // ← NUOVO: indica se giacenza è ok
     };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
@@ -1986,19 +2008,40 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
         
            // ✅ FIX: Aggiorna l'entry locale con l'ID reale
     if (saveResult.id) {
-        newEntry.id = saveResult.id; // ← AGGIUNGI QUESTA RIGA
-        
-        const updatedStorico = storico.map(i => 
-            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                ? { ...i, id: saveResult.id }
-                : i
+    newEntry.id = saveResult.id;
+    
+    const updatedStorico = storico.map(i => 
+        i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+            ? { ...i, id: saveResult.id }
+            : i
+    );
+    setStorico(updatedStorico);
+    appCache.storico = updatedStorico;
+    
+    setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+}
+
+console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+
+// ✅ NUOVO - Controllo giacenza aggiornata
+if (saveResult.giacenzaUpdated === 0) {
+    setMessage({ 
+        type: 'warning', 
+        text: '⚠️ SALVATO ma GIACENZA NON AGGIORNATA!' 
+    });
+    setTimeout(() => {
+        alert(
+            '⚠️ ATTENZIONE!\n\n' +
+            'L\'articolo è stato salvato in INVENTARIO,\n' +
+            'ma la GIACENZA non è stata aggiornata.\n\n' +
+            `Seriale: ${scanned}\n` +
+            `ID Riga: ${found.ID_Riga}\n\n` +
+            'Controlla manualmente in Lista.'
         );
-        setStorico(updatedStorico);
-        appCache.storico = updatedStorico;
-        
-        // ✅ FIX: Aggiorna anche setCurrentItem con l'ID
-        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-    }
+    }, 500);
+} else {
+    console.log('✅ Giacenza OK - Aggiornate', saveResult.giacenzaUpdated, 'righe');
+}
     
     console.log('✅ Salvato su Supabase con ID:', saveResult.id);
         window.dispatchEvent(new CustomEvent('ats-data-updated', {
