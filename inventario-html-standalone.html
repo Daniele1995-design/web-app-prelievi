@@ -754,7 +754,13 @@ case 'saveRiscontro':
 case 'registraScansione':
     const sd = payload.data || payload;
     
-    // ✅ RITORNA L'ID REALE
+    // ✅ CONTROLLO 1: Verifica che ci sia ID_Riga
+    if (!sd.idRigaGiacenza) {
+        console.error('❌ Manca ID_Riga!', sd);
+        throw new Error('ID Riga mancante');
+    }
+    
+    // ✅ STEP 1: Inserisci in INVENTARIO
     const { data: insertedData, error: iErr } = await supabaseClient
         .from('inventario')
         .insert([{
@@ -775,30 +781,46 @@ case 'registraScansione':
             stato: sd.stato,
             ser_sn: sd.serSN || 'No'
         }])
-        .select(); // ← QUESTO RITORNA L'ID!
+        .select();
     
     if (iErr) throw iErr;
-
-    // Update Giacenza
-    if (sd.match === 'OK' || sd.match === true) {
-        await supabaseClient
-            .from('giacenza')
-            .update({ 
-                match: 'OK',
-                stato: sd.stato,
-                ubicazioni: sd.ubicazione,
-                part_number: sd.partNumber,
-                seriale_riscontrato: sd.serialeRiscontrato,
-                operatore: sd.operatore,
-                note: sd.note,
-                timestamp: new Date().toISOString()
-            })
-            .eq('riscontro_seriale_f', sd.serialeRiscontrato);
+    
+    // ✅ CONTROLLO 2: Verifica che insert sia riuscito
+    if (!insertedData || insertedData.length === 0) {
+        throw new Error('Insert fallito');
     }
-    // ✅ FIX: RETURN UNICO CON ID
+    
+    console.log('✅ Salvato in inventario ID:', insertedData[0].id);
+    
+    // ✅ STEP 2: Aggiorna GIACENZA (usa ID_RIGA invece di seriale!)
+    const { data: updatedRows, error: uErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            match: sd.match === 'OK' ? 'OK' : 'KO',
+            stato: sd.stato,
+            ubicazioni: sd.ubicazione,
+            part_number: sd.partNumber,
+            seriale_riscontrato: sd.serialeRiscontrato,
+            operatore: sd.operatore,
+            note: sd.note || '',
+            timestamp: new Date().toISOString()
+        })
+        .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID univoco
+        .select();
+    
+    // ✅ CONTROLLO 3: Verifica che update sia riuscito
+    if (uErr) {
+        console.error('❌ Errore update giacenza:', uErr);
+    }
+    
+    const rowsUpdated = updatedRows?.length || 0;
+    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+    
+    // ✅ RETURN con dettagli
     return {
         success: true, 
-        id: insertedData[0]?.id 
+        id: insertedData[0]?.id,
+        giacenzaUpdated: rowsUpdated // ← NUOVO: indica se giacenza è ok
     };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
@@ -1804,6 +1826,9 @@ const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
+ // ✅ NUOVO - Stati per gestione duplicati
+const [duplicateMatches, setDuplicateMatches] = useState([]);
+const [showDuplicateModal, setShowDuplicateModal] = useState(false);           
 const [newItemData, setNewItemData] = useState({
     serialeScansionato: '',
     codSap: '',
@@ -1881,7 +1906,95 @@ useEffect(() => {
                 osc.start();
                 osc.stop(ctx.currentTime + 0.1);
             };
+// ✅ NUOVO - Processa articolo scelto da duplicati
+const processSelectedItem = async (found, scanned) => {
+    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+    
+    // 1. SALVA SUBITO CON MATCH
+    const updatedGiacenza = giacenza.map(item =>
+        item.ID_Riga === found.ID_Riga
+            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
+            : item
+    );
+    
+    const newEntry = { 
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(), 
+        Operatore: user.nome || user.username, 
+        Seriale_Riscontrato: scanned, 
+        Match: match ? 'OK' : 'KO',
+        CodSap: found.CodSap,
+        Descrizione: found.Descrizione,
+        Cdc: found.Cdc,
+        Stato: found.Stato,
+        Ubicazioni: found.Ubicazioni,
+        RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+        WMSCode: found.WMSCode,
+        PoNr: found.PoNr,
+        PartNumber: found.PartNumber || ''
+    };
+    
+    const updatedStorico = [newEntry, ...storico];
+    
+    setGiacenza(updatedGiacenza);
+    setStorico(updatedStorico);
+    setCurrentItem(found);
+    setNewUbicazione(found.Ubicazioni);
+    setNewPartNumber(found.PartNumber || '');
+    setNewNote(found.Note || '');
+    setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
+    playBeep(match ? 'success' : 'error');
+    
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    setLastScannedSerial(scanned);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
 
+    // 2. SALVA SU SERVER
+    try {
+        const saveResult = await api('saveRiscontro', {
+            data: {
+                operatore: user.nome || user.username,
+                codSap: found.CodSap,
+                descrizione: found.Descrizione,
+                ubicazione: found.Ubicazioni,
+                serialeAtteso: found.RISCONTROSERIALEF,
+                serialeRiscontrato: scanned,
+                match: match ? 'OK' : 'KO',
+                qta: found['Qtà'] || 1,
+                wmsCode: found.WMSCode || '',
+                cdc: found.Cdc || '',
+                poNr: found.PoNr || '',
+                partNumber: found.PartNumber || '',
+                idRigaGiacenza: found.ID_Riga || '',
+                stato: found.Stato || '',
+                note: '',
+                serSN: found['SerS/No'] || 'No'
+            }
+        });
+        
+        if (saveResult.id) {
+            newEntry.id = saveResult.id;
+            setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+        }
+        
+        // ✅ Controllo giacenza
+        if (saveResult.giacenzaUpdated === 0) {
+            setMessage({ type: 'warning', text: '⚠️ GIACENZA NON AGGIORNATA!' });
+            alert('⚠️ Giacenza non aggiornata! Controlla manualmente.');
+        }
+        
+    } catch (err) {
+        console.error('❌ Errore Supabase:', err);
+        alert('⚠️ Errore server: ' + err.message);
+    }
+    
+    setScanCount(prev => prev + 1);
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+};
             const handleScan = async (e) => {
                 if (e.key === 'Enter' && scanInput.trim()) {
                     const scanned = scanInput.trim().toUpperCase();
@@ -1895,27 +2008,46 @@ useEffect(() => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
+        // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
+        const allMatches = giacenza.filter(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+            !item.inventariato
+        );
 
-                    // Controlla se già nello storico
-              // ✅ FIX: Controlla usando ID_Riga invece di seriale
-const foundInGiacenza = giacenza.find(item => 
-    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-);
+        // ✅ CASO 1: Nessun match
+        if (allMatches.length === 0) {
+            playBeep('error');
+            setNewItemData({
+                serialeScansionato: scanned,
+                codSap: '',
+                ubicazione: '',
+                cdc: '',
+                stato: '',
+                partNumber: '',
+                poNr: '',
+                serSN: 'No',
+                descrizione: ''
+            });
+            setShowAddModal(true);
+            return;
+        }
 
-if (foundInGiacenza) {
-    // Verifica se questo ID_Riga è già in inventario
-    if (foundInGiacenza.inventariato) {
-        setMessage({ type: 'warning', text: '⚠️ GIÀ INVENTARIATO' });
-        playBeep('error');
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-        return;
-    }
-}
+        // ✅ CASO 2: Più match (DUPLICATI!)
+        if (allMatches.length > 1) {
+            setMessage({ 
+                type: 'warning', 
+                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+            });
+            playBeep('error');
+            
+            // Mostra popup di scelta
+            setDuplicateMatches(allMatches);
+            setShowDuplicateModal(true);
+            return;
+        }
+// ✅ CASO 3: Match unico - Procedi normale
+const found = allMatches[0];
 
-// Cerca articolo NON inventariato
-const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza : null;
-
-                    if (found) {
                         
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
@@ -1986,19 +2118,40 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
         
            // ✅ FIX: Aggiorna l'entry locale con l'ID reale
     if (saveResult.id) {
-        newEntry.id = saveResult.id; // ← AGGIUNGI QUESTA RIGA
-        
-        const updatedStorico = storico.map(i => 
-            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                ? { ...i, id: saveResult.id }
-                : i
+    newEntry.id = saveResult.id;
+    
+    const updatedStorico = storico.map(i => 
+        i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+            ? { ...i, id: saveResult.id }
+            : i
+    );
+    setStorico(updatedStorico);
+    appCache.storico = updatedStorico;
+    
+    setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+}
+
+console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+
+// ✅ NUOVO - Controllo giacenza aggiornata
+if (saveResult.giacenzaUpdated === 0) {
+    setMessage({ 
+        type: 'warning', 
+        text: '⚠️ SALVATO ma GIACENZA NON AGGIORNATA!' 
+    });
+    setTimeout(() => {
+        alert(
+            '⚠️ ATTENZIONE!\n\n' +
+            'L\'articolo è stato salvato in INVENTARIO,\n' +
+            'ma la GIACENZA non è stata aggiornata.\n\n' +
+            `Seriale: ${scanned}\n` +
+            `ID Riga: ${found.ID_Riga}\n\n` +
+            'Controlla manualmente in Lista.'
         );
-        setStorico(updatedStorico);
-        appCache.storico = updatedStorico;
-        
-        // ✅ FIX: Aggiorna anche setCurrentItem con l'ID
-        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-    }
+    }, 500);
+} else {
+    console.log('✅ Giacenza OK - Aggiornate', saveResult.giacenzaUpdated, 'righe');
+}
     
     console.log('✅ Salvato su Supabase con ID:', saveResult.id);
         window.dispatchEvent(new CustomEvent('ats-data-updated', {
@@ -2246,7 +2399,7 @@ const found = foundInGiacenza && !foundInGiacenza.inventariato ? foundInGiacenza
             }
         }
     }                     
-} else {
+ else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
     setNewItemData({
@@ -2824,6 +2977,81 @@ const handleUpdateNote = async () => {
                 </div>
             </div>
         )}
+        {/* ✅ NUOVO - MODAL SCELTA DUPLICATI */}
+{showDuplicateModal && (
+    <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
+        <div className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4 text-orange-600">
+                ⚠️ SERIALE DUPLICATO - Scegli Articolo
+            </h3>
+            
+            <p className="mb-4 text-gray-700">
+                Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
+                <br/>
+                <span className="text-blue-600 font-bold text-lg">{scanInput}</span>
+            </p>
+            
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+                {duplicateMatches.map((item, idx) => (
+                    <div 
+                        key={item.ID_Riga}
+                        className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                        onClick={() => {
+                            // Chiudi modal e processa questo articolo
+                            setShowDuplicateModal(false);
+                            processSelectedItem(item, scanInput);
+                        }}
+                    >
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
+                                <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
+                                <p className="text-lg font-bold">{item.CodSap}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">WMS Code</p>
+                                <p className="font-mono text-sm">{item.WMSCode || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
+                                <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
+                                <p className="text-sm">{item.Descrizione || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">CDC</p>
+                                <p className="text-sm">{item.Cdc || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Stato</p>
+                                <p className="text-sm">{item.Stato || '-'}</p>
+                            </div>
+                        </div>
+                        
+                        <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
+                            ✅ Seleziona questo articolo
+                        </button>
+                    </div>
+                ))}
+            </div>
+            
+            <button 
+                onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateMatches([]);
+                }}
+                className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
+            >
+                ❌ Annulla
+            </button>
+        </div>
+    </div>
+)}
          <div className="bg-white rounded-lg shadow p-6">
     <div className="space-y-3 mb-4">
         {/* Campo Seriale - LARGHEZZA PIENA */}
