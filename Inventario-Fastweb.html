@@ -2078,34 +2078,41 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - CHIEDI QUANTITÀ
+// ✅ CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 
 const qtaDisponibile = found['Qtà'] || 0;
+let qtaDaInventariare;
 
-// ✅ POPUP: Chiedi quanti inventariare
-const qtaInput = prompt(
-    `📦 QUANTITÀ DA INVENTARIARE\n\n` +
-    `Seriale: ${scanned}\n` +
-    `Cod. SAP: ${found.CodSap}\n` +
-    `Quantità disponibile: ${qtaDisponibile}\n\n` +
-    `Quanti ne vuoi inventariare?`,
-    qtaDisponibile // Default = tutto
-);
-
-// Se annulla → STOP
-if (qtaInput === null) {
-    setMessage({ type: 'warning', text: '❌ Inventario annullato' });
-    return;
+// ✅ SE Qtà > 1 → CHIEDI con popup
+if (qtaDisponibile > 1) {
+    const qtaInput = prompt(
+        `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+        `Seriale: ${scanned}\n` +
+        `Cod. SAP: ${found.CodSap}\n` +
+        `Quantità disponibile: ${qtaDisponibile}\n\n` +
+        `Quanti ne vuoi inventariare?`,
+        qtaDisponibile // Default = tutto
+    );
+    
+    // Se annulla → STOP
+    if (qtaInput === null) {
+        setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+        return;
+    }
+    
+    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+    
+    if (qtaDaInventariare <= 0) {
+        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+        playBeep('error');
+        return;
+    }
 }
-
-const qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-
-if (qtaDaInventariare <= 0) {
-    setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-    playBeep('error');
-    return;
+// ✅ SE Qtà = 1 (o 0) → Inventaria diretto
+else {
+    qtaDaInventariare = qtaDisponibile || 1;
 }
 
 const qtaRimanente = qtaDisponibile - qtaDaInventariare;
@@ -4037,11 +4044,14 @@ const verificaMassivo = async () => {
         return;
     }
     
-    // ✅ CASO 2: Nessuna quantità → chiedi per ognuno
-    const daProcessare = [];
-    for (const item of selected) {
-        const qtaDisponibile = item['Qtà'] || 0;
-        
+// ✅ CASO 2: Nessuna quantità specificata → chiedi per ognuno
+const daProcessare = [];
+for (const item of selected) {
+    const qtaDisponibile = item['Qtà'] || 0;
+    let qtaDaInventariare;
+    
+    // ✅ SE Qtà > 1 → CHIEDI
+    if (qtaDisponibile > 1) {
         const qtaInput = prompt(
             `📦 Inventario ${item.CodSap}\n\n` +
             `Qtà disponibile: ${qtaDisponibile}\n` +
@@ -4051,10 +4061,17 @@ const verificaMassivo = async () => {
         
         if (qtaInput === null) continue; // Skip se annulla
         
-        const qta = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-        if (qta > 0) {
-            daProcessare.push({ ...item, qtaDaInventariare: qta });
-        }
+        qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+        
+        if (qtaDaInventariare <= 0) continue; // Skip se invalido
+    }
+    // ✅ SE Qtà = 1 → Inventaria diretto
+    else {
+        qtaDaInventariare = qtaDisponibile || 1;
+    }
+    
+    daProcessare.push({ ...item, qtaDaInventariare });
+}
     }
     
     if (daProcessare.length === 0) {
