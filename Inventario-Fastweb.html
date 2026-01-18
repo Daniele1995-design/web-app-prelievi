@@ -576,8 +576,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         // ============================================
         // CONFIGURAZIONE SUPABASE
         // ============================================
-        const SUPABASE_URL = 'https://khzvsyundgsjizwmtqpt.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoenZzeXVuZGdzaml6d210cXB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NzMzODAsImV4cCI6MjA4NDE0OTM4MH0.ifxnaNEAB3lpLcU0NQuOcIF-IA6i4uPdJIVm8MqCbcE';
+        const SUPABASE_URL = 'https://gggkjzbggdaujoyxmvxa.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnZ2tqemJnZ2RhdWpveXhtdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwMjY3NjcsImV4cCI6MjA4MzYwMjc2N30.8Qikb54_UnZdVj71mISuoZytByI2sosk57noLebU76A';
         
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -592,7 +592,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 ID_Riga: item.id_riga,
                 PoNr: item.po_nr || '',
                 Cdc: item.cdc || '',
-                 Posizione: item.posizione || '',
+                Posizione: item.posizione || '',
                 CodSap: item.cod_sap || '',
                 Descrizione: item.descrizione || '',
                 'SerS/No': item.ser_sn || '', 
@@ -815,7 +815,7 @@ case 'registraScansione':
             note: sd.note || '',
             timestamp: new Date().toISOString()
         })
-        .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID unifvoco
+        .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID univoco
         .select();
     
     // ✅ CONTROLLO 3: Verifica che update sia riuscito
@@ -1308,7 +1308,7 @@ operations: groups[action]
                     <header className="bg-blue-600 text-white p-4 shadow-lg">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div>
-            <h1 className="text-2xl font-bold">Inventario ATS INWIT </h1>
+            <h1 className="text-2xl font-bold">Inventario ATS FASTWEB </h1>
             <p className="text-sm opacity-90">Operatore: {user.nome || user.username}</p>
         </div>
         <div className="flex gap-2">
@@ -1430,7 +1430,7 @@ operations: groups[action]
                     <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
                         <div className="text-center mb-8">
                             <h1 className="text-3xl font-bold text-gray-800">Inventario ATS</h1>
-                            <p className="text-gray-600 mt-2">Strumenti Aziendali</p>
+                            <p className="text-gray-600 mt-2">Strumenti Aziendali </p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div>
@@ -1606,10 +1606,10 @@ const excelData = storico.map(item => ({
             // Auto-dimensiona colonne
             const colWidths = [
     { wch: 10 }, // ID Riga
-    { wch: 10 },
     { wch: 18 }, // Data/Ora
     { wch: 15 }, // Operatore
     { wch: 12 }, // Po Nr
+    { wch: 10 },//Poizione
     { wch: 15 }, // CDC
     { wch: 15 }, // Cod. SAP
     { wch: 40 }, // Descrizione
@@ -1690,12 +1690,12 @@ const excelData = storico.map(item => ({
             const colWidths = [
                 { wch: 10 }, // ID Riga
                 { wch: 12 }, // Po Nr
+                { wch: 10 }, // Posizione
                 { wch: 15 }, // CDC
                 { wch: 15 }, // Cod. SAP
                 { wch: 40 }, // Descrizione
                 { wch: 10 }, // Ser. S/N
                 { wch: 12 }, // Stato
-                { wch: 10 },//Posizione
                 { wch: 20 }, // Ubicazione
                 { wch: 20 }, // Seriale Atteso
                 { wch: 18 }, // Part Number
@@ -2126,7 +2126,6 @@ const found = allMatches[0];
                 qta: found['Qtà'] || 1,
                 wmsCode: found.WMSCode || '',
                 cdc: found.Cdc || '',
-                posizione: newItemData.posizione || '',
                 poNr: found.PoNr || '',
                 partNumber: found.PartNumber || '',
                 idRigaGiacenza: found.ID_Riga || '',
@@ -2722,7 +2721,7 @@ const handleUpdateNote = async () => {
 
                 let html = '';
                 if (formato === '10x10') {
-                    html = `
+          html = `
     <div class="etichetta-10x10">
         <div class="logo-container">
             <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -2740,7 +2739,7 @@ const handleUpdateNote = async () => {
         <hr>
         <div class="po-row">
             <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-<div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
+            <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
         </div>
                             <div class="label-tpn">TPN</div>
                             <hr class="thin">
@@ -2756,14 +2755,16 @@ const handleUpdateNote = async () => {
                                 <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                                 <div class="label-sn">SN</div>
                             </div>
- <div class="ubicazione-under-sn">
-    <span class="pos-label">Ubicazione</span>
-    <div class="pos-value">${item.Ubicazioni || ''}</div>
-    ${item.Cdc ? '<span class="pos-label" style="margin-left: 3mm;">CDC</span><div class="pos-value" style="display: inline;">' + item.Cdc + '</div>' : ''}
+<div class="ubicazione-under-sn" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <span class="pos-label">Ubicazione</span>
+        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+    </div>
+    ${item.Cdc ? '<div><span class="pos-label">CDC</span><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
 </div>
                         </div>`;
                 } else if (formato === '10x5') {
-       html = `
+html = `
     <div class="etichetta-10x5">
         <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
         <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
@@ -2773,10 +2774,13 @@ const handleUpdateNote = async () => {
             <div>PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>PN: ${item.PartNumber || ''}<br>SN: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
         </div>
-        <div class="et5-ubicazione-cdc">Ubic: ${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+        <div class="et5-ubicazione-cdc" style="display: flex; gap: 2mm;">
+    <span><strong>Ubic:</strong> ${item.Ubicazioni || ''}</span>
+    ${item.Cdc ? '<span><strong>CDC:</strong> ' + item.Cdc + '</span>' : ''}
+</div>
     </div>`;
                 } else if (formato === '10x10g') {
-                    html = `
+html = `
     <div class="etichetta-10x10g">
         <div class="logo-container">
             <img class="logo-img" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
@@ -2803,14 +2807,12 @@ const handleUpdateNote = async () => {
                                 <span class="part-value">${item.PartNumber || ''}</span>
                                 <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                             </div>
-                            <div class="ubicazione-large">
-    <div style="display: flex; gap: 3mm; align-items: baseline;">
-        <div>
-            <div class="pos-label">Ubicazione</div>
-            <div class="pos-value">${item.Ubicazioni || ''}</div>
-        </div>
-        ${item.Cdc ? '<div><div class="pos-label">CDC</div><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
+<div class="ubicazione-large" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <div class="pos-label">Ubicazione</div>
+        <div class="pos-value">${item.Ubicazioni || ''}</div>
     </div>
+    ${item.Cdc ? '<div><div class="pos-label">CDC</div><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
 </div>
                         </div>`;
                 }
@@ -3219,18 +3221,18 @@ const handleUpdateNote = async () => {
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-    <div>
-        <p className="text-sm text-gray-600 font-medium">Po Nr</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.PoNr || '-'}</p>
-    </div>
-    <div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">Po Nr</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.PoNr || '-'}</p>
+                                </div>
+                                    <div>
         <p className="text-sm text-gray-600 font-medium">Posizione</p>
         <p className="text-lg font-semibold text-gray-800">{currentItem.Posizione || '-'}</p>
     </div>
-    <div>
-        <p className="text-sm text-gray-600 font-medium">CDC</p>
-        <p className="text-lg font-semibold text-gray-800">{currentItem.Cdc || '-'}</p>
-    </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 font-medium">CDC</p>
+                                    <p className="text-lg font-semibold text-gray-800">{currentItem.Cdc || '-'}</p>
+                                </div>
                                 <div>
                                     <p className="text-sm text-gray-600 font-medium">Cod. SAP</p>
                                     <p className="text-lg font-semibold text-gray-800">{currentItem.CodSap || '-'}</p>
@@ -3429,7 +3431,7 @@ const [filters, setFilters] = useState(() => {
      const applyFilters = () => {
     const filtered = giacenza.reduce((acc, i) => {
         if (i.inventariato) return acc;
-        if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
+        
         if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
         if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
         if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
@@ -3453,7 +3455,6 @@ const [filters, setFilters] = useState(() => {
                 poNr: true,
                 posizione: true,
                 cdc: true,
-                posizione: true,
                 codSap: true,
                 descrizione: true,
                 serSN: true,
@@ -3902,7 +3903,7 @@ const aggiornaMassivoPartNumber = async () => {
         CodSap: item.CodSap,
         Descrizione: item.Descrizione,
         Cdc: item.Cdc,
-         Posizione: item.Posizione,
+        Posizione: item.Posizione,
         Stato: item.Stato, // ✅ FIX: Passa lo stato corretto
         Ubicazioni: ubicazioneFinale,
         RISCONTROSERIALEF: item.RISCONTROSERIALEF,
@@ -4066,7 +4067,7 @@ const stampaEtichette = (items) => {
                     <hr>
                     <div class="po-row">
                         <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
                     </div>
                     <div class="label-tpn">TPN</div>
                     <hr class="thin">
@@ -4084,7 +4085,7 @@ const stampaEtichette = (items) => {
                     </div>
                     <div class="ubicazione-under-sn">
                         <span class="pos-label">Ubicazione</span>
-<div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+                        <div class="pos-value">${item.Ubicazioni || ''}</div>
                     </div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
@@ -4095,11 +4096,7 @@ const stampaEtichette = (items) => {
                     <svg class="et5-barcode" id="${bcId}"></svg>
                     <div class="et5-wms">${item.WMSCode || ''}</div>
                     <div class="et5-info">
-  <div>PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>PN: ${item.PartNumber || ''}<br>SN: ${item.RISCONTROSERIALEF || ''}</div>
-  <div class="et5-ubicazione-cdc" style="display: flex; gap: 2mm;">
-    <span><strong>Ubic:</strong> ${item.Ubicazioni || ''}</span>
-    ${item.Cdc ? '<span><strong>CDC:</strong> ' + item.Cdc + '</span>' : ''}
-</div>
+                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
                         <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
                     </div>
                 </div>`;
@@ -4120,10 +4117,10 @@ const stampaEtichette = (items) => {
                     <svg class="barcode-svg" id="${bcId}"></svg>
                     <div class="wms">${item.WMSCode || ''}</div>
                     <hr>
-<div class="po-row">
-    <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-    <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
-</div>
+                    <div class="po-row">
+                        <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
+                    </div>
                     <div class="label-tpn">TPN</div>
                     <hr class="thin">
                     <div class="part-section">
@@ -4133,7 +4130,7 @@ const stampaEtichette = (items) => {
                     </div>
                     <div class="ubicazione-large">
                         <div class="pos-label">Ubicazione</div>
- <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
                     </div>
                 </div>`;
         }
@@ -4209,18 +4206,18 @@ const stampaEtichette = (items) => {
                     <div className={`column-selector ${!showColumnSelector ? 'collapsed' : ''}`}>
                         <h4>👁️ Mostra/Nascondi Colonne:</h4>
                         <div className="column-options">
-      <div className="column-option">
-    <input type="checkbox" id="col-poNr" checked={visibleColumns.poNr} onChange={() => toggleColumn('poNr')} />
-    <label htmlFor="col-poNr">Po Nr</label>
-</div>
-<div className="column-option">
+                            <div className="column-option">
+                                <input type="checkbox" id="col-poNr" checked={visibleColumns.poNr} onChange={() => toggleColumn('poNr')} />
+                                <label htmlFor="col-poNr">Po Nr</label>
+                            </div>
+                            <div className="column-option">
     <input type="checkbox" id="col-posizione" checked={visibleColumns.posizione} onChange={() => toggleColumn('posizione')} />
     <label htmlFor="col-posizione">Posizione</label>
 </div>
-<div className="column-option">
-    <input type="checkbox" id="col-cdc" checked={visibleColumns.cdc} onChange={() => toggleColumn('cdc')} />
-    <label htmlFor="col-cdc">CDC</label>
-</div>
+                            <div className="column-option">
+                                <input type="checkbox" id="col-cdc" checked={visibleColumns.cdc} onChange={() => toggleColumn('cdc')} />
+                                <label htmlFor="col-cdc">CDC</label>
+                            </div>
                             <div className="column-option">
                                 <input type="checkbox" id="col-codSap" checked={visibleColumns.codSap} onChange={() => toggleColumn('codSap')} />
                                 <label htmlFor="col-codSap">Cod. SAP</label>
@@ -4261,8 +4258,8 @@ const stampaEtichette = (items) => {
                             <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
                             <div className="grid grid-cols-2 gap-4 mb-4">
+    <input type="text" placeholder="Posizione" value={filters.posizione || ''} onChange={(e) => setFilters({ ...filters, posizione: e.target.value })} className="px-3 py-2 border rounded" />                            
     <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-    <input type="text" placeholder="Posizione" value={filters.posizione || ''} onChange={(e) => setFilters({ ...filters, posizione: e.target.value })} className="px-3 py-2 border rounded" />
     <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
     <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
     <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
@@ -4323,9 +4320,9 @@ const stampaEtichette = (items) => {
                                             checked={selected.length === displayedData.length && displayedData.length > 0} 
                                         />
                                     </th>
-            <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>Po Nr</th>
-<th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.posizione ? 'col-hidden' : ''}`}>Posizione</th>
-<th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>CDC</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.poNr ? 'col-hidden' : ''}`}>Po Nr</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.posizione ? 'col-hidden' : ''}`}>Posizione</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.cdc ? 'col-hidden' : ''}`}>CDC</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.codSap ? 'col-hidden' : ''}`}>Cod. SAP</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.descrizione ? 'col-hidden' : ''}`}>Descrizione</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>Ser. S/N</th>
@@ -4581,9 +4578,10 @@ const [filters, setFilters] = useState(() => {
         // ✅ FUNZIONE APPLICAZIONE FILTRI (PRIMA DEL RENDER)
 const applyFilters = () => {
     const filtered = storico.reduce((acc, i) => {
-        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
         if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
+        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
         if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
         if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
         if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
         if (filters.match && i.Match !== filters.match) return acc;
@@ -4669,6 +4667,7 @@ const applyFilters = () => {
                     let filtered = [...updatedStorico];
                     if (filters.operatore) filtered = filtered.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
                     if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+                    if (filters.posizione) filtered = filtered.filter(i => (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase()));
                     if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
                     if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
                     if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
@@ -4757,17 +4756,17 @@ const updateUbicazione = async (item, newUbic) => {
             : i
     );
     setStorico(updated);
-setFilteredData(updated.filter(i => {
-    let match = true;
-    if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
-    if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
-    if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
-    if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
-    if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
-    if (filters.match) match = match && i.Match === filters.match;
-    if (filters.codSap) match = match && (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase();
-    return match;
-}));
+    setFilteredData(updated.filter(i => {
+        let match = true;
+        if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
+        if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
+        if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
+        if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
+        if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
+        if (filters.match) match = match && i.Match === filters.match;
+        if (filters.codSap) match = match && (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase();
+        return match;
+    }));
     appCache.storico = updated;
     setEditingItems(prev => { const n = {...prev}; delete n[item.id]; return n; });
     
@@ -4808,7 +4807,6 @@ const updatePartNumberStorico = async (item, newPN) => {
         let match = true;
         if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
         if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
-        if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
         if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
         if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
         if (filters.match) match = match && i.Match === filters.match;
@@ -4853,7 +4851,6 @@ const updateNoteStorico = async (item, newNote) => {
     setFilteredData(updated.filter(i => {
         let match = true;
         if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
-        if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
         if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
         if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
         if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
@@ -5005,7 +5002,7 @@ const updateBulkPartNumber = async () => {
                     <hr>
                     <div class="po-row">
                         <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-              <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
+                       <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
                     </div>
                     <div class="label-tpn">TPN</div>
                     <hr class="thin">
@@ -5023,7 +5020,7 @@ const updateBulkPartNumber = async () => {
                     </div>
                     <div class="ubicazione-under-sn">
                         <span class="pos-label">Ubicazione</span>
-  <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
                     </div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
@@ -5058,7 +5055,7 @@ const updateBulkPartNumber = async () => {
                     <hr>
                     <div class="po-row">
                         <div class="po-col"><span class="po-label">Po Nr°</span><span class="po-value">${item.PoNr || ''}</span></div>
-                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Cdc || ''}</span></div>
+                        <div class="po-col" style="text-align:right;"><span class="po-label">Posizione</span><span class="po-value">${item.Posizione || ''}</span></div>
                     </div>
                     <div class="label-tpn">TPN</div>
                     <hr class="thin">
@@ -5069,7 +5066,7 @@ const updateBulkPartNumber = async () => {
                     </div>
                     <div class="ubicazione-large">
                         <div class="pos-label">Ubicazione</div>
-<div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
                     </div>
                 </div>`;
         }
