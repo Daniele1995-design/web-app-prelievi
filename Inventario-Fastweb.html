@@ -215,8 +215,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   line-height: 1.2;
   word-break: break-all;
 }
-    /* ETICHETTA 10x5 */
-/* ETICHETTA 10x5 */
+<!-- ETICHETTA 10x5 OTTIMIZZATA -->
 .etichetta-10x5 {
   width: 100mm;
   height: 50mm;
@@ -229,32 +228,40 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   font-size: 7pt;
 }
 
+.et5-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1mm;
+  height: 8mm;
+}
+
 .et5-logo {
-  height: 6mm;
-  display: inline-block;
-  vertical-align: middle;
+  height: 7mm;
+}
+
+.et5-codbp-container {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
 }
 
 .et5-codbp {
-  display: inline-block;
-  float: center;
-  text-align: center;
   font-weight: bold;
-  font-size: 13pt;
+  font-size: 11pt;
+  line-height: 1;
 }
 
 .et5-qr-bp {
   width: 8mm;
   height: 8mm;
-  vertical-align: middle;
-  margin-left: 0.5mm;
 }
 
 .et5-barcode {
   width: 60mm;
   height: 16px;
   display: block;
-  margin: 1.5mm auto 0.8mm;
+  margin: 1mm auto 0.8mm;
 }
 
 .et5-wms {
@@ -265,27 +272,26 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
 }
 
 .et5-info {
-  font-size: 8pt;
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.8mm;
+  font-size: 7pt;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2mm;
+  margin-top: 0.5mm;
 }
 
-.et5-info div {
-  line-height: 1.3;
+.et5-info-left {
+  line-height: 1.4;
 }
 
 .et5-qr-sn {
   width: 8mm;
   height: 8mm;
-  margin-left: 1.5mm;
-  vertical-align: middle;
-  margin-top: 2mm;
 }
 
 .et5-ubicazione-cdc {
   font-size: 7pt;
   margin-top: 0.5mm;
+  font-weight: bold;
 }
 
 /* ETICHETTA 10x10G (Generica senza seriale) */
@@ -2766,18 +2772,26 @@ const handleUpdateNote = async () => {
                 } else if (formato === '10x5') {
 html = `
     <div class="etichetta-10x5">
-        <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-        <div class="et5-codbp">{item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+        <div class="et5-header">
+            <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+            <div class="et5-codbp-container">
+                <div class="et5-codbp">${item.CodSap || ''}</div>
+                <img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+        </div>
         <svg class="et5-barcode" id="${bcId}"></svg>
         <div class="et5-wms">${item.WMSCode || ''}</div>
         <div class="et5-info">
-            <div>PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>PN: ${item.PartNumber || ''}<br>SN: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}</div>
+            <div class="et5-info-left">
+                PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>
+                PN: ${item.PartNumber || ''}<br>
+                SN: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}
+            </div>
             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.RISCONTROSERIALEF || item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
         </div>
-        <div class="et5-ubicazione-cdc" style="display: flex; gap: 2mm;">
-    <span><strong>Ubic:</strong> ${item.Ubicazioni || ''}</span>
-    ${item.Cdc ? '<span><strong>CDC:</strong> ' + item.Cdc + '</span>' : ''}
-</div>
+        <div class="et5-ubicazione-cdc">
+            Ubic: ${item.Ubicazioni || ''} ${item.Cdc ? '| CDC: ' + item.Cdc : ''}
+        </div>
     </div>`;
                 } else if (formato === '10x10g') {
 html = `
@@ -4099,17 +4113,29 @@ const stampaEtichette = (items) => {
 </div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
-            html += `
-                <div class="etichetta-10x5">
-                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="et5-codbp">{item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                    <svg class="et5-barcode" id="${bcId}"></svg>
-                    <div class="et5-wms">${item.WMSCode || ''}</div>
-                    <div class="et5-info">
-                        <div>PO Nr°: ${item.PoNr || ''} / Pos: ${item.Stato || ''}<br>Part Number: ${item.PartNumber || ''}<br>Seriale: ${item.RISCONTROSERIALEF || ''}</div>
-                        <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
-                    </div>
-                </div>`;
+html += `
+    <div class="etichetta-10x5">
+        <div class="et5-header">
+            <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+            <div class="et5-codbp-container">
+                <div class="et5-codbp">${item.CodSap || ''}</div>
+                <img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+        </div>
+        <svg class="et5-barcode" id="${bcId}"></svg>
+        <div class="et5-wms">${item.WMSCode || ''}</div>
+        <div class="et5-info">
+            <div class="et5-info-left">
+                PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>
+                PN: ${item.PartNumber || ''}<br>
+                SN: ${item.RISCONTROSERIALEF || '''}
+            </div>
+            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
+        </div>
+        <div class="et5-ubicazione-cdc">
+            Ubic: ${item.Ubicazioni || ''} ${item.Cdc ? '| CDC: ' + item.Cdc : ''}
+        </div>
+    </div>`;
         } else if (formatoStampa === '10x10g') {
             html += `
                 <div class="etichetta-10x10g">
@@ -5042,21 +5068,29 @@ const updateBulkPartNumber = async () => {
 </div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
-            html += `
-                <div class="etichetta-10x5">
-                    <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="et5-codbp">{item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
-                    <svg class="et5-barcode" id="${bcId}"></svg>
-                    <div class="et5-wms">${item.WMSCode || ''}</div>
-<div class="et5-info">
-    <div>PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>PN: ${item.PartNumber || ''}<br>SN: ${item.Seriale_Riscontrato || ''}</div>
-    <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
-</div>
-<div class="et5-ubicazione-cdc" style="display: flex; gap: 2mm;">
-    <span><strong>Ubic:</strong> ${item.Ubicazioni || ''}</span>
-    ${item.Cdc ? '<span><strong>CDC:</strong> ' + item.Cdc + '</span>' : ''}
-</div>
-                </div>`;
+    html += `
+    <div class="etichetta-10x5">
+        <div class="et5-header">
+            <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
+            <div class="et5-codbp-container">
+                <div class="et5-codbp">${item.CodSap || ''}</div>
+                <img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous">
+            </div>
+        </div>
+        <svg class="et5-barcode" id="${bcId}"></svg>
+        <div class="et5-wms">${item.WMSCode || ''}</div>
+        <div class="et5-info">
+            <div class="et5-info-left">
+                PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>
+                PN: ${item.PartNumber || ''}<br>
+                SN: ${item.Seriale_Riscontrato || ''}
+            </div>
+            <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
+        </div>
+        <div class="et5-ubicazione-cdc">
+            Ubic: ${item.Ubicazioni || ''} ${item.Cdc ? '| CDC: ' + item.Cdc : ''}
+        </div>
+    </div>`;
         } else if (formatoStampa === '10x10g') {
             html += `
                 <div class="etichetta-10x10g">
