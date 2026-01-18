@@ -1845,6 +1845,7 @@ const excelData = storico.map(item => ({
             const [lastScannedSerial, setLastScannedSerial] = useState('');
             const [expectedPartNumber, setExpectedPartNumber] = useState('');
 const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
+            const [quantitaDaInventariare, setQuantitaDaInventariare] = useState(1);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
@@ -2070,131 +2071,196 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - Procedi normale
+// ✅ CASO 3: Match unico - Procedi con quantità parziale
 const found = allMatches[0];
+const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 
-                        
-    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-    
-    // 1. SALVA SUBITO CON MATCH
-    const updatedGiacenza = giacenza.map(item =>
-        item.RISCONTROSERIALEF === found.RISCONTROSERIALEF 
-            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
-            : item
-    );
-    
-    const newEntry = { 
-        id: Date.now() + Math.random(),
-        Timestamp: new Date().toISOString(), 
-        Operatore: user.nome || user.username, 
-        Seriale_Riscontrato: scanned, 
-        Match: match ? 'OK' : 'KO',
-        CodSap: found.CodSap,
-        Descrizione: found.Descrizione,
-        Cdc: found.Cdc,
-        Posizione: found.Posizione || '',
-        Stato: found.Stato,
-        Ubicazioni: found.Ubicazioni,
-        RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-        WMSCode: found.WMSCode,
-        PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
-    };
-    
-    const updatedStorico = [newEntry, ...storico];
-    
-    setGiacenza(updatedGiacenza);
-    setStorico(updatedStorico);
-    setCurrentItem(found);
-    setNewUbicazione(found.Ubicazioni);
-    setNewPartNumber(found.PartNumber || '');
-    setNewNote(found.Note || '');
-    setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
-    playBeep(match ? 'success' : 'error');
-    
-    appCache.giacenza = updatedGiacenza;
-    appCache.storico = updatedStorico;
-     setLastScannedSerial(scanned);                   
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-    }));
+// ✅ CONTROLLO QUANTITÀ
+const qtaDisponibile = found['Qtà'] || 0;
+const qtaDaInventariare = Math.min(quantitaDaInventariare, qtaDisponibile);
 
-    // 2. SALVA SU SERVER IN BACKGROUND
-    try {
-        const saveResult = await api('saveRiscontro', {
-            data: {
-                operatore: user.nome || user.username,
-                codSap: found.CodSap,
-                descrizione: found.Descrizione,
-                ubicazione: found.Ubicazioni,
-                serialeAtteso: found.RISCONTROSERIALEF,
-                serialeRiscontrato: scanned,
-                match: match ? 'OK' : 'KO',
-                qta: found['Qtà'] || 1,
-                wmsCode: found.WMSCode || '',
-                cdc: found.Cdc || '',
-                poNr: found.PoNr || '',
-                partNumber: found.PartNumber || '',
-                idRigaGiacenza: found.ID_Riga || '',
-                stato: found.Stato || '',
-                note: ''
-            }
-        });
-        
-           // ✅ FIX: Aggiorna l'entry locale con l'ID reale
-    if (saveResult.id) {
-    newEntry.id = saveResult.id;
-    
-    const updatedStorico = storico.map(i => 
-        i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-            ? { ...i, id: saveResult.id }
-            : i
-    );
-    setStorico(updatedStorico);
-    appCache.storico = updatedStorico;
-    
-    setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+if (qtaDaInventariare <= 0) {
+    setMessage({ type: 'error', text: '❌ Quantità non disponibile!' });
+    playBeep('error');
+    return;
 }
 
-console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+const qtaRimanente = qtaDisponibile - qtaDaInventariare;
+const tuttoInventariato = qtaRimanente === 0;
 
-// ✅ NUOVO - Controllo giacenza aggiornata
-if (saveResult.giacenzaUpdated === 0) {
+// 1. SALVA SUBITO CON MATCH e quantità
+const updatedGiacenza = giacenza.map(item => {
+    if (item.ID_Riga !== found.ID_Riga) return item;
+    
+    // Se quantità arriva a 0, marca inventariato
+    if (tuttoInventariato) {
+        return { 
+            ...item, 
+            inventariato: true, 
+            Match: match ? 'OK' : 'KO', 
+            'Qtà': 0,
+            Ubicazioni: found.Ubicazioni 
+        };
+    } else {
+        // Altrimenti riduci solo la quantità
+        return { 
+            ...item, 
+            'Qtà': qtaRimanente,
+            Ubicazioni: found.Ubicazioni 
+        };
+    }
+});
+
+const newEntry = { 
+    id: Date.now() + Math.random(),
+    Timestamp: new Date().toISOString(), 
+    Operatore: user.nome || user.username, 
+    Seriale_Riscontrato: scanned, 
+    Match: match ? 'OK' : 'KO',
+    CodSap: found.CodSap,
+    Descrizione: found.Descrizione,
+    Cdc: found.Cdc,
+    Posizione: found.Posizione || '',
+    Stato: found.Stato,
+    Ubicazioni: found.Ubicazioni,
+    RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+    WMSCode: found.WMSCode,
+    PoNr: found.PoNr,
+    PartNumber: found.PartNumber || '',
+    'Qtà': qtaDaInventariare, // ✅ Quantità inventariata
+    QtàRimanente: qtaRimanente // ✅ Info utile
+};
+
+const updatedStorico = [newEntry, ...storico];
+
+setGiacenza(updatedGiacenza);
+setStorico(updatedStorico);
+setCurrentItem(found);
+setNewUbicazione(found.Ubicazioni);
+setNewPartNumber(found.PartNumber || '');
+setNewNote(found.Note || '');
+
+// ✅ Messaggio adattato
+if (tuttoInventariato) {
     setMessage({ 
-        type: 'warning', 
-        text: '⚠️ SALVATO ma GIACENZA NON AGGIORNATA!' 
+        type: match ? 'success' : 'error', 
+        text: match ? `✅ TUTTO INVENTARIATO (${qtaDaInventariare})` : `❌ MISMATCH (${qtaDaInventariare})` 
     });
-    setTimeout(() => {
-        alert(
-            '⚠️ ATTENZIONE!\n\n' +
-            'L\'articolo è stato salvato in INVENTARIO,\n' +
-            'ma la GIACENZA non è stata aggiornata.\n\n' +
-            `Seriale: ${scanned}\n` +
-            `ID Riga: ${found.ID_Riga}\n\n` +
-            'Controlla manualmente in Lista.'
-        );
-    }, 500);
 } else {
-    console.log('✅ Giacenza OK - Aggiornate', saveResult.giacenzaUpdated, 'righe');
+    setMessage({ 
+        type: 'success', 
+        text: `✅ INVENTARIATI ${qtaDaInventariare} - RIMANGONO ${qtaRimanente}` 
+    });
 }
+
+playBeep(match ? 'success' : 'error');
+
+appCache.giacenza = updatedGiacenza;
+appCache.storico = updatedStorico;
+setLastScannedSerial(scanned);
+
+window.dispatchEvent(new CustomEvent('ats-data-updated', {
+    detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+}));
+
+// Reset quantità dopo inventario
+setQuantitaDaInventariare(1);
+
+// 2. SALVA SU SERVER IN BACKGROUND
+try {
+    const saveResult = await api('saveRiscontro', {
+        data: {
+            operatore: user.nome || user.username,
+            codSap: found.CodSap,
+            descrizione: found.Descrizione,
+            ubicazione: found.Ubicazioni,
+            serialeAtteso: found.RISCONTROSERIALEF,
+            serialeRiscontrato: scanned,
+            match: match ? 'OK' : 'KO',
+            qta: qtaDaInventariare, // ✅ Quantità effettiva inventariata
+            wmsCode: found.WMSCode || '',
+            cdc: found.Cdc || '',
+            posizione: found.Posizione || '',
+            poNr: found.PoNr || '',
+            partNumber: found.PartNumber || '',
+            idRigaGiacenza: found.ID_Riga || '',
+            stato: found.Stato || '',
+            note: '',
+            serSN: found['SerS/No'] || 'No'
+        }
+    });
     
-    console.log('✅ Salvato su Supabase con ID:', saveResult.id);
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { giacenza: giacenza, storico: storico }
-        }));
-    } catch (err) {
-        console.error('❌ Errore Supabase:', err);
-        setGiacenza(giacenza);
-        setStorico(storico);
-        appCache.giacenza = giacenza;
-        appCache.storico = storico;
+    if (saveResult.id) {
+        newEntry.id = saveResult.id;
         
-        setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
-        alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
-        return;
+        const updatedStorico = storico.map(i => 
+            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+                ? { ...i, id: saveResult.id }
+                : i
+        );
+        setStorico(updatedStorico);
+        appCache.storico = updatedStorico;
+        
+        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
     }
     
+    // ✅ AGGIORNA GIACENZA con nuova quantità
+    await supabaseClient
+        .from('giacenza')
+        .update({ 
+            qta: qtaRimanente,
+            match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
+            stato: found.Stato,
+            ubicazioni: found.Ubicazioni,
+            posizione: found.Posizione || '',
+            part_number: found.PartNumber || '',
+            seriale_riscontrato: tuttoInventariato ? scanned : null,
+            operatore: tuttoInventariato ? (user.nome || user.username) : null,
+            note: found.Note || '',
+            timestamp: tuttoInventariato ? new Date().toISOString() : null
+        })
+        .eq('id_riga', found.ID_Riga);
+    
+    console.log('✅ Giacenza aggiornata - Qtà rimanente:', qtaRimanente);
+    
+    // ✅ Controllo giacenza aggiornata
+    if (saveResult.giacenzaUpdated === 0) {
+        setMessage({ 
+            type: 'warning', 
+            text: '⚠️ SALVATO ma GIACENZA NON AGGIORNATA!' 
+        });
+        setTimeout(() => {
+            alert(
+                '⚠️ ATTENZIONE!\n\n' +
+                'L\'articolo è stato salvato in INVENTARIO,\n' +
+                'ma la GIACENZA non è stata aggiornata.\n\n' +
+                `Seriale: ${scanned}\n` +
+                `ID Riga: ${found.ID_Riga}\n\n` +
+                'Controlla manualmente in Lista.'
+            );
+        }, 500);
+    } else {
+        console.log('✅ Giacenza OK - Aggiornate', saveResult.giacenzaUpdated, 'righe');
+    }
+    
+    console.log('✅ Salvato su Supabase con ID:', saveResult.id);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: giacenza, storico: storico }
+    }));
+    
+} catch (err) {
+    console.error('❌ Errore Supabase:', err);
+    setGiacenza(giacenza);
+    setStorico(storico);
+    appCache.giacenza = giacenza;
+    appCache.storico = storico;
+    
+    setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
+    alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
+    return;
+}
+
     // 3. DOPO IL SALVATAGGIO, GESTISCI UBICAZIONE
     if (match) {
         const ubicazioneAttuale = found.Ubicazioni || '';
@@ -3131,8 +3197,8 @@ html = `
             />
         </div>
         
-        {/* ✅ NUOVA GRIGLIA 2 COLONNE - Ubicazione + Part Number */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* ✅ NUOVA GRIGLIA 3 COLONNE - Ubicazione + Part Number + Quantità */}
+        <div className="grid grid-cols-3 gap-3">
             {/* Ubicazione Attesa */}
             <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
@@ -3161,7 +3227,7 @@ html = `
                 />
             </div>
             
-            {/* ✅ NUOVO - Part Number Atteso */}
+            {/* Part Number Atteso */}
             <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
                     🔧 Part Number atteso
@@ -3186,6 +3252,27 @@ html = `
                     }}
                     className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500" 
                     placeholder="Barcode part number..." 
+                />
+            </div>
+            
+            {/* ✅ NUOVO - Quantità da inventariare */}
+            <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                    📦 Quantità da inventariare
+                </label>
+                <input 
+                    type="number" 
+                    min="1"
+                    value={quantitaDaInventariare} 
+                    onChange={(e) => setQuantitaDaInventariare(Math.max(1, parseInt(e.target.value) || 1))} 
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputRef.current) inputRef.current.focus();
+                        }
+                    }}
+                    className="w-full px-3 py-2 text-sm border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500" 
+                    placeholder="1" 
                 />
             </div>
         </div>
