@@ -2767,7 +2767,7 @@ const handleUpdateNote = async () => {
 html = `
     <div class="etichetta-10x5">
         <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-        <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+        <div class="et5-codbp">{item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
         <svg class="et5-barcode" id="${bcId}"></svg>
         <div class="et5-wms">${item.WMSCode || ''}</div>
         <div class="et5-info">
@@ -5036,7 +5036,7 @@ const updateBulkPartNumber = async () => {
             html += `
                 <div class="etichetta-10x5">
                     <img class="et5-logo" src="https://raw.githubusercontent.com/Daniele1995-design/WebAppSap/refs/heads/main/logo%20ats.jpg" crossorigin="anonymous">
-                    <div class="et5-codbp">Codice BP<br>${item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
+                    <div class="et5-codbp">{item.CodSap || ''}<img class="et5-qr-bp" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(item.CodSap || '')}" crossorigin="anonymous"></div>
                     <svg class="et5-barcode" id="${bcId}"></svg>
                     <div class="et5-wms">${item.WMSCode || ''}</div>
 <div class="et5-info">
