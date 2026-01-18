@@ -4128,7 +4128,7 @@ html += `
             <div class="et5-info-left">
                 PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>
                 PN: ${item.PartNumber || ''}<br>
-                SN: ${item.RISCONTROSERIALEF || '''}
+                SN: ${item.RISCONTROSERIALEF || item.Seriale_Riscontrato || ''}
             </div>
             <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
         </div>
