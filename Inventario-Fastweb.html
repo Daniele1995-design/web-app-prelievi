@@ -1852,15 +1852,16 @@ const excelData = storico.map(item => ({
             const [scanCount, setScanCount] = useState(0);
             const [lastScannedSerial, setLastScannedSerial] = useState('');
             const [expectedPartNumber, setExpectedPartNumber] = useState('');
-const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
+            const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
+            const [autoUpdateQuantita, setAutoUpdateQuantita] = useState(false);
             const [quantitaDaInventariare, setQuantitaDaInventariare] = useState(1);
-const ubicazioneInputRef = useRef(null);
+            const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
-const [showAddModal, setShowAddModal] = useState(false);
+            const [showAddModal, setShowAddModal] = useState(false);
  // ✅ NUOVO - Stati per gestione duplicati
-const [duplicateMatches, setDuplicateMatches] = useState([]);
-const [showDuplicateModal, setShowDuplicateModal] = useState(false);           
-const [newItemData, setNewItemData] = useState({
+           const [duplicateMatches, setDuplicateMatches] = useState([]);
+           const [showDuplicateModal, setShowDuplicateModal] = useState(false);           
+           const [newItemData, setNewItemData] = useState({
     serialeScansionato: '',
     codSap: '',
     ubicazione: '',
@@ -3286,26 +3287,34 @@ html = `
                 />
             </div>
             
-            {/* ✅ NUOVO - Quantità da inventariare */}
-            <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                    📦 Quantità da inventariare
-                </label>
-                <input 
-                    type="number" 
-                    min="1"
-                    value={quantitaDaInventariare} 
-                    onChange={(e) => setQuantitaDaInventariare(Math.max(1, parseInt(e.target.value) || 1))} 
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (inputRef.current) inputRef.current.focus();
-                        }
-                    }}
-                    className="w-full px-3 py-2 text-sm border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500" 
-                    placeholder="1" 
-                />
-            </div>
+{/* ✅ NUOVO - Quantità da inventariare */}
+<div>
+    <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+        📦 Quantità da inventariare
+        <label className="flex items-center gap-1 cursor-pointer">
+            <input 
+                type="checkbox" 
+                checked={autoUpdateQuantita}
+                onChange={(e) => setAutoUpdateQuantita(e.target.checked)}
+            />
+            <span className="text-xs">Auto</span>
+        </label>
+    </label>
+    <input 
+        type="number" 
+        min="1"
+        value={quantitaDaInventariare} 
+        onChange={(e) => setQuantitaDaInventariare(Math.max(1, parseInt(e.target.value) || 1))} 
+        onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (inputRef.current) inputRef.current.focus();
+            }
+        }}
+        className="w-full px-3 py-2 text-sm border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500" 
+        placeholder="1" 
+    />
+</div>
         </div>
     </div>
     
