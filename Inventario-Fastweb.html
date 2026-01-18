@@ -4083,10 +4083,13 @@ const stampaEtichette = (items) => {
                         <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.RISCONTROSERIALEF || '')}" crossorigin="anonymous">
                         <div class="label-sn">SN</div>
                     </div>
-                    <div class="ubicazione-under-sn">
-                        <span class="pos-label">Ubicazione</span>
-                        <div class="pos-value">${item.Ubicazioni || ''}</div>
-                    </div>
+<div class="ubicazione-under-sn" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <span class="pos-label">Ubicazione</span>
+        <div class="pos-value">${item.Ubicazioni || ''}</div>
+    </div>
+    ${item.Cdc ? '<div><span class="pos-label">CDC</span><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
+</div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
             html += `
@@ -4128,10 +4131,13 @@ const stampaEtichette = (items) => {
                         <span class="part-value">${item.PartNumber || ''}</span>
                         <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                     </div>
-                    <div class="ubicazione-large">
-                        <div class="pos-label">Ubicazione</div>
-                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
-                    </div>
+<div class="ubicazione-large" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <div class="pos-label">Ubicazione</div>
+        <div class="pos-value">${item.Ubicazioni || ''}</div>
+    </div>
+    ${item.Cdc ? '<div><div class="pos-label">CDC</div><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
+</div>
                 </div>`;
         }
     });
@@ -5018,10 +5024,13 @@ const updateBulkPartNumber = async () => {
                         <img class="qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
                         <div class="label-sn">SN</div>
                     </div>
-                    <div class="ubicazione-under-sn">
-                        <span class="pos-label">Ubicazione</span>
-                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
-                    </div>
+<div class="ubicazione-under-sn" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <span class="pos-label">Ubicazione</span>
+        <div class="pos-value">${item.Ubicazioni || ''}</div>
+    </div>
+    ${item.Cdc ? '<div><span class="pos-label">CDC</span><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
+</div>
                 </div>`;
         } else if (formatoStampa === '10x5') {
             html += `
@@ -5034,7 +5043,10 @@ const updateBulkPartNumber = async () => {
     <div>PO: ${item.PoNr || ''} / Pos: ${item.Posizione || ''}<br>PN: ${item.PartNumber || ''}<br>SN: ${item.Seriale_Riscontrato || ''}</div>
     <img class="et5-qr-sn" src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(item.Seriale_Riscontrato || '')}" crossorigin="anonymous">
 </div>
-<div class="et5-ubicazione-cdc">Ubic: ${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
+<div class="et5-ubicazione-cdc" style="display: flex; gap: 2mm;">
+    <span><strong>Ubic:</strong> ${item.Ubicazioni || ''}</span>
+    ${item.Cdc ? '<span><strong>CDC:</strong> ' + item.Cdc + '</span>' : ''}
+</div>
                 </div>`;
         } else if (formatoStampa === '10x10g') {
             html += `
@@ -5064,10 +5076,13 @@ const updateBulkPartNumber = async () => {
                         <span class="part-value">${item.PartNumber || ''}</span>
                         <img class="qr-part" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(item.PartNumber || '')}" crossorigin="anonymous">
                     </div>
-                    <div class="ubicazione-large">
-                        <div class="pos-label">Ubicazione</div>
-                        <div class="pos-value">${item.Ubicazioni || ''} ${item.Cdc ? '(' + item.Cdc + ')' : ''}</div>
-                    </div>
+<div class="ubicazione-large" style="display: flex; gap: 3mm; align-items: baseline;">
+    <div>
+        <div class="pos-label">Ubicazione</div>
+        <div class="pos-value">${item.Ubicazioni || ''}</div>
+    </div>
+    ${item.Cdc ? '<div><div class="pos-label">CDC</div><div class="pos-value">' + item.Cdc + '</div></div>' : ''}
+</div>
                 </div>`;
         }
     });
