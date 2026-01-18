@@ -4742,6 +4742,9 @@ html += `
         </div>
     )}
 </td>
+                                        <td className={`px-3 py-2 font-bold text-center ${!visibleColumns.qta ? 'col-hidden' : ''}`}>
+    {item['Qtà'] || 0}
+</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -5943,7 +5946,9 @@ const updateBulkPartNumber = async () => {
     </div>
 )}
 </td>
-                                        <td className="px-3 py-2 font-bold text-center">{item['Qtà'] || 0}</td> 
+                                       <td className={`px-3 py-2 text-center font-semibold ${!visibleColumns.qta ? 'col-hidden' : ''}`}>
+    {item['Qtà'] || 1}
+</td>
                                         
 <td className={`px-3 py-2 text-center ${!visibleColumns.match ? 'col-hidden' : ''}`}>
     {item.Match === 'OK' ? (
