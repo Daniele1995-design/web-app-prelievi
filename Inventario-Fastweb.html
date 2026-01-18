@@ -215,13 +215,13 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   line-height: 1.2;
   word-break: break-all;
 }
-<!-- ETICHETTA 10x5 OTTIMIZZATA -->
+/* ETICHETTA 10x5 OTTIMIZZATA */
 .etichetta-10x5 {
   width: 100mm;
   height: 50mm;
   border: 0.5px solid #000;
   background: white;
-  padding: 1.5mm 2.5mm;
+  padding: 2mm 3mm; /* ✅ AUMENTATO padding per margini */
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
@@ -232,65 +232,65 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1mm;
-  height: 8mm;
+  margin-bottom: 0.8mm; /* ✅ RIDOTTO per recuperare spazio */
+  height: 7mm; /* ✅ RIDOTTO da 8mm */
 }
 
 .et5-logo {
-  height: 7mm;
+  height: 6mm; /* ✅ RIDOTTO da 7mm */
 }
 
 .et5-codbp-container {
   display: flex;
   align-items: center;
-  gap: 2mm;
+  gap: 1.5mm; /* ✅ RIDOTTO da 2mm */
 }
 
 .et5-codbp {
   font-weight: bold;
-  font-size: 11pt;
+  font-size: 10pt; /* ✅ RIDOTTO da 11pt */
   line-height: 1;
 }
 
 .et5-qr-bp {
-  width: 8mm;
-  height: 8mm;
+  width: 7mm; /* ✅ RIDOTTO da 8mm */
+  height: 7mm;
 }
 
 .et5-barcode {
-  width: 60mm;
-  height: 16px;
+  width: 55mm; /* ✅ RIDOTTO da 60mm */
+  height: 14px; /* ✅ RIDOTTO da 16px */
   display: block;
-  margin: 1mm auto 0.8mm;
+  margin: 0.8mm auto 0.6mm; /* ✅ RIDOTTO margini */
 }
 
 .et5-wms {
   text-align: center;
   font-weight: bold;
-  font-size: 8pt;
-  margin-bottom: 0.8mm;
+  font-size: 7pt; /* ✅ RIDOTTO da 8pt */
+  margin-bottom: 0.6mm; /* ✅ RIDOTTO */
 }
 
 .et5-info {
-  font-size: 7pt;
+  font-size: 6.5pt; /* ✅ RIDOTTO da 7pt */
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 2mm;
-  margin-top: 0.5mm;
+  gap: 1.5mm; /* ✅ RIDOTTO */
+  margin-top: 0.4mm; /* ✅ RIDOTTO */
 }
 
 .et5-info-left {
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .et5-qr-sn {
-  width: 8mm;
-  height: 8mm;
+  width: 7mm; /* ✅ RIDOTTO da 8mm */
+  height: 7mm;
 }
 
 .et5-ubicazione-cdc {
-  font-size: 7pt;
-  margin-top: 0.5mm;
+  font-size: 6.5pt; /* ✅ RIDOTTO da 7pt */
+  margin-top: 0.4mm; /* ✅ RIDOTTO */
   font-weight: bold;
 }
 
