@@ -634,7 +634,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         Stato: item.stato || '',
         Note: item.note || '',
         SerSN: item.ser_sn || 'No',
-        id_riga_giacenza: item.id_riga_giacenza || ''
+        id_riga_giacenza: item.id_riga_giacenza || '',
+        'Qtà': item.qta || 1
     }));
 }
         // ✅ Sincronizza giacenza con inventario usando ID_Riga
@@ -4028,9 +4029,9 @@ const verificaMassivo = async () => {
     
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
-    const qtaDaInventariareInput = bulkQuantita; // ← NUOVO campo
+    const qtaDaInventariareInput = bulkQuantita;
     
-    // ✅ CASO 1: Quantità specificata → usa quella per tutti
+    // ✅ CASO 1: Quantità fissa specificata → usa quella per tutti
     if (qtaDaInventariareInput && parseInt(qtaDaInventariareInput) > 0) {
         const qtaFissa = parseInt(qtaDaInventariareInput);
         
@@ -4039,46 +4040,70 @@ const verificaMassivo = async () => {
         );
         if (!conferma) return;
         
-        // Processa con quantità fissa
         await processaInventarioMassivo(selected, ubicazioneFinale, partNumberFinale, qtaFissa);
         return;
     }
     
-// ✅ CASO 2: Nessuna quantità specificata → chiedi per ognuno
-const daProcessare = [];
-for (const item of selected) {
-    const qtaDisponibile = item['Qtà'] || 0;
-    let qtaDaInventariare;
-    
-    // ✅ SE Qtà > 1 → CHIEDI
-    if (qtaDisponibile > 1) {
-        const qtaInput = prompt(
-            `📦 Inventario ${item.CodSap}\n\n` +
-            `Qtà disponibile: ${qtaDisponibile}\n` +
-            `Quanti ne vuoi inventariare?`,
-            qtaDisponibile
+    // ✅ CASO 2: PIÙ RIGHE SELEZIONATE → Chiedi per ognuna
+    if (selected.length > 1) {
+        const daProcessare = [];
+        
+        for (const item of selected) {
+            const qtaDisponibile = item['Qtà'] || 0;
+            
+            const qtaInput = prompt(
+                `📦 INVENTARIO MULTIPLO\n\n` +
+                `ID Riga: ${item.ID_Riga}\n` +
+                `Cod. SAP: ${item.CodSap}\n` +
+                `Seriale: ${item.RISCONTROSERIALEF || 'N/A'}\n` +
+                `Qtà disponibile: ${qtaDisponibile}\n\n` +
+                `Quanti ne vuoi inventariare?`,
+                qtaDisponibile
+            );
+            
+            if (qtaInput === null) {
+                alert('❌ Inventario annullato');
+                return;
+            }
+            
+            const qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+            
+            if (qtaDaInventariare <= 0) {
+                alert(`⚠️ Quantità non valida per ${item.CodSap}! Operazione annullata.`);
+                return;
+            }
+            
+            daProcessare.push({ ...item, qtaDaInventariare });
+        }
+        
+        if (daProcessare.length === 0) {
+            alert('Nessun articolo da inventariare');
+            return;
+        }
+        
+        await processaInventarioMassivo(daProcessare, ubicazioneFinale, partNumberFinale, null);
+    }
+    // ✅ CASO 3: SINGOLA RIGA → Inventaria tutto direttamente
+    else {
+        const item = selected[0];
+        const qtaDisponibile = item['Qtà'] || 0;
+        
+        const conferma = window.confirm(
+            `Inventariare l'articolo:\n\n` +
+            `Cod. SAP: ${item.CodSap}\n` +
+            `Seriale: ${item.RISCONTROSERIALEF || 'N/A'}\n` +
+            `Quantità: ${qtaDisponibile}`
         );
         
-        if (qtaInput === null) continue; // Skip se annulla
+        if (!conferma) return;
         
-        qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-        
-        if (qtaDaInventariare <= 0) continue; // Skip se invalido
+        await processaInventarioMassivo(
+            [{ ...item, qtaDaInventariare: qtaDisponibile }], 
+            ubicazioneFinale, 
+            partNumberFinale, 
+            null
+        );
     }
-    // ✅ SE Qtà = 1 → Inventaria diretto
-    else {
-        qtaDaInventariare = qtaDisponibile || 1;
-    }
-    
-    daProcessare.push({ ...item, qtaDaInventariare });
-}
-    
-    if (daProcessare.length === 0) {
-        alert('Nessun articolo da inventariare');
-        return;
-    }
-    
-    await processaInventarioMassivo(daProcessare, ubicazioneFinale, partNumberFinale, null);
 };
 
 // ✅ NUOVA FUNZIONE helper
