@@ -532,8 +532,8 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   justify-content: center;
   align-items: center;
   z-index: 50;
-  overflow-y: auto; /* ← FIX: permette scroll */
-  padding: 1rem; /* ← FIX: spazio ai bordi */
+  overflow-y: auto;
+  padding: 1rem;
 }
 
 .modal-content {
@@ -542,16 +542,17 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
   padding: 1.5rem;
   width: 100%;
-  max-width: 500px; /* ← FIX: larghezza massima */
-  max-height: 85vh; /* ← FIX: altezza massima */
-  overflow-y: auto; /* ← FIX: scroll interno */
-  margin: auto; /* ← FIX: centrato */
+  max-width: 500px;
+  max-height: 90vh; /* ← Aumentato da 85vh a 90vh */
+  overflow-y: auto;
+  margin: auto;
 }
 
 /* Mobile optimization */
 @media (max-width: 640px) {
   .modal-content {
     max-width: 95vw;
+    max-height: 95vh; /* ← Usa quasi tutto lo schermo su mobile */
     padding: 1rem;
     font-size: 14px;
   }
