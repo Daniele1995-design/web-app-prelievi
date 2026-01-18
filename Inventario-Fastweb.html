@@ -638,7 +638,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         'Qtà': item.qta || 1
     }));
 }
-        // ✅ Sincronizza giacenza con inventario usando ID_Riga
+        // Sincronizza giacenza con inventario usando ID_Riga
 async function syncGiacenzaWithInventario(giacenzaData) {
     try {
         console.log('🔄 Inizio sync giacenza-inventario...');
@@ -731,7 +731,7 @@ async function syncGiacenzaWithInventario(giacenzaData) {
 case 'getGiacenza':
     const gData = await fetchAllRows('giacenza');
     const normalized = normalizeGiacenza(gData);
-    const synced = await syncGiacenzaWithInventario(normalized); // ✅ Sync con inventario
+    const synced = await syncGiacenzaWithInventario(normalized); //  Sync con inventario
     return { data: synced };
 
             case 'getStats':
@@ -769,13 +769,13 @@ case 'saveRiscontro':
 case 'registraScansione':
     const sd = payload.data || payload;
     
-    // ✅ CONTROLLO 1: Verifica che ci sia ID_Riga
+    //  CONTROLLO 1: Verifica che ci sia ID_Riga
     if (!sd.idRigaGiacenza) {
         console.error('❌ Manca ID_Riga!', sd);
         throw new Error('ID Riga mancante');
     }
     
-    // ✅ STEP 1: Inserisci in INVENTARIO
+    //  STEP 1: Inserisci in INVENTARIO
     const { data: insertedData, error: iErr } = await supabaseClient
         .from('inventario')
         .insert([{
@@ -801,14 +801,14 @@ case 'registraScansione':
     
     if (iErr) throw iErr;
     
-    // ✅ CONTROLLO 2: Verifica che insert sia riuscito
+    // CONTROLLO 2: Verifica che insert sia riuscito
     if (!insertedData || insertedData.length === 0) {
         throw new Error('Insert fallito');
     }
     
     console.log('✅ Salvato in inventario ID:', insertedData[0].id);
     
-    // ✅ STEP 2: Aggiorna GIACENZA (usa ID_RIGA invece di seriale!)
+    //  STEP 2: Aggiorna GIACENZA (usa ID_RIGA invece di seriale!)
     const { data: updatedRows, error: uErr } = await supabaseClient
         .from('giacenza')
         .update({ 
@@ -825,7 +825,7 @@ case 'registraScansione':
         .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID univoco
         .select();
     
-    // ✅ CONTROLLO 3: Verifica che update sia riuscito
+    //  CONTROLLO 3: Verifica che update sia riuscito
     if (uErr) {
         console.error('❌ Errore update giacenza:', uErr);
     }
@@ -833,7 +833,7 @@ case 'registraScansione':
     const rowsUpdated = updatedRows?.length || 0;
     console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
     
-    // ✅ RETURN con dettagli
+    //  RETURN con dettagli
     return {
         success: true, 
         id: insertedData[0]?.id,
@@ -993,7 +993,7 @@ case 'updateInventarioNote':
     
     if (batchInvErr) throw batchInvErr;
     
-    // ✅ FIX: Update multipli usando ID_Riga invece di seriale
+    //  FIX: Update multipli usando ID_Riga invece di seriale
     for (const item of items) {
         await supabaseClient
             .from('giacenza')
@@ -1008,7 +1008,7 @@ case 'updateInventarioNote':
                 note: item.note || '',
                 timestamp: new Date().toISOString()
             })
-            .eq('id_riga', item.idRigaGiacenza); // ✅ FIX: Match per ID invece di seriale
+            .eq('id_riga', item.idRigaGiacenza); //  FIX: Match per ID invece di seriale
     }
     
     return { success: true };
@@ -1319,7 +1319,7 @@ operations: groups[action]
             <p className="text-sm opacity-90">Operatore: {user.nome || user.username}</p>
         </div>
         <div className="flex gap-2">
-            {/* ✅ AGGIUNGI INDICATORE SYNC */}
+            {/*  AGGIUNGI INDICATORE SYNC */}
             {syncing && (
                 <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded text-white font-medium">
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -1360,7 +1360,7 @@ operations: groups[action]
     active={currentView === 'scanner'} 
     onClick={() => {
         setCurrentView('scanner');
-        reloadData(); // ✅ Ricarica quando vai su Scanner
+        reloadData(); //  Ricarica quando vai su Scanner
     }} 
 />
 <NavButton 
@@ -1369,7 +1369,7 @@ operations: groups[action]
     active={currentView === 'lista'} 
     onClick={() => {
         setCurrentView('lista');
-        reloadData(); // ✅ Ricarica quando vai su Lista
+        reloadData(); //  Ricarica quando vai su Lista
     }} 
 />
 <NavButton 
@@ -1378,7 +1378,7 @@ operations: groups[action]
     active={currentView === 'storico'} 
     onClick={() => {
         setCurrentView('storico');
-        reloadData(); // ✅ Ricarica quando vai su Storico
+        reloadData(); //  Ricarica quando vai su Storico
     }} 
 />
                         </div>
@@ -1496,14 +1496,14 @@ operations: groups[action]
             const res = await api('getGiacenza');
             const giacenzaData = res.data;
             
-            // ✅ NUOVO: Somma le QUANTITÀ invece di contare righe
+            //  NUOVO: Somma le QUANTITÀ invece di contare righe
             const totaleQuantitaGiacenza = giacenzaData.reduce((sum, i) => sum + (i['Qtà'] || 0), 0);
             
-            // ✅ Carica STORICO per contare pezzi inventariati
+            //  Carica STORICO per contare pezzi inventariati
             const resStor = await api('getStorico');
             const storicoData = resStor.data;
             
-            // ✅ Somma le quantità inventariate dallo storico
+            //  Somma le quantità inventariate dallo storico
             const totaleInventariato = storicoData.reduce((sum, i) => sum + (i['Qtà'] || 1), 0);
             
             const daInventariare = totaleQuantitaGiacenza; // ← Quantità RIMANENTE in giacenza
@@ -1542,7 +1542,7 @@ operations: groups[action]
     useEffect(() => {
     const handleUpdate = async () => {
         try {
-            // ✅ Usa giacenza aggiornata dalla cache
+            //  Usa giacenza aggiornata dalla cache
             const giacenzaLocal = appCache.giacenza;
             
             if (giacenzaLocal && giacenzaLocal.length > 0) {
@@ -1856,9 +1856,7 @@ const excelData = storico.map(item => ({
             const [autoUpdateQuantita, setAutoUpdateQuantita] = useState(false);
             const [quantitaDaInventariare, setQuantitaDaInventariare] = useState(1);
             const ubicazioneInputRef = useRef(null);
-            // Stati per modal nuovo item
             const [showAddModal, setShowAddModal] = useState(false);
- // ✅ NUOVO - Stati per gestione duplicati
            const [duplicateMatches, setDuplicateMatches] = useState([]);
            const [showDuplicateModal, setShowDuplicateModal] = useState(false);           
            const [newItemData, setNewItemData] = useState({
@@ -1876,7 +1874,7 @@ const excelData = storico.map(item => ({
 
            useEffect(() => {
     async function loadData() {
-        // ✅ USA SEMPRE cache se disponibile (no ricarica inutile)
+        //  USA SEMPRE cache se disponibile (no ricarica inutile)
         if (appCache.giacenza && appCache.storico) {
             setGiacenza(appCache.giacenza);
             setStorico(appCache.storico);
@@ -1908,7 +1906,7 @@ const excelData = storico.map(item => ({
     
     loadData();
     
-    // ✅ AGGIUNGI listener per aggiornamenti da altre sezioni
+    // AGGIUNGI listener per aggiornamenti da altre sezioni
     const handleUpdate = (event) => {
         if (event.detail) {
             if (event.detail.giacenza) setGiacenza(event.detail.giacenza);
@@ -1939,7 +1937,7 @@ useEffect(() => {
                 osc.start();
                 osc.stop(ctx.currentTime + 0.1);
             };
-// ✅ NUOVO - Processa articolo scelto da duplicati
+//  NUOVO - Processa articolo scelto da duplicati
 const processSelectedItem = async (found, scanned) => {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
@@ -2016,7 +2014,7 @@ const processSelectedItem = async (found, scanned) => {
             setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
         }
         
-        // ✅ Controllo giacenza
+        // Controllo giacenza
         if (saveResult.giacenzaUpdated === 0) {
             setMessage({ type: 'warning', text: '⚠️ GIACENZA NON AGGIORNATA!' });
             alert('⚠️ Giacenza non aggiornata! Controlla manualmente.');
@@ -2043,13 +2041,13 @@ const processSelectedItem = async (found, scanned) => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
-        // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
+        // NUOVO - Cerca TUTTI gli articoli con questo seriale
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
             !item.inventariato
         );
 
-        // ✅ CASO 1: Nessun match
+        //  CASO 1: Nessun match
         if (allMatches.length === 0) {
             playBeep('error');
             setNewItemData({
@@ -2067,7 +2065,7 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ CASO 2: Più match (DUPLICATI!)
+        //  CASO 2: Più match (DUPLICATI!)
         if (allMatches.length > 1) {
             setMessage({ 
                 type: 'warning', 
@@ -2080,14 +2078,14 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - Logica quantità intelligente
+//  CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 
 const qtaDisponibile = found['Qtà'] || 0;
 let qtaDaInventariare;
 
-// ✅ SE Qtà > 1 → CHIEDI con popup
+//  SE Qtà > 1 → CHIEDI con popup
 if (qtaDisponibile > 1) {
     const qtaInput = prompt(
         `📦 QUANTITÀ DA INVENTARIARE\n\n` +
@@ -2112,7 +2110,7 @@ if (qtaDisponibile > 1) {
         return;
     }
 }
-// ✅ SE Qtà = 1 (o 0) → Inventaria diretto
+//  SE Qtà = 1 (o 0) → Inventaria diretto
 else {
     qtaDaInventariare = qtaDisponibile || 1;
 }
@@ -2159,8 +2157,8 @@ const newEntry = {
     WMSCode: found.WMSCode,
     PoNr: found.PoNr,
     PartNumber: found.PartNumber || '',
-    'Qtà': qtaDaInventariare, // ✅ Quantità inventariata
-    QtàRimanente: qtaRimanente // ✅ Info utile
+    'Qtà': qtaDaInventariare, //  Quantità inventariata
+    QtàRimanente: qtaRimanente //  Info utile
 };
 
 const updatedStorico = [newEntry, ...storico];
@@ -2172,7 +2170,7 @@ setNewUbicazione(found.Ubicazioni);
 setNewPartNumber(found.PartNumber || '');
 setNewNote(found.Note || '');
 
-// ✅ Messaggio adattato
+// Messaggio adattato
 if (tuttoInventariato) {
     setMessage({ 
         type: match ? 'success' : 'error', 
@@ -2209,7 +2207,7 @@ try {
             serialeAtteso: found.RISCONTROSERIALEF,
             serialeRiscontrato: scanned,
             match: match ? 'OK' : 'KO',
-            qta: qtaDaInventariare, // ✅ Quantità effettiva inventariata
+            qta: qtaDaInventariare, //  Quantità effettiva inventariata
             wmsCode: found.WMSCode || '',
             cdc: found.Cdc || '',
             posizione: found.Posizione || '',
@@ -2236,7 +2234,7 @@ try {
         setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
     }
     
-    // ✅ AGGIORNA GIACENZA con nuova quantità
+    // AGGIORNA GIACENZA con nuova quantità
     await supabaseClient
         .from('giacenza')
         .update({ 
@@ -2255,7 +2253,7 @@ try {
     
     console.log('✅ Giacenza aggiornata - Qtà rimanente:', qtaRimanente);
     
-    // ✅ Controllo giacenza aggiornata
+    //  Controllo giacenza aggiornata
     if (saveResult.giacenzaUpdated === 0) {
         setMessage({ 
             type: 'warning', 
@@ -2299,7 +2297,7 @@ try {
         const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
         
         if (ubicazioneAttesa && ubicazioneAttesa !== ubicazioneAttuale.toUpperCase()) {
-            // ✅ SE AUTO-UPDATE È ATTIVO, AGGIORNA SUBITO
+            //  SE AUTO-UPDATE È ATTIVO, AGGIORNA SUBITO
             if (autoUpdateUbicazione) {
                 const oldUbic = ubicazioneAttuale;
                 const logMessage = `Ubicazione sostituita da: ${oldUbic || 'vuoto'}`;
@@ -2410,7 +2408,7 @@ try {
             }
         }
     
-    // ✅ GESTIONE PART NUMBER ATTESO
+    //  GESTIONE PART NUMBER ATTESO
         const partNumberAttuale = found.PartNumber || '';
         const partNumberAtteso = expectedPartNumber.trim().toUpperCase();
         
@@ -2547,7 +2545,7 @@ setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             const handleUpdateUbicazione = async () => {
     if (!currentItem || !newUbicazione.trim()) return;
     
-    // ✅ AGGIUNGI LOG ALLA NOTA
+    // AGGIUNGI LOG ALLA NOTA
     const oldUbic = currentItem.Ubicazioni || 'vuoto';
     const logMessage = `Ubicazione modificata da: ${oldUbic}`;
     const updatedNote = currentItem.Note 
