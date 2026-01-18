@@ -1492,29 +1492,36 @@ operations: groups[action]
         try {
             await dbCache.init();
             
-            // ✅ Carica SEMPRE da API per avere sync corretta
-            const res = await api('getGiacenza'); // ← Già sincronizzata!
+            const res = await api('getGiacenza');
             const giacenzaData = res.data;
             
-            const totaleGiacenza = giacenzaData.length;
-            const inventariati = giacenzaData.filter(i => i.inventariato).length;
-            const daInventariare = totaleGiacenza - inventariati;
+            // ✅ NUOVO: Somma le QUANTITÀ invece di contare righe
+            const totaleQuantitaGiacenza = giacenzaData.reduce((sum, i) => sum + (i['Qtà'] || 0), 0);
+            
+            // ✅ Carica STORICO per contare pezzi inventariati
+            const resStor = await api('getStorico');
+            const storicoData = resStor.data;
+            
+            // ✅ Somma le quantità inventariate dallo storico
+            const totaleInventariato = storicoData.reduce((sum, i) => sum + (i['Qtà'] || 1), 0);
+            
+            const daInventariare = totaleQuantitaGiacenza; // ← Quantità RIMANENTE in giacenza
             const matchOk = giacenzaData.filter(i => i.Match === 'OK').length;
-            const percentuale = totaleGiacenza > 0 
-                ? Math.round((inventariati / totaleGiacenza) * 100) 
+            const percentuale = (totaleQuantitaGiacenza + totaleInventariato) > 0 
+                ? Math.round((totaleInventariato / (totaleQuantitaGiacenza + totaleInventariato)) * 100) 
                 : 0;
 
             const newStats = {
-                totaleGiacenza,
-                totaleInventariato: inventariati,
-                daInventariare,
+                totaleGiacenza: totaleQuantitaGiacenza + totaleInventariato, // ← Totale ORIGINALE
+                totaleInventariato: totaleInventariato, // ← Pezzi inventariati
+                daInventariare: totaleQuantitaGiacenza, // ← Pezzi rimanenti
                 matchOk,
                 percentualeCompletamento: percentuale
             };
 
             setStats(newStats);
             appCache.stats = newStats;
-            appCache.giacenza = giacenzaData; // ✅ Salva cache aggiornata
+            appCache.giacenza = giacenzaData;
             setLoading(false);
         } catch (err) {
             console.error('Errore caricamento stats:', err);
@@ -2071,16 +2078,32 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - Procedi con quantità parziale
+// ✅ CASO 3: Match unico - CHIEDI QUANTITÀ
 const found = allMatches[0];
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 
-// ✅ CONTROLLO QUANTITÀ
 const qtaDisponibile = found['Qtà'] || 0;
-const qtaDaInventariare = Math.min(quantitaDaInventariare, qtaDisponibile);
+
+// ✅ POPUP: Chiedi quanti inventariare
+const qtaInput = prompt(
+    `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+    `Seriale: ${scanned}\n` +
+    `Cod. SAP: ${found.CodSap}\n` +
+    `Quantità disponibile: ${qtaDisponibile}\n\n` +
+    `Quanti ne vuoi inventariare?`,
+    qtaDisponibile // Default = tutto
+);
+
+// Se annulla → STOP
+if (qtaInput === null) {
+    setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+    return;
+}
+
+const qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
 
 if (qtaDaInventariare <= 0) {
-    setMessage({ type: 'error', text: '❌ Quantità non disponibile!' });
+    setMessage({ type: 'error', text: '❌ Quantità non valida!' });
     playBeep('error');
     return;
 }
@@ -3524,6 +3547,7 @@ const [filters, setFilters] = useState(() => {
             const [selected, setSelected] = useState([]);
             const [bulkUbicazione, setBulkUbicazione] = useState('');
             const [bulkPartNumber, setBulkPartNumber] = useState('');
+            const [bulkQuantita, setBulkQuantita] = useState('');
             const [formatoStampa, setFormatoStampa] = useState('10x10');
             const [editingUbicazione, setEditingUbicazione] = useState({});
             const [editingPartNumber, setEditingPartNumber] = useState({});
@@ -3566,7 +3590,8 @@ const [filters, setFilters] = useState(() => {
                 ubicazione: true,
                 partNumber: true,
                 seriale: true,
-                note: true 
+                note: true,
+                qta: true
             });
 
             useEffect(() => {
@@ -3991,21 +4016,75 @@ const aggiornaMassivoPartNumber = async () => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-             const verificaMassivo = async () => {
+const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
+    
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
+    const qtaDaInventariareInput = bulkQuantita; // ← NUOVO campo
     
-    if (!window.confirm(`Verificare ${selected.length} articoli${bulkUbicazione ? ` con ubicazione ${ubicazioneFinale}` : ''}${bulkPartNumber ? ` e part number ${partNumberFinale}` : ''}?`)) return;
+    // ✅ CASO 1: Quantità specificata → usa quella per tutti
+    if (qtaDaInventariareInput && parseInt(qtaDaInventariareInput) > 0) {
+        const qtaFissa = parseInt(qtaDaInventariareInput);
+        
+        const conferma = window.confirm(
+            `Inventariare ${selected.length} articoli con quantità ${qtaFissa}?`
+        );
+        if (!conferma) return;
+        
+        // Processa con quantità fissa
+        await processaInventarioMassivo(selected, ubicazioneFinale, partNumberFinale, qtaFissa);
+        return;
+    }
     
-    // ✅ FIX: Match per ID_Riga invece di RISCONTROSERIALEF (supporta lotti)
-    const updatedGiacenza = giacenza.map(i => 
-        selected.find(s => s.ID_Riga === i.ID_Riga) 
-            ? { ...i, inventariato: true, Match: 'OK', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale, Stato: i.Stato } 
-            : i
-    );
+    // ✅ CASO 2: Nessuna quantità → chiedi per ognuno
+    const daProcessare = [];
+    for (const item of selected) {
+        const qtaDisponibile = item['Qtà'] || 0;
+        
+        const qtaInput = prompt(
+            `📦 Inventario ${item.CodSap}\n\n` +
+            `Qtà disponibile: ${qtaDisponibile}\n` +
+            `Quanti ne vuoi inventariare?`,
+            qtaDisponibile
+        );
+        
+        if (qtaInput === null) continue; // Skip se annulla
+        
+        const qta = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+        if (qta > 0) {
+            daProcessare.push({ ...item, qtaDaInventariare: qta });
+        }
+    }
     
-    const newEntries = selected.map(item => ({
+    if (daProcessare.length === 0) {
+        alert('Nessun articolo da inventariare');
+        return;
+    }
+    
+    await processaInventarioMassivo(daProcessare, ubicazioneFinale, partNumberFinale, null);
+};
+
+// ✅ NUOVA FUNZIONE helper
+const processaInventarioMassivo = async (items, ubicazione, partNumber, qtaFissa) => {
+    const updatedGiacenza = giacenza.map(g => {
+        const itemMatch = items.find(i => i.ID_Riga === g.ID_Riga);
+        if (!itemMatch) return g;
+        
+        const qtaDaInv = qtaFissa || itemMatch.qtaDaInventariare;
+        const qtaRimanente = (g['Qtà'] || 0) - qtaDaInv;
+        
+        return {
+            ...g,
+            'Qtà': qtaRimanente,
+            inventariato: qtaRimanente === 0,
+            Match: qtaRimanente === 0 ? 'OK' : g.Match,
+            Ubicazioni: ubicazione,
+            PartNumber: partNumber
+        };
+    });
+    
+    const newEntries = items.map(item => ({
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(),
         Operatore: user.nome || user.username,
@@ -4015,63 +4094,59 @@ const aggiornaMassivoPartNumber = async () => {
         Descrizione: item.Descrizione,
         Cdc: item.Cdc,
         Posizione: item.Posizione,
-        Stato: item.Stato, // ✅ FIX: Passa lo stato corretto
-        Ubicazioni: ubicazioneFinale,
+        Stato: item.Stato,
+        Ubicazioni: ubicazione,
         RISCONTROSERIALEF: item.RISCONTROSERIALEF,
         WMSCode: item.WMSCode,
         PoNr: item.PoNr,
-        PartNumber: partNumberFinale,
-        SerSN: item['SerS/No'], // ✅ NEW: Aggiunge ser_sn
+        PartNumber: partNumber,
+        'Qtà': qtaFissa || item.qtaDaInventariare,
+        SerSN: item['SerS/No'],
         id_riga_giacenza: item.ID_Riga
     }));
     
-    const currentStorico = appCache.storico || [];
-    const updatedStorico = [...newEntries, ...currentStorico];
+    const updatedStorico = [...newEntries, ...(appCache.storico || [])];
     
     setGiacenza(updatedGiacenza);
+    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
-    
-    setFilteredData(updatedGiacenza.filter(i => !i.inventariato));
     setSelected([]);
     setBulkUbicazione('');
     setBulkPartNumber('');
+    setBulkQuantita(''); // ← NUOVO
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
-    alert('Verifica completata localmente!');
+    alert(`✅ Inventariati ${items.length} articoli!`);
     
-    (async () => {
-        try {
-            // ✅ FIX: Passa stato corretto + ser_sn
-            await api('batchSaveRiscontro', {
-                items: selected.map(item => ({
-                    operatore: user.nome || user.username,
-                    codSap: item.CodSap,
-                    descrizione: item.Descrizione,
-                    ubicazione: ubicazioneFinale,
-                    serialeAtteso: item.RISCONTROSERIALEF,
-                    serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
-                    qta: item['Qtà'] || 1,
-                    wmsCode: item.WMSCode || '',
-                    cdc: item.Cdc || '',
-                    posizione: item.Posizione || '',
-                    poNr: item.PoNr || '',
-                    partNumber: partNumberFinale,
-                    idRigaGiacenza: item.ID_Riga,
-                    stato: item.Stato, // ✅ FIX
-                    note: item.Note || '',
-                    serSN: item['SerS/No'] // ✅ FIX
-                }))
-            });
-            console.log('✅ Verifica massiva salvata su Supabase');
-        } catch (err) {
-            console.error('❌ Errore Supabase:', err);
-            alert('⚠️ Alcuni dati potrebbero non essere sincronizzati');
-        }
-    })();
+    // Salva su server
+    try {
+        await api('batchSaveRiscontro', {
+            items: items.map(item => ({
+                operatore: user.nome || user.username,
+                codSap: item.CodSap,
+                descrizione: item.Descrizione,
+                ubicazione: ubicazione,
+                serialeAtteso: item.RISCONTROSERIALEF,
+                serialeRiscontrato: item.RISCONTROSERIALEF || `LOTTO-${item.ID_Riga}`,
+                qta: qtaFissa || item.qtaDaInventariare,
+                wmsCode: item.WMSCode || '',
+                cdc: item.Cdc || '',
+                posizione: item.Posizione || '',
+                poNr: item.PoNr || '',
+                partNumber: partNumber,
+                idRigaGiacenza: item.ID_Riga,
+                stato: item.Stato,
+                note: item.Note || '',
+                serSN: item['SerS/No']
+            }))
+        });
+    } catch (err) {
+        console.error('❌ Errore salvataggio:', err);
+    }
 };
 
          const stampaSelezionati = async () => {
@@ -4410,6 +4485,14 @@ html += `
                         <div className="flex gap-2 items-center flex-wrap">
                             <input type="text" placeholder="Ubicazione (opzionale)" value={bulkUbicazione} onChange={(e) => setBulkUbicazione(e.target.value)} className="px-3 py-2 border rounded" />
                             <input type="text" placeholder="Part Number (opzionale)" value={bulkPartNumber} onChange={(e) => setBulkPartNumber(e.target.value)} className="px-3 py-2 border rounded" />
+                            <input 
+    type="number" 
+    min="1"
+    placeholder="Quantità (opzionale)" 
+    value={bulkQuantita} 
+    onChange={(e) => setBulkQuantita(e.target.value)} 
+    className="px-3 py-2 border rounded" 
+/>
                             <button onClick={verificaMassivo} className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                                 <Icons.Check /> Verifica Selezionati
                             </button>
@@ -4460,6 +4543,7 @@ html += `
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.partNumber ? 'col-hidden' : ''}`}>Part Number</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.seriale ? 'col-hidden' : ''}`}>Seriale</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.note ? 'col-hidden' : ''}`}>Note</th>
+                                    <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.qta ? 'col-hidden' : ''}`}>Qtà Inv.</th> 
                                 </tr>
                             </thead>
                             <tbody>
@@ -4699,7 +4783,8 @@ const [filters, setFilters] = useState(() => {
             serialeRiscontrato: true,
             match: false,
             note: true,
-            serSN: false
+            serSN: false,
+            qta: true
         });
         const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
         const [displayCount, setDisplayCount] = useState(50);
@@ -5609,6 +5694,10 @@ const updateBulkPartNumber = async () => {
     <input type="checkbox" id="col-note" checked={visibleColumns.note} onChange={() => toggleColumn('note')} />
     <label htmlFor="col-note">Note</label>
 </div>
+                        <div className="column-option"> 
+    <input type="checkbox" id="col-qta" checked={visibleColumns.qta} onChange={() => toggleColumn('qta')} />
+    <label htmlFor="col-qta">Qtà Inv.</label>
+</div>
         
                     </div>
                 </div>
@@ -5698,6 +5787,7 @@ const updateBulkPartNumber = async () => {
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>Seriale Riscontrato</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>Serializzato</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.note ? 'col-hidden' : ''}`}>Note</th>
+                                    <th className="px-3 py-2 text-left font-semibold">Qtà</th>
                                     <th className={`px-3 py-2 text-left font-semibold ${!visibleColumns.match ? 'col-hidden' : ''}`}>Match</th>
                                 </tr>
                             </thead>
@@ -5836,6 +5926,7 @@ const updateBulkPartNumber = async () => {
     </div>
 )}
 </td>
+                                        <td className="px-3 py-2 font-bold text-center">{item['Qtà'] || 0}</td> 
                                         
 <td className={`px-3 py-2 text-center ${!visibleColumns.match ? 'col-hidden' : ''}`}>
     {item.Match === 'OK' ? (
