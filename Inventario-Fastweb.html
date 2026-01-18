@@ -601,7 +601,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 Posizione: item.posizione || '',
                 CodSap: item.cod_sap || '',
                 Descrizione: item.descrizione || '',
-                'SerS/No': item.ser_sn || '', 
+                'SerS/No': item.ser_sn || 'N', 
                 Stato: item.stato || '',
                 Ubicazioni: item.ubicazioni || '',
                 WMSCode: item.wms_code || '',
@@ -633,6 +633,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         PartNumber: item.part_number || '',
         Stato: item.stato || '',
         Note: item.note || '',
+        SerSN: item.ser_sn || 'No',
         SerSN: item.ser_sn || 'No', // ✅ NEW: Aggiunge ser_sn
         id_riga_giacenza: item.id_riga_giacenza || ''
     }));
@@ -4409,7 +4410,7 @@ html += `
     </div>
 </td>
                                         <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>
-                                            {item['SerS/No'] === 'Sì' ? '✅' : '❌'}
+                                            {item['SerSN'] === 'Y' ? '✅' : '❌'}
                                         </td>
                                         <td className={`px-3 py-2 ${!visibleColumns.stato ? 'col-hidden' : ''}`}>
                                             <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -5707,7 +5708,7 @@ const updateBulkPartNumber = async () => {
                                         </td>
                                         <td className={`px-3 py-2 font-mono text-xs font-bold ${!visibleColumns.serialeRiscontrato ? 'col-hidden' : ''}`}>{item.Seriale_Riscontrato}</td>
                                         <td className={`px-3 py-2 text-center ${!visibleColumns.serSN ? 'col-hidden' : ''}`}>
-    {item.SerSN === 'Sì' ? '✅' : '❌'}
+    {item.SerSN === 'Y' ? '✅' : '❌'}
 </td>
                                         
                                         <td className={`px-3 py-2 ${!visibleColumns.note ? 'col-hidden' : ''}`}>
