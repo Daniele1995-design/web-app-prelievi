@@ -4820,6 +4820,7 @@ const updatePartNumberStorico = async (item, newPN) => {
         let match = true;
         if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
         if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
+        if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
         if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
         if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
         if (filters.match) match = match && i.Match === filters.match;
@@ -4865,6 +4866,7 @@ const updateNoteStorico = async (item, newNote) => {
         let match = true;
         if (filters.operatore) match = match && (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase());
         if (filters.ubicazione) match = match && (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase());
+        if (filters.posizione) match = match && (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase());
         if (filters.cdc) match = match && (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase());
         if (filters.stato) match = match && (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase());
         if (filters.match) match = match && i.Match === filters.match;
