@@ -1971,7 +1971,7 @@ const processSelectedItem = async (found, scanned) => {
                 partNumber: found.PartNumber || '',
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
-                note: '',
+                note: found.Note || '',
                 serSN: found['SerS/No'] || 'No'
             }
         });
