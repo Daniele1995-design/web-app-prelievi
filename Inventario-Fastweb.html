@@ -5627,7 +5627,7 @@ const updateBulkPartNumber = async () => {
         }, 500);
     });
 };
-      const ripristinaSelezionati = async () => {
+   const ripristinaSelezionati = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
     if (!window.confirm(`Ripristinare ${selected.length} articoli in giacenza? Verranno rimossi dallo storico inventariato.`)) return;
@@ -5718,7 +5718,29 @@ const updateBulkPartNumber = async () => {
                     continue;
                 }
                 
-                // ✅ STEP 1: Elimina da inventario
+                // ✅ STEP 1: Leggi quantità attuale in giacenza
+                const { data: giacenzaRow, error: readError } = await supabaseClient
+                    .from('giacenza')
+                    .select('qta')
+                    .eq('id_riga', item.id_riga_giacenza)
+                    .single();
+                
+                if (readError) {
+                    console.error('❌ Errore lettura giacenza:', readError);
+                    errors.push(`${item.Seriale_Riscontrato}: ${readError.message}`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato} - Errore lettura`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                const qtaAttualeGiacenza = giacenzaRow?.qta || 0;
+                const qtaDaRipristinare = item['Qtà'] || 1;
+                const nuovaQta = qtaAttualeGiacenza + qtaDaRipristinare;
+                
+                console.log(`📊 Qtà attuale: ${qtaAttualeGiacenza} + Qtà da ripristinare: ${qtaDaRipristinare} = Nuova Qtà: ${nuovaQta}`);
+                
+                // ✅ STEP 2: Elimina da inventario
                 const { error: deleteError } = await supabaseClient
                     .from('inventario')
                     .delete()
@@ -5735,10 +5757,11 @@ const updateBulkPartNumber = async () => {
                 
                 console.log('✅ Eliminato da inventario ID:', item.id);
                 
-                // ✅ STEP 2: Aggiorna giacenza
+                // ✅ STEP 3: Aggiorna giacenza con SOMMA quantità
                 const { data: updatedRows, error: updateError } = await supabaseClient
                     .from('giacenza')
                     .update({
+                        qta: nuovaQta,  // ← SOMMA la quantità!
                         match: null,
                         timestamp: null,
                         operatore: null,
@@ -5765,9 +5788,9 @@ const updateBulkPartNumber = async () => {
                     detail.innerHTML = `⚠️ ${item.Seriale_Riscontrato} - Giacenza non trovata`;
                     detail.style.background = '#fef3c7';
                 } else {
-                    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+                    console.log(`✅ Giacenza aggiornata: ${qtaAttualeGiacenza} → ${nuovaQta}`);
                     successCount++;
-                    detail.innerHTML = `✅ ${item.Seriale_Riscontrato || item.CodSap}`;
+                    detail.innerHTML = `✅ ${item.Seriale_Riscontrato || item.CodSap} (Qtà: ${qtaDaRipristinare} ripristinata)`;
                     detail.style.background = '#d1fae5';
                 }
                 
@@ -5790,8 +5813,12 @@ const updateBulkPartNumber = async () => {
                 const updatedGiacenza = appCache.giacenza.map(g => {
                     const matchedItem = selected.find(s => s.id_riga_giacenza === g.ID_Riga);
                     if (matchedItem) {
+                        const qtaDaRipristinare = matchedItem['Qtà'] || 1;
+                        const nuovaQta = (g['Qtà'] || 0) + qtaDaRipristinare;
+                        
                         return {
                             ...g,
+                            'Qtà': nuovaQta,  // ← SOMMA la quantità!
                             Match: null,
                             inventariato: false,
                             timestamp: null,
