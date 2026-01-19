@@ -1931,7 +1931,10 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: found.PartNumber || '',
+        SerSN: found['SerS/No'], // 
+        id_riga_giacenza: found.ID_Riga, // 
+        Note: found.Note || '' // 
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1979,6 +1982,14 @@ const processSelectedItem = async (found, scanned) => {
         if (saveResult.id) {
             newEntry.id = saveResult.id;
             setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+            // ✅ AGGIORNA ANCHE LO STORICO CON L'ID REALE
+            const finalStorico = updatedStorico.map(i => 
+                i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+                    ? { ...i, id: saveResult.id }
+                    : i
+            );
+            setStorico(finalStorico);
+            appCache.storico = finalStorico;
         }
         
         // ✅ Controllo giacenza
@@ -2062,7 +2073,7 @@ const found = allMatches[0];
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(), 
         Operatore: user.nome || user.username, 
-       Seriale_Riscontrato: serialeScansionato,, 
+        Seriale_Riscontrato: scanned, 
         Match: match ? 'OK' : 'KO',
         CodSap: found.CodSap,
         Descrizione: found.Descrizione,
@@ -2072,9 +2083,7 @@ const found = allMatches[0];
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '',
-        SerSN: found['SerS/No'] || 'No',
-        id_riga_giacenza: found.ID_Riga
+        PartNumber: found.PartNumber || ''
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -2090,7 +2099,7 @@ const found = allMatches[0];
     
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
-    setLastScannedSerial(serialeScansionato);                   
+     setLastScannedSerial(scanned);                   
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
@@ -2104,7 +2113,7 @@ const found = allMatches[0];
                 codSap: found.CodSap,
                 descrizione: found.Descrizione,
                 ubicazione: found.Ubicazioni,
-                serialeRiscontrato: serialeScansionato,
+                serialeAtteso: found.RISCONTROSERIALEF,
                 serialeRiscontrato: scanned,
                 match: match ? 'OK' : 'KO',
                 qta: found['Qtà'] || 1,
@@ -2999,14 +3008,10 @@ const handleUpdateNote = async () => {
                         key={item.ID_Riga}
                         className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
                         onClick={() => {
-    // Chiudi modal e processa questo articolo
-    setShowDuplicateModal(false);
-    setDuplicateMatches([]); // ✅ FIX: pulisci duplicati
-    
-    // ✅ FIX: Salva il seriale PRIMA di chiudere il modal
-    const serialeCorrente = duplicateMatches[0]?.RISCONTROSERIALEF || scanInput;
-    processSelectedItem(item, serialeCorrente);
-}}
+                            // Chiudi modal e processa questo articolo
+                            setShowDuplicateModal(false);
+                            processSelectedItem(item, scanInput);
+                        }}
                     >
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -3046,13 +3051,11 @@ const handleUpdateNote = async () => {
                 ))}
             </div>
             
-           <button 
-    onClick={() => {
-        setShowDuplicateModal(false);
-        setDuplicateMatches([]);
-        setScanInput(''); // ✅ FIX: pulisci input
-        if (inputRef.current) inputRef.current.focus();
-    }}
+            <button 
+                onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateMatches([]);
+                }}
                 className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
             >
                 ❌ Annulla
