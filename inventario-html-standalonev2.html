@@ -2062,7 +2062,7 @@ const found = allMatches[0];
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(), 
         Operatore: user.nome || user.username, 
-        Seriale_Riscontrato: scanned, 
+       Seriale_Riscontrato: serialeScansionato,, 
         Match: match ? 'OK' : 'KO',
         CodSap: found.CodSap,
         Descrizione: found.Descrizione,
@@ -2072,7 +2072,9 @@ const found = allMatches[0];
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: found.PartNumber || '',
+        SerSN: found['SerS/No'] || 'No',
+        id_riga_giacenza: found.ID_Riga
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -2088,7 +2090,7 @@ const found = allMatches[0];
     
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
-     setLastScannedSerial(scanned);                   
+    setLastScannedSerial(serialeScansionato);                   
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
@@ -2102,7 +2104,7 @@ const found = allMatches[0];
                 codSap: found.CodSap,
                 descrizione: found.Descrizione,
                 ubicazione: found.Ubicazioni,
-                serialeAtteso: found.RISCONTROSERIALEF,
+                serialeRiscontrato: serialeScansionato,
                 serialeRiscontrato: scanned,
                 match: match ? 'OK' : 'KO',
                 qta: found['Qtà'] || 1,
@@ -2997,10 +2999,14 @@ const handleUpdateNote = async () => {
                         key={item.ID_Riga}
                         className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
                         onClick={() => {
-                            // Chiudi modal e processa questo articolo
-                            setShowDuplicateModal(false);
-                            processSelectedItem(item, scanInput);
-                        }}
+    // Chiudi modal e processa questo articolo
+    setShowDuplicateModal(false);
+    setDuplicateMatches([]); // ✅ FIX: pulisci duplicati
+    
+    // ✅ FIX: Salva il seriale PRIMA di chiudere il modal
+    const serialeCorrente = duplicateMatches[0]?.RISCONTROSERIALEF || scanInput;
+    processSelectedItem(item, serialeCorrente);
+}}
                     >
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -3040,11 +3046,13 @@ const handleUpdateNote = async () => {
                 ))}
             </div>
             
-            <button 
-                onClick={() => {
-                    setShowDuplicateModal(false);
-                    setDuplicateMatches([]);
-                }}
+           <button 
+    onClick={() => {
+        setShowDuplicateModal(false);
+        setDuplicateMatches([]);
+        setScanInput(''); // ✅ FIX: pulisci input
+        if (inputRef.current) inputRef.current.focus();
+    }}
                 className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
             >
                 ❌ Annulla
