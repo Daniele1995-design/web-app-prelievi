@@ -3319,9 +3319,8 @@ html = `
             <div className="space-y-3 max-h-96 overflow-y-auto">
                 {duplicateMatches
                     .filter(item => {
-                        // ✅ FILTRA: mostra solo articoli NON ancora in storico
-                        const giàInventariato = storico.some(s => s.id_riga_giacenza === item.ID_Riga);
-                        return !giàInventariato;
+                        // ✅ FIX: Mostra solo articoli con Qtà > 0 (non completamente inventariati)
+                        return (item['Qtà'] || 0) > 0;
                     })
                     .map((item, idx) => {
                         const qtaDisponibile = item['Qtà'] || 0;
@@ -3405,11 +3404,11 @@ html = `
                         );
                     })}
                 
-                {/* ✅ MESSAGGIO se tutti gli articoli sono già inventariati */}
-                {duplicateMatches.every(item => storico.some(s => s.id_riga_giacenza === item.ID_Riga)) && (
+                {/* ✅ MESSAGGIO se tutti gli articoli sono completamente inventariati */}
+                {duplicateMatches.every(item => (item['Qtà'] || 0) === 0) && (
                     <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI GIÀ INVENTARIATI</p>
-                        <p className="text-yellow-700">Tutti gli articoli con questo seriale sono già stati scansionati.</p>
+                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI COMPLETAMENTE INVENTARIATI</p>
+                        <p className="text-yellow-700">Tutti gli articoli con questo seriale hanno quantità = 0.</p>
                     </div>
                 )}
             </div>
