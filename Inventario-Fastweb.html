@@ -2031,6 +2031,127 @@ const processSelectedItem = async (found, scanned) => {
     setScanCount(prev => prev + 1);
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
+
+            // ✅ NUOVO - Processa articolo duplicato CON QUANTITÀ
+const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => {
+    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+    const qtaDisponibile = found['Qtà'] || 0;
+    const qtaRimanente = qtaDisponibile - qtaDaInventariare;
+    const tuttoInventariato = qtaRimanente === 0;
+    
+    // Aggiorna giacenza
+    const updatedGiacenza = giacenza.map(item => {
+        if (item.ID_Riga !== found.ID_Riga) return item;
+        
+        if (tuttoInventariato) {
+            return { 
+                ...item, 
+                inventariato: true, 
+                Match: match ? 'OK' : 'KO', 
+                'Qtà': 0,
+                Ubicazioni: found.Ubicazioni 
+            };
+        } else {
+            return { 
+                ...item, 
+                'Qtà': qtaRimanente,
+                Ubicazioni: found.Ubicazioni 
+            };
+        }
+    });
+    
+    const newEntry = { 
+        id: Date.now() + Math.random(),
+        Timestamp: new Date().toISOString(), 
+        Operatore: user.nome || user.username, 
+        Seriale_Riscontrato: scanned, 
+        Match: match ? 'OK' : 'KO',
+        CodSap: found.CodSap,
+        Descrizione: found.Descrizione,
+        Cdc: found.Cdc,
+        Posizione: found.Posizione || '',
+        Stato: found.Stato,
+        Ubicazioni: found.Ubicazioni,
+        RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+        WMSCode: found.WMSCode,
+        PoNr: found.PoNr,
+        PartNumber: found.PartNumber || '',
+        'Qtà': qtaDaInventariare,
+        QtàRimanente: qtaRimanente
+    };
+    
+    const updatedStorico = [newEntry, ...storico];
+    
+    setGiacenza(updatedGiacenza);
+    setStorico(updatedStorico);
+    setCurrentItem(found);
+    setNewUbicazione(found.Ubicazioni);
+    setNewPartNumber(found.PartNumber || '');
+    setNewNote(found.Note || '');
+    
+    if (tuttoInventariato) {
+        setMessage({ 
+            type: match ? 'success' : 'error', 
+            text: match ? `✅ TUTTO INVENTARIATO (${qtaDaInventariare})` : `❌ MISMATCH (${qtaDaInventariare})` 
+        });
+    } else {
+        setMessage({ 
+            type: 'success', 
+            text: `✅ INVENTARIATI ${qtaDaInventariare} - RIMANGONO ${qtaRimanente}` 
+        });
+    }
+    
+    playBeep(match ? 'success' : 'error');
+    
+    appCache.giacenza = updatedGiacenza;
+    appCache.storico = updatedStorico;
+    setLastScannedSerial(scanned);
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+    }));
+    
+    // Salva su server
+    try {
+        await api('saveRiscontro', {
+            data: {
+                operatore: user.nome || user.username,
+                codSap: found.CodSap,
+                descrizione: found.Descrizione,
+                ubicazione: found.Ubicazioni,
+                serialeAtteso: found.RISCONTROSERIALEF,
+                serialeRiscontrato: scanned,
+                match: match ? 'OK' : 'KO',
+                qta: qtaDaInventariare,
+                wmsCode: found.WMSCode || '',
+                cdc: found.Cdc || '',
+                posizione: found.Posizione || '',
+                poNr: found.PoNr || '',
+                partNumber: found.PartNumber || '',
+                idRigaGiacenza: found.ID_Riga || '',
+                stato: found.Stato || '',
+                note: '',
+                serSN: found['SerS/No'] || 'No'
+            }
+        });
+        
+        await supabaseClient
+            .from('giacenza')
+            .update({ 
+                qta: qtaRimanente,
+                match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
+                ubicazioni: found.Ubicazioni
+            })
+            .eq('id_riga', found.ID_Riga);
+        
+    } catch (err) {
+        console.error('❌ Errore:', err);
+        alert('⚠️ Errore server: ' + err.message);
+    }
+    
+    setScanCount(prev => prev + 1);
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+};
             const handleScan = async (e) => {
                 if (e.key === 'Enter' && scanInput.trim()) {
                     const scanned = scanInput.trim().toUpperCase();
@@ -3187,56 +3308,105 @@ html = `
             <p className="mb-4 text-gray-700">
                 Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
                 <br/>
-                <span className="text-blue-600 font-bold text-lg">{scanInput}</span>
+                <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
             </p>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-                {duplicateMatches.map((item, idx) => (
-                    <div 
-                        key={item.ID_Riga}
-                        className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
-                        onClick={() => {
-                            // Chiudi modal e processa questo articolo
-                            setShowDuplicateModal(false);
-                            processSelectedItem(item, lastScannedValue);
-                        }}
-                    >
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
-                                <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
-                                <p className="text-lg font-bold">{item.CodSap}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">WMS Code</p>
-                                <p className="font-mono text-sm">{item.WMSCode || '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
-                                <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
-                            </div>
-                            <div className="col-span-2">
-                                <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
-                                <p className="text-sm">{item.Descrizione || '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">CDC</p>
-                                <p className="text-sm">{item.Cdc || '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">Stato</p>
-                                <p className="text-sm">{item.Stato || '-'}</p>
-                            </div>
-                        </div>
+                {duplicateMatches
+                    .filter(item => {
+                        // ✅ FILTRA: mostra solo articoli NON ancora in storico
+                        const giàInventariato = storico.some(s => s.id_riga_giacenza === item.ID_Riga);
+                        return !giàInventariato;
+                    })
+                    .map((item, idx) => {
+                        const qtaDisponibile = item['Qtà'] || 0;
                         
-                        <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
-                            ✅ Seleziona questo articolo
-                        </button>
+                        return (
+                            <div 
+                                key={item.ID_Riga}
+                                className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                                onClick={async () => {
+                                    // ✅ GESTIONE QUANTITÀ come nello scanner principale
+                                    let qtaDaInventariare;
+                                    
+                                    if (qtaDisponibile > 1) {
+                                        const qtaInput = prompt(
+                                            `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+                                            `ID Riga: ${item.ID_Riga}\n` +
+                                            `Cod. SAP: ${item.CodSap}\n` +
+                                            `Seriale: ${lastScannedValue}\n` +
+                                            `Quantità disponibile: ${qtaDisponibile}\n\n` +
+                                            `Quanti ne vuoi inventariare?`,
+                                            qtaDisponibile
+                                        );
+                                        
+                                        if (qtaInput === null) {
+                                            setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+                                            return;
+                                        }
+                                        
+                                        qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+                                        
+                                        if (qtaDaInventariare <= 0) {
+                                            setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+                                            playBeep('error');
+                                            return;
+                                        }
+                                    } else {
+                                        qtaDaInventariare = qtaDisponibile || 1;
+                                    }
+                                    
+                                    // Chiudi modal e processa con quantità
+                                    setShowDuplicateModal(false);
+                                    await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
+                                }}
+                            >
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
+                                        <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
+                                        <p className="text-lg font-bold">{item.CodSap}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">Qtà Disponibile</p>
+                                        <p className="text-2xl font-bold text-orange-600">{qtaDisponibile}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
+                                        <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
+                                        <p className="text-sm">{item.Descrizione || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">CDC</p>
+                                        <p className="text-sm">{item.Cdc || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-semibold">Stato</p>
+                                        <p className="text-sm">{item.Stato || '-'}</p>
+                                    </div>
+                                </div>
+                                
+                                <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
+                                    ✅ Seleziona questo articolo
+                                    {qtaDisponibile > 1 && <span className="ml-2 text-xs">(Ti chiederà la quantità)</span>}
+                                </button>
+                            </div>
+                        );
+                    })}
+                
+                {/* ✅ MESSAGGIO se tutti gli articoli sono già inventariati */}
+                {duplicateMatches.every(item => storico.some(s => s.id_riga_giacenza === item.ID_Riga)) && (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI GIÀ INVENTARIATI</p>
+                        <p className="text-yellow-700">Tutti gli articoli con questo seriale sono già stati scansionati.</p>
                     </div>
-                ))}
+                )}
             </div>
             
             <button 
