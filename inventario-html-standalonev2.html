@@ -1933,6 +1933,7 @@ const processSelectedItem = async (found, scanned) => {
         PoNr: found.PoNr,
         PartNumber: found.PartNumber || '',
         SerSN: found['SerS/No'] || 'No',
+        Note: found.Note || '',
         id_riga_giacenza: found.ID_Riga
     };
     
@@ -1973,7 +1974,7 @@ const processSelectedItem = async (found, scanned) => {
                 partNumber: found.PartNumber || '',
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
-                note: '',
+                note: found.Note || '',
                 serSN: found['SerS/No'] || 'No'
             }
         });
@@ -2993,7 +2994,10 @@ const handleUpdateNote = async () => {
             <p className="mb-4 text-gray-700">
                 Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
                 <br/>
-                <span className="text-blue-600 font-bold text-lg">{scanInput}</span>
+                {/* ✅ FIX: Mostra il seriale corretto */}
+                <span className="text-blue-600 font-bold text-lg">
+                    {duplicateMatches[0]?.RISCONTROSERIALEF || scanInput}
+                </span>
             </p>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -3002,9 +3006,10 @@ const handleUpdateNote = async () => {
                         key={item.ID_Riga}
                         className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
                         onClick={() => {
-                            // Chiudi modal e processa questo articolo
+                            // ✅ FIX: Passa il seriale CORRETTO invece di scanInput
                             setShowDuplicateModal(false);
-                            processSelectedItem(item, scanInput);
+                            setDuplicateMatches([]);
+                            processSelectedItem(item, item.RISCONTROSERIALEF); // ← CAMBIATO QUI
                         }}
                     >
                         <div className="grid grid-cols-2 gap-3">
@@ -3035,6 +3040,17 @@ const handleUpdateNote = async () => {
                             <div>
                                 <p className="text-xs text-gray-500 font-semibold">Stato</p>
                                 <p className="text-sm">{item.Stato || '-'}</p>
+                            </div>
+                            {/* ✅ AGGIUNGI visualizzazione Part Number nella scelta */}
+                            <div className="col-span-2">
+                                <p className="text-xs text-gray-500 font-semibold">Part Number</p>
+                                <p className="text-sm font-mono">{item.PartNumber || '-'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-xs text-gray-500 font-semibold">Seriale</p>
+                                <p className="text-sm font-mono font-bold text-blue-600">
+                                    {item.RISCONTROSERIALEF || '-'}
+                                </p>
                             </div>
                         </div>
                         
