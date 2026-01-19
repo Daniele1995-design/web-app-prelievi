@@ -1931,10 +1931,7 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '',
-        Note: found.Note || '',
-        SerSN: found['SerS/No'] || 'No',
-        id_riga_giacenza: found.ID_Riga   
+        PartNumber: found.PartNumber || ''
     };
     
     const updatedStorico = [newEntry, ...storico];
