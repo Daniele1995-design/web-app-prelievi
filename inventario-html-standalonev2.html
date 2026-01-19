@@ -1931,7 +1931,10 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: found.PartNumber || '',
+        Note: found.Note || '',
+        SerSN: found['SerS/No'] || 'No',
+        id_riga_giacenza: found.ID_Riga   
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1971,24 +1974,15 @@ const processSelectedItem = async (found, scanned) => {
                 partNumber: found.PartNumber || '',
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
-                note: found.Note || '',
+                note: '',
                 serSN: found['SerS/No'] || 'No'
             }
         });
         
-            if (saveResult.id) {
-        newEntry.id = saveResult.id;
-        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-        
-        // ✅ AGGIUNTO: Aggiorna anche lo storico con ID reale
-        const updatedStorico = storico.map(i => 
-            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                ? { ...i, id: saveResult.id }
-                : i
-        );
-        setStorico(updatedStorico);
-        appCache.storico = updatedStorico;
-    }
+        if (saveResult.id) {
+            newEntry.id = saveResult.id;
+            setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+        }
         
         // ✅ Controllo giacenza
         if (saveResult.giacenzaUpdated === 0) {
