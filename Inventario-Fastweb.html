@@ -2168,8 +2168,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         }
         // NUOVO - Cerca TUTTI gli articoli con questo seriale
         const allMatches = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            !item.inventariato
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
         );
 
         //  CASO 1: Nessun match
