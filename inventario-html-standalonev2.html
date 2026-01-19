@@ -1908,7 +1908,7 @@ useEffect(() => {
             };
 // ✅ NUOVO - Processa articolo scelto da duplicati
 const processSelectedItem = async (found, scanned) => {
-    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+    const match = true; // Scelta manuale = sempre corretto
     
     // 1. SALVA SUBITO CON MATCH
     const updatedGiacenza = giacenza.map(item =>
@@ -1944,8 +1944,8 @@ const processSelectedItem = async (found, scanned) => {
     setNewUbicazione(found.Ubicazioni);
     setNewPartNumber(found.PartNumber || '');
     setNewNote(found.Note || '');
-    setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
-    playBeep(match ? 'success' : 'error');
+    setMessage({ type: 'success', text: '✅ MATCH OK!' });
+    playBeep('success');
     
     appCache.giacenza = updatedGiacenza;
     appCache.storico = updatedStorico;
@@ -1965,7 +1965,7 @@ const processSelectedItem = async (found, scanned) => {
                 ubicazione: found.Ubicazioni,
                 serialeAtteso: found.RISCONTROSERIALEF,
                 serialeRiscontrato: scanned,
-                match: match ? 'OK' : 'KO',
+                match: 'OK',
                 qta: found['Qtà'] || 1,
                 wmsCode: found.WMSCode || '',
                 cdc: found.Cdc || '',
