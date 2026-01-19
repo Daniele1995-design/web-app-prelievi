@@ -2437,7 +2437,13 @@ try {
                 
                 setGiacenza(finalGiacenza);
                 appCache.giacenza = finalGiacenza;
-                setCurrentItem({ ...found, Ubicazioni: expectedUbicazione, Note: newNote });
+                setCurrentItem({
+    ...found,
+    'Qtà': qtaDaInventariare,  // ← Usa la quantità INVENTARIATA
+    Ubicazioni: found.Ubicazioni,
+    PartNumber: found.PartNumber || '',
+    Note: found.Note || ''
+});
                 setNewUbicazione(expectedUbicazione);
                 setNewNote(newNote);
                 
