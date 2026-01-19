@@ -1910,10 +1910,20 @@ useEffect(() => {
 const processSelectedItem = async (found, scanned) => {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
+    // ✅ PRENDI Part Number (o usa quello atteso se presente)
+    const finalPartNumber = found.PartNumber || expectedPartNumber || '';
+    const finalUbicazione = found.Ubicazioni || expectedUbicazione || '';
+    
     // 1. SALVA SUBITO CON MATCH
     const updatedGiacenza = giacenza.map(item =>
         item.ID_Riga === found.ID_Riga
-            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
+            ? { 
+                ...item, 
+                inventariato: true, 
+                Match: match ? 'OK' : 'KO', 
+                Ubicazioni: finalUbicazione,
+                PartNumber: finalPartNumber  // ✅ AGGIUNTO
+            } 
             : item
     );
     
@@ -1921,17 +1931,19 @@ const processSelectedItem = async (found, scanned) => {
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(), 
         Operatore: user.nome || user.username, 
-        Seriale_Riscontrato: scanned, 
+        Seriale_Riscontrato: scanned,  // ✅ USA scanned
         Match: match ? 'OK' : 'KO',
         CodSap: found.CodSap,
         Descrizione: found.Descrizione,
         Cdc: found.Cdc,
         Stato: found.Stato,
-        Ubicazioni: found.Ubicazioni,
+        Ubicazioni: finalUbicazione,  // ✅ USA finale
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: finalPartNumber,  // ✅ USA finale
+        SerSN: found['SerS/No'] || 'No',  // ✅ AGGIUNTO
+        id_riga_giacenza: found.ID_Riga  // ✅ AGGIUNTO
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1960,18 +1972,18 @@ const processSelectedItem = async (found, scanned) => {
                 operatore: user.nome || user.username,
                 codSap: found.CodSap,
                 descrizione: found.Descrizione,
-                ubicazione: found.Ubicazioni,
+                ubicazione: finalUbicazione,  // ✅ USA finale
                 serialeAtteso: found.RISCONTROSERIALEF,
-                serialeRiscontrato: scanned,
+                serialeRiscontrato: scanned,  // ✅ USA scanned
                 match: match ? 'OK' : 'KO',
                 qta: found['Qtà'] || 1,
                 wmsCode: found.WMSCode || '',
                 cdc: found.Cdc || '',
                 poNr: found.PoNr || '',
-                partNumber: found.PartNumber || '',
+                partNumber: finalPartNumber,  // ✅ USA finale
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
-                note: '',
+                note: found.Note || '',
                 serSN: found['SerS/No'] || 'No'
             }
         });
@@ -2033,18 +2045,38 @@ const processSelectedItem = async (found, scanned) => {
         }
 
         // ✅ CASO 2: Più match (DUPLICATI!)
-        if (allMatches.length > 1) {
-            setMessage({ 
-                type: 'warning', 
-                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
-            });
-            playBeep('error');
-            
-            // Mostra popup di scelta
-            setDuplicateMatches(allMatches);
-            setShowDuplicateModal(true);
-            return;
-        }
+if (allMatches.length > 1) {
+    // ✅ FILTRA quelli già in storico
+    const notInStorico = allMatches.filter(match => 
+        !storico.some(s => s.id_riga_giacenza === match.ID_Riga)
+    );
+    
+    if (notInStorico.length === 0) {
+        setMessage({ 
+            type: 'warning', 
+            text: `⚠️ Tutti gli articoli con questo seriale sono già inventariati!` 
+        });
+        playBeep('error');
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        return;
+    }
+    
+    if (notInStorico.length === 1) {
+        // Se rimane solo 1 dopo il filtro, processalo direttamente
+        const found = notInStorico[0];
+        // ... continua con il codice normale (quello sotto)
+    } else {
+        // Mostra popup solo se ci sono ancora duplicati
+        setMessage({ 
+            type: 'warning', 
+            text: `⚠️ TROVATI ${notInStorico.length} ARTICOLI DA INVENTARIARE CON STESSO SERIALE!` 
+        });
+        playBeep('error');
+        setDuplicateMatches(notInStorico);
+        setShowDuplicateModal(true);
+        return;
+    }
+}
 // ✅ CASO 3: Match unico - Procedi normale
 const found = allMatches[0];
 
@@ -3381,7 +3413,7 @@ const [filters, setFilters] = useState(() => {
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-            const applyFilters = () => {
+     const applyFilters = () => {
     const filtered = giacenza.reduce((acc, i) => {
         if (i.inventariato) return acc;
         
@@ -3391,6 +3423,7 @@ const [filters, setFilters] = useState(() => {
         if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
         if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
         if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
+        if (filters.seriale && !(i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
         
         acc.push(i);
         return acc;
@@ -3460,7 +3493,7 @@ const [filters, setFilters] = useState(() => {
                         if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
                         if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
                         if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                        
+                        if (filters.seriale) filtered = filtered.filter(i => (i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())); // ✅ NUOVO
                         setFilteredData(filtered);
                         setHasMore(filtered.length > displayCount);
                     }
@@ -3831,7 +3864,7 @@ const aggiornaMassivoPartNumber = async () => {
         alert('⚠️ Errore sincronizzazione: ' + err.message);
     }
 };
-            const verificaMassivo = async () => {
+             const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
     const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
@@ -4202,14 +4235,15 @@ const stampaEtichette = (items) => {
                         <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                             <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
-                                    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
-                                </div>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ser. S/N" value={filters.serSN || ''} onChange={(e) => setFilters({ ...filters, serSN: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Seriale" value={filters.seriale || ''} onChange={(e) => setFilters({ ...filters, seriale: e.target.value })} className="px-3 py-2 border rounded" />
+                            </div>
                                 <div className="flex gap-2">
                                     <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
                                     <button onClick={() => { setFilters({}); setFilteredData(giacenza.filter(i => !i.inventariato)); setDisplayCount(50); setHasMore(true); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
@@ -4495,7 +4529,6 @@ const [filters, setFilters] = useState(() => {
         const [bulkUbicazione, setBulkUbicazione] = useState('');
         const [bulkPartNumber, setBulkPartNumber] = useState('');
         const [formatoStampa, setFormatoStampa] = useState('10x10');
-        
         const [showColumnSelector, setShowColumnSelector] = useState(false);
         const [visibleColumns, setVisibleColumns] = useState({
             dataOra: true,
@@ -4526,6 +4559,7 @@ const applyFilters = () => {
         if (filters.match && i.Match !== filters.match) return acc;
         if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
         if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
+        if (filters.seriale && !(i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
         if (filters.dataOra) {
             const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
             if (!itemDate.includes(filters.dataOra)) return acc;
@@ -4609,6 +4643,7 @@ const applyFilters = () => {
                     if (filters.match) filtered = filtered.filter(i => i.Match === filters.match);
                     if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
                     if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+                    if (filters.seriale) filtered = filtered.filter(i => (i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase())); // ✅ NUOVO
                     if (filters.dataOra) {
                         filtered = filtered.filter(i => {
                             const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
@@ -5042,66 +5077,265 @@ const updateBulkPartNumber = async () => {
         }, 500);
     });
 };
-        const ripristinaSelezionati = async () => {
+      const ripristinaSelezionati = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
     if (!window.confirm(`Ripristinare ${selected.length} articoli in giacenza? Verranno rimossi dallo storico inventariato.`)) return;
     
+    // ✅ NUOVO: Crea elemento di progresso a video
+    const progressDiv = document.createElement('div');
+    progressDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        z-index: 9999;
+        min-width: 400px;
+        text-align: center;
+    `;
+    progressDiv.innerHTML = `
+        <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
+            🔄 Ripristino in corso...
+        </h3>
+        <div id="progress-bar" style="
+            width: 100%;
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        ">
+            <div id="progress-fill" style="
+                width: 0%;
+                height: 100%;
+                background: linear-gradient(90deg, #3b82f6, #2563eb);
+                transition: width 0.3s ease;
+            "></div>
+        </div>
+        <div id="progress-text" style="color: #6b7280; font-size: 14px;">
+            0 / ${selected.length}
+        </div>
+        <div id="progress-details" style="
+            margin-top: 15px;
+            font-size: 12px;
+            color: #9ca3af;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+        "></div>
+    `;
+    document.body.appendChild(progressDiv);
+    
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const progressDetails = document.getElementById('progress-details');
+    
     try {
-        // 1. Per ogni item selezionato, elimina da inventario
-        for (const item of selected) {
-            await supabaseClient
-                .from('inventario')
-                .delete()
-                .eq('id', item.id);
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+        
+        // 1. Per ogni item selezionato
+        for (let i = 0; i < selected.length; i++) {
+            const item = selected[i];
             
-            // 2. Aggiorna giacenza: rimuovi match, timestamp, operatore
-            await supabaseClient
-                .from('giacenza')
-                .update({
-                    match: null,
-                    timestamp: null,
-                    operatore: null,
-                    seriale_riscontrato: null
-                })
-                .eq('id_riga', item.id_riga_giacenza);
+            // ✅ Aggiorna barra progresso
+            const progress = ((i + 1) / selected.length) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${i + 1} / ${selected.length}`;
+            
+            try {
+                console.log('🔄 Ripristino item:', item);
+                
+                // Mostra dettaglio corrente
+                const detail = document.createElement('div');
+                detail.style.cssText = 'padding: 5px; margin: 2px 0; background: #f3f4f6; border-radius: 4px;';
+                detail.innerHTML = `⏳ ${item.Seriale_Riscontrato || item.CodSap}...`;
+                progressDetails.appendChild(detail);
+                progressDetails.scrollTop = progressDetails.scrollHeight;
+                
+                // ✅ CONTROLLO 1: Verifica che esista id_riga_giacenza
+                if (!item.id_riga_giacenza) {
+                    console.error('❌ Item senza id_riga_giacenza:', item);
+                    errors.push(`${item.Seriale_Riscontrato || item.CodSap}: ID Riga mancante`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato || item.CodSap} - ID mancante`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                // ✅ STEP 1: Elimina da inventario
+                const { error: deleteError } = await supabaseClient
+                    .from('inventario')
+                    .delete()
+                    .eq('id', item.id);
+                
+                if (deleteError) {
+                    console.error('❌ Errore delete inventario:', deleteError);
+                    errors.push(`${item.Seriale_Riscontrato}: ${deleteError.message}`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato} - Errore delete`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                console.log('✅ Eliminato da inventario ID:', item.id);
+                
+                // ✅ STEP 2: Aggiorna giacenza
+                const { data: updatedRows, error: updateError } = await supabaseClient
+                    .from('giacenza')
+                    .update({
+                        match: null,
+                        timestamp: null,
+                        operatore: null,
+                        seriale_riscontrato: null
+                    })
+                    .eq('id_riga', item.id_riga_giacenza)
+                    .select();
+                
+                if (updateError) {
+                    console.error('❌ Errore update giacenza:', updateError);
+                    errors.push(`${item.Seriale_Riscontrato}: ${updateError.message}`);
+                    errorCount++;
+                    detail.innerHTML = `❌ ${item.Seriale_Riscontrato} - Errore giacenza`;
+                    detail.style.background = '#fee2e2';
+                    continue;
+                }
+                
+                // ✅ CONTROLLO 2: Verifica che giacenza sia stata aggiornata
+                const rowsUpdated = updatedRows?.length || 0;
+                if (rowsUpdated === 0) {
+                    console.warn('⚠️ Giacenza NON aggiornata per ID_Riga:', item.id_riga_giacenza);
+                    errors.push(`${item.Seriale_Riscontrato}: Giacenza non trovata (ID_Riga: ${item.id_riga_giacenza})`);
+                    errorCount++;
+                    detail.innerHTML = `⚠️ ${item.Seriale_Riscontrato} - Giacenza non trovata`;
+                    detail.style.background = '#fef3c7';
+                } else {
+                    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+                    successCount++;
+                    detail.innerHTML = `✅ ${item.Seriale_Riscontrato || item.CodSap}`;
+                    detail.style.background = '#d1fae5';
+                }
+                
+            } catch (itemErr) {
+                console.error('❌ Errore processamento item:', itemErr);
+                errors.push(`${item.Seriale_Riscontrato || item.CodSap}: ${itemErr.message}`);
+                errorCount++;
+            }
         }
         
-        // 3. Aggiorna cache locale
-        const updatedStorico = storico.filter(i => !selected.find(s => s.id === i.id));
-        setStorico(updatedStorico);
-        setFilteredData(updatedStorico);
-        appCache.storico = updatedStorico;
-        
-        // 4. Aggiorna giacenza locale se caricata
-        if (appCache.giacenza) {
-            const updatedGiacenza = appCache.giacenza.map(g => {
-                const matchedItem = selected.find(s => s.id_riga_giacenza === g.ID_Riga);
-                if (matchedItem) {
-                    return {
-                        ...g,
-                        Match: null,
-                        inventariato: false,
-                        timestamp: null,
-                        operatore: null
-                    };
-                }
-                return g;
-            });
-            appCache.giacenza = updatedGiacenza;
+        // 3. Aggiorna cache locale (SOLO se almeno 1 successo)
+        if (successCount > 0) {
+            const updatedStorico = storico.filter(i => !selected.find(s => s.id === i.id));
+            setStorico(updatedStorico);
+            setFilteredData(updatedStorico);
+            appCache.storico = updatedStorico;
+            
+            // 4. Aggiorna giacenza locale se caricata
+            if (appCache.giacenza) {
+                const updatedGiacenza = appCache.giacenza.map(g => {
+                    const matchedItem = selected.find(s => s.id_riga_giacenza === g.ID_Riga);
+                    if (matchedItem) {
+                        return {
+                            ...g,
+                            Match: null,
+                            inventariato: false,
+                            timestamp: null,
+                            operatore: null
+                        };
+                    }
+                    return g;
+                });
+                appCache.giacenza = updatedGiacenza;
+                
+                window.dispatchEvent(new CustomEvent('ats-data-updated', {
+                    detail: { storico: updatedStorico, giacenza: updatedGiacenza }
+                }));
+            }
         }
         
         setSelected([]);
         
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { storico: updatedStorico, giacenza: appCache.giacenza }
-        }));
-        
-        alert(`✅ ${selected.length} articoli ripristinati in giacenza!`);
+        // ✅ MOSTRA RISULTATO FINALE A VIDEO
+        progressDiv.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #1f2937;">
+                ${successCount > 0 ? '✅' : '❌'} Ripristino Completato
+            </h3>
+            <div style="
+                background: ${successCount > 0 ? '#d1fae5' : '#fee2e2'};
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+            ">
+                <div style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">
+                    ${successCount} / ${selected.length}
+                </div>
+                <div style="color: #6b7280; font-size: 14px;">
+                    Successi: <strong>${successCount}</strong> | Errori: <strong>${errorCount}</strong>
+                </div>
+            </div>
+            ${errors.length > 0 ? `
+                <div style="
+                    background: #fef3c7;
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: left;
+                    max-height: 200px;
+                    overflow-y: auto;
+                    margin-bottom: 15px;
+                ">
+                    <div style="font-weight: bold; margin-bottom: 10px; color: #92400e;">
+                        ⚠️ Dettagli Errori:
+                    </div>
+                    ${errors.map((err, idx) => `
+                        <div style="font-size: 12px; color: #78350f; padding: 3px 0;">
+                            ${idx + 1}. ${err}
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            <button onclick="this.parentElement.remove()" style="
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+            ">Chiudi</button>
+        `;
         
     } catch (err) {
         console.error('❌ Errore ripristino:', err);
-        alert('Errore durante il ripristino: ' + err.message);
+        progressDiv.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #dc2626;">
+                ❌ Errore Critico
+            </h3>
+            <div style="
+                background: #fee2e2;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                color: #991b1b;
+            ">
+                ${err.message}
+            </div>
+            <button onclick="this.parentElement.remove()" style="
+                background: #dc2626;
+                color: white;
+                border: none;
+                padding: 10px 30px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+            ">Chiudi</button>
+        `;
     }
 };
 
@@ -5199,20 +5433,21 @@ const updateBulkPartNumber = async () => {
                     <div className="modal-overlay" onClick={() => setShowFilters(false)}>
                         <div className="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-lg font-bold mb-4">Filtri Avanzati</h3>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
-                                <input type="text" placeholder="Data (gg/mm/aaaa)" value={filters.dataOra || ''} onChange={(e) => setFilters({ ...filters, dataOra: e.target.value })} className="px-3 py-2 border rounded" />
-                                <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
-                                    <option value="">Tutti i match</option>
-                                    <option value="OK">Solo OK</option>
-                                    <option value="KO">Solo KO</option>
-                                   </select>
-                                     </div>
+             <div className="grid grid-cols-2 gap-4 mb-4">
+    <input type="text" placeholder="Operatore" value={filters.operatore || ''} onChange={(e) => setFilters({ ...filters, operatore: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Po Nr (esatto)" value={filters.poNr || ''} onChange={(e) => setFilters({ ...filters, poNr: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Ubicazione" value={filters.ubicazione || ''} onChange={(e) => setFilters({ ...filters, ubicazione: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="CDC" value={filters.cdc || ''} onChange={(e) => setFilters({ ...filters, cdc: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Stato" value={filters.stato || ''} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Cod. SAP (esatto)" value={filters.codSap || ''} onChange={(e) => setFilters({ ...filters, codSap: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Seriale" value={filters.seriale || ''} onChange={(e) => setFilters({ ...filters, seriale: e.target.value })} className="px-3 py-2 border rounded" />
+    <input type="text" placeholder="Data (gg/mm/aaaa)" value={filters.dataOra || ''} onChange={(e) => setFilters({ ...filters, dataOra: e.target.value })} className="px-3 py-2 border rounded" />
+    <select value={filters.match || ''} onChange={(e) => setFilters({ ...filters, match: e.target.value })} className="px-3 py-2 border rounded">
+        <option value="">Tutti i match</option>
+        <option value="OK">Solo OK</option>
+        <option value="KO">Solo KO</option>
+    </select>
+                 </div>
                             <div className="flex gap-2">
                                 <button onClick={applyFilters} className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Applica</button>
                                 <button onClick={() => { setFilters({}); setFilteredData(storico); setShowFilters(false); }} className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Reset</button>
