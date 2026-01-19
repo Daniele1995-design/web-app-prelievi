@@ -1931,7 +1931,9 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: found.PartNumber || '',
+        SerSN: found['SerS/No'] || 'No',
+        id_riga_giacenza: found.ID_Riga
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1996,22 +1998,24 @@ const processSelectedItem = async (found, scanned) => {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
             const handleScan = async (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const scanned = scanInput.trim().toUpperCase();
-                    setScanInput('');
-                    setTimeout(() => {
-                        if (inputRef.current) inputRef.current.focus();
-                    }, 100);
-                     if (scanned === lastScannedSerial) {
+    if (e.key === 'Enter' && scanInput.trim()) {
+        const scanned = scanInput.trim().toUpperCase();
+        setScanInput('');
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 100);
+        
+        if (scanned === lastScannedSerial) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
             playBeep('error');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
-        // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
+        
+        // ✅ NUOVO - Cerca TUTTI gli articoli NON inventariati con questo seriale
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            !item.inventariato
+            !item.inventariato // ✅ FIX: Escludi già inventariati
         );
 
         // ✅ CASO 1: Nessun match
@@ -2032,11 +2036,11 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ CASO 2: Più match (DUPLICATI!)
+        // ✅ CASO 2: Più match NON inventariati (DUPLICATI!)
         if (allMatches.length > 1) {
             setMessage({ 
                 type: 'warning', 
-                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI NON INVENTARIATI CON STESSO SERIALE!` 
             });
             playBeep('error');
             
@@ -2045,8 +2049,9 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - Procedi normale
-const found = allMatches[0];
+
+        // ✅ CASO 3: Match unico - Procedi normale
+        const found = allMatches[0];
 
                         
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
