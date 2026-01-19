@@ -1976,10 +1976,19 @@ const processSelectedItem = async (found, scanned) => {
             }
         });
         
-        if (saveResult.id) {
-            newEntry.id = saveResult.id;
-            setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-        }
+            if (saveResult.id) {
+        newEntry.id = saveResult.id;
+        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
+        
+        // ✅ AGGIUNTO: Aggiorna anche lo storico con ID reale
+        const updatedStorico = storico.map(i => 
+            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
+                ? { ...i, id: saveResult.id }
+                : i
+        );
+        setStorico(updatedStorico);
+        appCache.storico = updatedStorico;
+    }
         
         // ✅ Controllo giacenza
         if (saveResult.giacenzaUpdated === 0) {
