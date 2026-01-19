@@ -1907,7 +1907,6 @@ useEffect(() => {
                 osc.stop(ctx.currentTime + 0.1);
             };
 // ✅ NUOVO - Processa articolo scelto da duplicati
-// ✅ NUOVO - Processa articolo scelto da duplicati
 const processSelectedItem = async (found, scanned) => {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
@@ -1922,7 +1921,7 @@ const processSelectedItem = async (found, scanned) => {
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(), 
         Operatore: user.nome || user.username, 
-        Seriale_Riscontrato: scanned, // ✅ FIX: Aggiunto
+        Seriale_Riscontrato: scanned, 
         Match: match ? 'OK' : 'KO',
         CodSap: found.CodSap,
         Descrizione: found.Descrizione,
@@ -1932,9 +1931,7 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '', // ✅ FIX: Aggiunto
-        SerSN: found['SerS/No'] || 'No', // ✅ FIX: Aggiunto
-        id_riga_giacenza: found.ID_Riga // ✅ FIX: Aggiunto
+        PartNumber: found.PartNumber || ''
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -2989,7 +2986,7 @@ const handleUpdateNote = async () => {
             </h3>
             
             <p className="mb-4 text-gray-700">
-                Trovati <strong>{duplicateMatches.length} articoli NON INVENTARIATI</strong> con seriale:
+                Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
                 <br/>
                 <span className="text-blue-600 font-bold text-lg">{scanInput}</span>
             </p>
@@ -3034,14 +3031,6 @@ const handleUpdateNote = async () => {
                                 <p className="text-xs text-gray-500 font-semibold">Stato</p>
                                 <p className="text-sm">{item.Stato || '-'}</p>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">Part Number</p>
-                                <p className="text-sm font-mono">{item.PartNumber || '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 font-semibold">Po Nr</p>
-                                <p className="text-sm">{item.PoNr || '-'}</p>
-                            </div>
                         </div>
                         
                         <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
@@ -3063,7 +3052,6 @@ const handleUpdateNote = async () => {
         </div>
     </div>
 )}
-
          <div className="bg-white rounded-lg shadow p-6">
     <div className="space-y-3 mb-4">
         {/* Campo Seriale - LARGHEZZA PIENA */}
