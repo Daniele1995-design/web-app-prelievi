@@ -1907,6 +1907,7 @@ useEffect(() => {
                 osc.stop(ctx.currentTime + 0.1);
             };
 // ✅ NUOVO - Processa articolo scelto da duplicati
+// ✅ NUOVO - Processa articolo scelto da duplicati
 const processSelectedItem = async (found, scanned) => {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
@@ -1921,7 +1922,7 @@ const processSelectedItem = async (found, scanned) => {
         id: Date.now() + Math.random(),
         Timestamp: new Date().toISOString(), 
         Operatore: user.nome || user.username, 
-        Seriale_Riscontrato: scanned,
+        Seriale_Riscontrato: scanned, // ✅ FIX: Aggiunto
         Match: match ? 'OK' : 'KO',
         CodSap: found.CodSap,
         Descrizione: found.Descrizione,
@@ -1931,10 +1932,9 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '',
-        Note: found.Note || '',
-        SerSN: found['SerS/No'] || 'No',
-        id_riga_giacenza: found.ID_Riga
+        PartNumber: found.PartNumber || '', // ✅ FIX: Aggiunto
+        SerSN: found['SerS/No'] || 'No', // ✅ FIX: Aggiunto
+        id_riga_giacenza: found.ID_Riga // ✅ FIX: Aggiunto
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1974,7 +1974,7 @@ const processSelectedItem = async (found, scanned) => {
                 partNumber: found.PartNumber || '',
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
-                note: found.Note || '',
+                note: '',
                 serSN: found['SerS/No'] || 'No'
             }
         });
@@ -1984,6 +1984,7 @@ const processSelectedItem = async (found, scanned) => {
             setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
         }
         
+        // ✅ Controllo giacenza
         if (saveResult.giacenzaUpdated === 0) {
             setMessage({ type: 'warning', text: '⚠️ GIACENZA NON AGGIORNATA!' });
             alert('⚠️ Giacenza non aggiornata! Controlla manualmente.');
@@ -2011,24 +2012,10 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
         // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
-const allMatchesIncludingInventoried = giacenza.filter(item => 
-    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-);
-
-const allMatches = allMatchesIncludingInventoried.filter(item => !item.inventariato);
-const alreadyInventoried = allMatchesIncludingInventoried.filter(item => item.inventariato);
-
-// ✅ CASO 1: Nessun match disponibile (tutti inventariati)
-if (allMatches.length === 0) {
-    if (alreadyInventoried.length > 0) {
-        playBeep('error');
-        setMessage({ 
-            type: 'warning', 
-            text: `⚠️ SERIALE GIÀ INVENTARIATO (${alreadyInventoried.length} volte)` 
-        });
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-        return;
-    }
+        const allMatches = giacenza.filter(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+            !item.inventariato
+        );
 
         // ✅ CASO 1: Nessun match
         if (allMatches.length === 0) {
@@ -2048,19 +2035,12 @@ if (allMatches.length === 0) {
             return;
         }
 
-// ✅ CASO 2: Più match (DUPLICATI!) - Mostra anche inventariati
-if (allMatches.length > 1 || alreadyInventoried.length > 0) {
-    setMessage({ 
-        type: 'warning', 
-        text: `⚠️ TROVATI ${allMatchesIncludingInventoried.length} ARTICOLI (${allMatches.length} disponibili, ${alreadyInventoried.length} inventariati)` 
-    });
-    playBeep('error');
-    
-    // Passa TUTTI i match (inventariati + non)
-    setDuplicateMatches(allMatchesIncludingInventoried);
-    setShowDuplicateModal(true);
-    return;
-}
+        // ✅ CASO 2: Più match (DUPLICATI!)
+        if (allMatches.length > 1) {
+            setMessage({ 
+                type: 'warning', 
+                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+            });
             playBeep('error');
             
             // Mostra popup di scelta
@@ -3009,80 +2989,66 @@ const handleUpdateNote = async () => {
             </h3>
             
             <p className="mb-4 text-gray-700">
-                Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
+                Trovati <strong>{duplicateMatches.length} articoli NON INVENTARIATI</strong> con seriale:
                 <br/>
                 <span className="text-blue-600 font-bold text-lg">{scanInput}</span>
             </p>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-                {duplicateMatches.map((item, idx) => {
-                    const isInventoried = item.inventariato;
-                    
-                    return (
-                        <div 
-                            key={item.ID_Riga}
-                            className={`border-2 rounded-lg p-4 transition ${
-                                isInventoried 
-                                    ? 'border-red-300 bg-red-50 opacity-60 cursor-not-allowed' 
-                                    : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
-                            }`}
-                            onClick={() => {
-                                if (!isInventoried) {
-                                    setShowDuplicateModal(false);
-                                    processSelectedItem(item, scanInput);
-                                }
-                            }}
-                        >
-                            {isInventoried && (
-                                <div className="mb-3 inline-block bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-                                    ❌ GIÀ INVENTARIATO
-                                </div>
-                            )}
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
-                                    <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
-                                    <p className="text-lg font-bold">{item.CodSap}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">WMS Code</p>
-                                    <p className="font-mono text-sm">{item.WMSCode || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
-                                    <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
-                                </div>
-                                <div className="col-span-2">
-                                    <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
-                                    <p className="text-sm">{item.Descrizione || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">CDC</p>
-                                    <p className="text-sm">{item.Cdc || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 font-semibold">Stato</p>
-                                    <p className="text-sm">{item.Stato || '-'}</p>
-                                </div>
+                {duplicateMatches.map((item, idx) => (
+                    <div 
+                        key={item.ID_Riga}
+                        className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                        onClick={() => {
+                            // Chiudi modal e processa questo articolo
+                            setShowDuplicateModal(false);
+                            processSelectedItem(item, scanInput);
+                        }}
+                    >
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
+                                <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
                             </div>
-                            
-                            <button 
-                                disabled={isInventoried}
-                                className={`mt-3 w-full px-4 py-2 rounded-lg font-semibold transition ${
-                                    isInventoried 
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                                }`}
-                            >
-                                {isInventoried ? '🔒 Articolo già inventariato' : '✅ Seleziona questo articolo'}
-                            </button>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
+                                <p className="text-lg font-bold">{item.CodSap}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">WMS Code</p>
+                                <p className="font-mono text-sm">{item.WMSCode || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
+                                <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
+                            </div>
+                            <div className="col-span-2">
+                                <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
+                                <p className="text-sm">{item.Descrizione || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">CDC</p>
+                                <p className="text-sm">{item.Cdc || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Stato</p>
+                                <p className="text-sm">{item.Stato || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Part Number</p>
+                                <p className="text-sm font-mono">{item.PartNumber || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-semibold">Po Nr</p>
+                                <p className="text-sm">{item.PoNr || '-'}</p>
+                            </div>
                         </div>
-                    );
-                })}
+                        
+                        <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
+                            ✅ Seleziona questo articolo
+                        </button>
+                    </div>
+                ))}
             </div>
             
             <button 
@@ -3097,6 +3063,7 @@ const handleUpdateNote = async () => {
         </div>
     </div>
 )}
+
          <div className="bg-white rounded-lg shadow p-6">
     <div className="space-y-3 mb-4">
         {/* Campo Seriale - LARGHEZZA PIENA */}
