@@ -1826,6 +1826,7 @@ const [autoUpdatePartNumber, setAutoUpdatePartNumber] = useState(false);
 const ubicazioneInputRef = useRef(null);
             // Stati per modal nuovo item
 const [showAddModal, setShowAddModal] = useState(false);
+ const [lastScannedValue, setLastScannedValue] = useState('');           
  // ✅ NUOVO - Stati per gestione duplicati
 const [duplicateMatches, setDuplicateMatches] = useState([]);
 const [showDuplicateModal, setShowDuplicateModal] = useState(false);           
@@ -1931,10 +1932,7 @@ const processSelectedItem = async (found, scanned) => {
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '',
-        SerSN: found['SerS/No'], // 
-        id_riga_giacenza: found.ID_Riga, // 
-        Note: found.Note || '' // 
+        PartNumber: found.PartNumber || ''
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1982,14 +1980,6 @@ const processSelectedItem = async (found, scanned) => {
         if (saveResult.id) {
             newEntry.id = saveResult.id;
             setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-            // ✅ AGGIORNA ANCHE LO STORICO CON L'ID REALE
-            const finalStorico = updatedStorico.map(i => 
-                i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                    ? { ...i, id: saveResult.id }
-                    : i
-            );
-            setStorico(finalStorico);
-            appCache.storico = finalStorico;
         }
         
         // ✅ Controllo giacenza
@@ -2009,6 +1999,7 @@ const processSelectedItem = async (found, scanned) => {
             const handleScan = async (e) => {
                 if (e.key === 'Enter' && scanInput.trim()) {
                     const scanned = scanInput.trim().toUpperCase();
+                    setLastScannedValue(scanned);
                     setScanInput('');
                     setTimeout(() => {
                         if (inputRef.current) inputRef.current.focus();
@@ -3010,7 +3001,7 @@ const handleUpdateNote = async () => {
                         onClick={() => {
                             // Chiudi modal e processa questo articolo
                             setShowDuplicateModal(false);
-                            processSelectedItem(item, scanInput);
+                            processSelectedItem(item, lastScannedValue);
                         }}
                     >
                         <div className="grid grid-cols-2 gap-3">
