@@ -2010,6 +2010,19 @@ const processSelectedItem = async (found, scanned) => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
+                    const alreadyInventoried = storico.find(s => 
+            String(s.Seriale_Riscontrato || '').toUpperCase() === scanned
+        );
+        
+        if (alreadyInventoried) {
+            playBeep('error');
+            setMessage({ 
+                type: 'error', 
+                text: `❌ SERIALE GIÀ INVENTARIATO il ${new Date(alreadyInventoried.Timestamp).toLocaleString('it-IT')} da ${alreadyInventoried.Operatore}` 
+            });
+            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+            return;
+        }
         // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
