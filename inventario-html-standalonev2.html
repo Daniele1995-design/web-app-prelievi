@@ -1997,59 +1997,61 @@ const processSelectedItem = async (found, scanned) => {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
             const handleScan = async (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const scanned = scanInput.trim().toUpperCase();
-                    setLastScannedValue(scanned);
-                    setScanInput('');
-                    setTimeout(() => {
-                        if (inputRef.current) inputRef.current.focus();
-                    }, 100);
-                     if (scanned === lastScannedSerial) {
+    if (e.key === 'Enter' && scanInput.trim()) {
+        const scanned = scanInput.trim().toUpperCase();
+        setLastScannedValue(scanned);
+        setScanInput('');
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 100);
+        
+        if (scanned === lastScannedSerial) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
             playBeep('error');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
-        // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
-  const alreadyInventoried = giacenza.filter(item => 
-    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-    item.inventariato
-);
 
-if (alreadyInventoried.length > 0) {
-    playBeep('error');
-    setMessage({ 
-        type: 'warning', 
-        text: `⚠️ SERIALE GIÀ INVENTARIATO! (${alreadyInventoried.length} volte)` 
-    });
-    
-    // Mostra dettagli del primo match
-    const firstMatch = alreadyInventoried[0];
-    setTimeout(() => {
-        alert(
-            `❌ SERIALE GIÀ INVENTARIATO!\n\n` +
-            `Seriale: ${scanned}\n` +
-            `Cod. SAP: ${firstMatch.CodSap}\n` +
-            `Descrizione: ${firstMatch.Descrizione}\n` +
-            `Ubicazione: ${firstMatch.Ubicazioni}\n\n` +
-            `${alreadyInventoried.length > 1 ? `Trovati ${alreadyInventoried.length} articoli con questo seriale` : ''}`
+        // ✅ NUOVO - STEP 1: Verifica se è GIÀ INVENTARIATO
+        const alreadyInventoried = giacenza.find(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+            item.inventariato === true
         );
-    }, 300);
-    
-    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
-    return;
-}
 
-// ✅ STEP 2: Cerca tra NON inventariati
-const allMatches = giacenza.filter(item => 
-    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-    !item.inventariato
-);
+        if (alreadyInventoried) {
+            playBeep('error');
+            setMessage({ 
+                type: 'error', 
+                text: `❌ GIÀ INVENTARIATO - ${alreadyInventoried.CodSap}` 
+            });
+            
+            // Mostra dettagli articolo già inventariato
+            setTimeout(() => {
+                alert(
+                    `⚠️ ARTICOLO GIÀ INVENTARIATO!\n\n` +
+                    `Seriale: ${scanned}\n` +
+                    `Cod. SAP: ${alreadyInventoried.CodSap}\n` +
+                    `Descrizione: ${alreadyInventoried.Descrizione}\n` +
+                    `Ubicazione: ${alreadyInventoried.Ubicazioni}\n` +
+                    `CDC: ${alreadyInventoried.Cdc}\n\n` +
+                    `Controlla lo STORICO per vedere quando è stato inventariato.`
+                );
+            }, 100);
+            
+            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+            return;
+        }
 
-// ✅ CASO 1: Nessun match (né inventariato né da inventariare)
-if (allMatches.length === 0) {
-    playBeep('error');
-    setNewItemData({
+        // ✅ STEP 2: Cerca TUTTI gli articoli NON inventariati con questo seriale
+        const allMatches = giacenza.filter(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+            !item.inventariato
+        );
+
+        // ✅ CASO 1: Nessun match tra NON inventariati
+        if (allMatches.length === 0) {
+            playBeep('error');
+            setNewItemData({
                 serialeScansionato: scanned,
                 codSap: '',
                 ubicazione: '',
