@@ -2013,28 +2013,42 @@ const processSelectedItem = async (found, scanned) => {
         }
 
         // ✅ FIX - STEP 1: Verifica SOLO nello STORICO se è già stato inventariato
-        const alreadyInStorico = storico.find(item => 
-            String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
+        const allMatchesGiacenza = giacenza.filter(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
         );
 
-        if (alreadyInStorico) {
+        // ✅ STEP 2: Filtra solo quelli NON inventariati
+        const matchesNonInventariati = allMatchesGiacenza.filter(item => !item.inventariato);
+
+        // ✅ STEP 3: Se ci sono match GIÀ inventariati, mostra avviso
+        const matchesInventariati = allMatchesGiacenza.filter(item => item.inventariato);
+        
+        if (matchesInventariati.length > 0 && matchesNonInventariati.length === 0) {
+            // TUTTI i match sono già inventariati
             playBeep('error');
+            
+            // Trova dettagli nello storico
+            const storicoMatch = storico.find(item => 
+                String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
+            );
+            
             setMessage({ 
                 type: 'error', 
-                text: `❌ GIÀ INVENTARIATO - ${alreadyInStorico.CodSap}` 
+                text: `❌ GIÀ INVENTARIATO - ${matchesInventariati[0].CodSap}` 
             });
             
-            // Mostra dettagli articolo già inventariato
             setTimeout(() => {
                 alert(
                     `⚠️ ARTICOLO GIÀ INVENTARIATO!\n\n` +
                     `Seriale: ${scanned}\n` +
-                    `Cod. SAP: ${alreadyInStorico.CodSap}\n` +
-                    `Descrizione: ${alreadyInStorico.Descrizione}\n` +
-                    `Ubicazione: ${alreadyInStorico.Ubicazioni}\n` +
-                    `CDC: ${alreadyInStorico.Cdc}\n` +
-                    `Operatore: ${alreadyInStorico.Operatore}\n` +
-                    `Data: ${new Date(alreadyInStorico.Timestamp).toLocaleString('it-IT')}\n\n` +
+                    `Cod. SAP: ${matchesInventariati[0].CodSap}\n` +
+                    `Descrizione: ${matchesInventariati[0].Descrizione}\n` +
+                    `Ubicazione: ${matchesInventariati[0].Ubicazioni}\n` +
+                    `CDC: ${matchesInventariati[0].Cdc}\n` +
+                    (storicoMatch ? 
+                        `Operatore: ${storicoMatch.Operatore}\n` +
+                        `Data: ${new Date(storicoMatch.Timestamp).toLocaleString('it-IT')}\n\n` 
+                        : '\n') +
                     `Controlla lo STORICO per i dettagli completi.`
                 );
             }, 100);
@@ -2043,14 +2057,8 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ STEP 2: Cerca TUTTI gli articoli con questo seriale in GIACENZA (non ancora inventariati)
-        const allMatches = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            !item.inventariato
-        );
-
-        // ✅ CASO 1: Nessun match
-        if (allMatches.length === 0) {
+        // ✅ CASO 1: Nessun match in giacenza
+        if (matchesNonInventariati.length === 0 && matchesInventariati.length === 0) {
             playBeep('error');
             setNewItemData({
                 serialeScansionato: scanned,
@@ -2067,22 +2075,27 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ CASO 2: Più match (DUPLICATI!)
-        if (allMatches.length > 1) {
+        // ✅ CASO 2: Più match NON inventariati (DUPLICATI!)
+        if (matchesNonInventariati.length > 1) {
             setMessage({ 
                 type: 'warning', 
-                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+                text: `⚠️ TROVATI ${matchesNonInventariati.length} ARTICOLI NON INVENTARIATI CON STESSO SERIALE!` 
             });
             playBeep('error');
             
             // Mostra popup di scelta
-            setDuplicateMatches(allMatches);
+            setDuplicateMatches(matchesNonInventariati);
             setShowDuplicateModal(true);
             return;
         }
 
-        // ✅ CASO 3: Match unico - Procedi normale
-        const found = allMatches[0];
+        // ✅ CASO 3: Match unico NON inventariato - Procedi normale
+        const found = matchesNonInventariati[0];
+        
+        // ✅ AVVISO se ci sono ANCHE match già inventariati
+        if (matchesInventariati.length > 0) {
+            console.warn(`⚠️ Trovato ${matchesInventariati.length} match già inventariato per seriale ${scanned}`);
+        }
         
         const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
