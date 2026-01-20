@@ -1996,7 +1996,7 @@ const processSelectedItem = async (found, scanned) => {
     setScanCount(prev => prev + 1);
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
-            const handleScan = async (e) => {
+           const handleScan = async (e) => {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
         setLastScannedValue(scanned);
@@ -2012,16 +2012,16 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ NUOVO - STEP 1: Verifica se è GIÀ INVENTARIATO
-         const alreadyInStorico = storico.find(item => 
+        // ✅ FIX - STEP 1: Verifica SOLO nello STORICO se è già stato inventariato
+        const alreadyInStorico = storico.find(item => 
             String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
         );
 
-        if (alreadyInventoried) {
+        if (alreadyInStorico) {
             playBeep('error');
             setMessage({ 
                 type: 'error', 
-                text: `❌ GIÀ INVENTARIATO - ${alreadyInventoried.CodSap}` 
+                text: `❌ GIÀ INVENTARIATO - ${alreadyInStorico.CodSap}` 
             });
             
             // Mostra dettagli articolo già inventariato
@@ -2029,11 +2029,13 @@ const processSelectedItem = async (found, scanned) => {
                 alert(
                     `⚠️ ARTICOLO GIÀ INVENTARIATO!\n\n` +
                     `Seriale: ${scanned}\n` +
-                    `Cod. SAP: ${alreadyInventoried.CodSap}\n` +
-                    `Descrizione: ${alreadyInventoried.Descrizione}\n` +
-                    `Ubicazione: ${alreadyInventoried.Ubicazioni}\n` +
-                    `CDC: ${alreadyInventoried.Cdc}\n\n` +
-                    `Controlla lo STORICO per vedere quando è stato inventariato.`
+                    `Cod. SAP: ${alreadyInStorico.CodSap}\n` +
+                    `Descrizione: ${alreadyInStorico.Descrizione}\n` +
+                    `Ubicazione: ${alreadyInStorico.Ubicazioni}\n` +
+                    `CDC: ${alreadyInStorico.Cdc}\n` +
+                    `Operatore: ${alreadyInStorico.Operatore}\n` +
+                    `Data: ${new Date(alreadyInStorico.Timestamp).toLocaleString('it-IT')}\n\n` +
+                    `Controlla lo STORICO per i dettagli completi.`
                 );
             }, 100);
             
@@ -2041,13 +2043,13 @@ const processSelectedItem = async (found, scanned) => {
             return;
         }
 
-        // ✅ STEP 2: Cerca TUTTI gli articoli NON inventariati con questo seriale
+        // ✅ STEP 2: Cerca TUTTI gli articoli con questo seriale in GIACENZA (non ancora inventariati)
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
             !item.inventariato
         );
 
-        // ✅ CASO 1: Nessun match tra NON inventariati
+        // ✅ CASO 1: Nessun match
         if (allMatches.length === 0) {
             playBeep('error');
             setNewItemData({
@@ -2078,11 +2080,11 @@ const processSelectedItem = async (found, scanned) => {
             setShowDuplicateModal(true);
             return;
         }
-// ✅ CASO 3: Match unico - Procedi normale
-const found = allMatches[0];
 
-                        
-    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+        // ✅ CASO 3: Match unico - Procedi normale
+        const found = allMatches[0];
+        
+        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
     // 1. SALVA SUBITO CON MATCH
     const updatedGiacenza = giacenza.map(item =>
