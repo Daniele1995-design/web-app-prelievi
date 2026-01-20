@@ -2010,29 +2010,46 @@ const processSelectedItem = async (found, scanned) => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
-                    const alreadyInventoried = storico.find(s => 
-            String(s.Seriale_Riscontrato || '').toUpperCase() === scanned
-        );
-        
-        if (alreadyInventoried) {
-            playBeep('error');
-            setMessage({ 
-                type: 'error', 
-                text: `❌ SERIALE GIÀ INVENTARIATO il ${new Date(alreadyInventoried.Timestamp).toLocaleString('it-IT')} da ${alreadyInventoried.Operatore}` 
-            });
-            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
-            return;
-        }
         // ✅ NUOVO - Cerca TUTTI gli articoli con questo seriale
-        const allMatches = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            !item.inventariato
-        );
+  const alreadyInventoried = giacenza.filter(item => 
+    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+    item.inventariato
+);
 
-        // ✅ CASO 1: Nessun match
-        if (allMatches.length === 0) {
-            playBeep('error');
-            setNewItemData({
+if (alreadyInventoried.length > 0) {
+    playBeep('error');
+    setMessage({ 
+        type: 'warning', 
+        text: `⚠️ SERIALE GIÀ INVENTARIATO! (${alreadyInventoried.length} volte)` 
+    });
+    
+    // Mostra dettagli del primo match
+    const firstMatch = alreadyInventoried[0];
+    setTimeout(() => {
+        alert(
+            `❌ SERIALE GIÀ INVENTARIATO!\n\n` +
+            `Seriale: ${scanned}\n` +
+            `Cod. SAP: ${firstMatch.CodSap}\n` +
+            `Descrizione: ${firstMatch.Descrizione}\n` +
+            `Ubicazione: ${firstMatch.Ubicazioni}\n\n` +
+            `${alreadyInventoried.length > 1 ? `Trovati ${alreadyInventoried.length} articoli con questo seriale` : ''}`
+        );
+    }, 300);
+    
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+    return;
+}
+
+// ✅ STEP 2: Cerca tra NON inventariati
+const allMatches = giacenza.filter(item => 
+    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+    !item.inventariato
+);
+
+// ✅ CASO 1: Nessun match (né inventariato né da inventariare)
+if (allMatches.length === 0) {
+    playBeep('error');
+    setNewItemData({
                 serialeScansionato: scanned,
                 codSap: '',
                 ubicazione: '',
