@@ -2013,9 +2013,8 @@ const processSelectedItem = async (found, scanned) => {
         }
 
         // ✅ NUOVO - STEP 1: Verifica se è GIÀ INVENTARIATO
-        const alreadyInventoried = giacenza.find(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            item.inventariato === true
+         const alreadyInStorico = storico.find(item => 
+            String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
         );
 
         if (alreadyInventoried) {
