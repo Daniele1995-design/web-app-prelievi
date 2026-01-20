@@ -1911,10 +1911,14 @@ useEffect(() => {
 const processSelectedItem = async (found, scanned) => {
     const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
     
+    // ✅ APPLICA UBICAZIONE/PARTNUMBER ATTESI se presenti
+    const ubicazioneFinale = expectedUbicazione.trim() || found.Ubicazioni;
+    const partNumberFinale = expectedPartNumber.trim() || found.PartNumber;
+    
     // 1. SALVA SUBITO CON MATCH
     const updatedGiacenza = giacenza.map(item =>
         item.ID_Riga === found.ID_Riga
-            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: found.Ubicazioni } 
+            ? { ...item, inventariato: true, Match: match ? 'OK' : 'KO', Ubicazioni: ubicazioneFinale, PartNumber: partNumberFinale } 
             : item
     );
     
@@ -1928,11 +1932,11 @@ const processSelectedItem = async (found, scanned) => {
         Descrizione: found.Descrizione,
         Cdc: found.Cdc,
         Stato: found.Stato,
-        Ubicazioni: found.Ubicazioni,
+        Ubicazioni: ubicazioneFinale,
         RISCONTROSERIALEF: found.RISCONTROSERIALEF,
         WMSCode: found.WMSCode,
         PoNr: found.PoNr,
-        PartNumber: found.PartNumber || ''
+        PartNumber: partNumberFinale
     };
     
     const updatedStorico = [newEntry, ...storico];
@@ -1940,8 +1944,8 @@ const processSelectedItem = async (found, scanned) => {
     setGiacenza(updatedGiacenza);
     setStorico(updatedStorico);
     setCurrentItem(found);
-    setNewUbicazione(found.Ubicazioni);
-    setNewPartNumber(found.PartNumber || '');
+    setNewUbicazione(ubicazioneFinale);
+    setNewPartNumber(partNumberFinale);
     setNewNote(found.Note || '');
     setMessage({ type: match ? 'success' : 'error', text: match ? '✅ MATCH OK!' : '❌ MISMATCH' });
     playBeep(match ? 'success' : 'error');
@@ -1961,7 +1965,7 @@ const processSelectedItem = async (found, scanned) => {
                 operatore: user.nome || user.username,
                 codSap: found.CodSap,
                 descrizione: found.Descrizione,
-                ubicazione: found.Ubicazioni,
+                ubicazione: ubicazioneFinale,
                 serialeAtteso: found.RISCONTROSERIALEF,
                 serialeRiscontrato: scanned,
                 match: match ? 'OK' : 'KO',
@@ -1969,7 +1973,7 @@ const processSelectedItem = async (found, scanned) => {
                 wmsCode: found.WMSCode || '',
                 cdc: found.Cdc || '',
                 poNr: found.PoNr || '',
-                partNumber: found.PartNumber || '',
+                partNumber: partNumberFinale,
                 idRigaGiacenza: found.ID_Riga || '',
                 stato: found.Stato || '',
                 note: '',
@@ -1987,6 +1991,8 @@ const processSelectedItem = async (found, scanned) => {
             setMessage({ type: 'warning', text: '⚠️ GIACENZA NON AGGIORNATA!' });
             alert('⚠️ Giacenza non aggiornata! Controlla manualmente.');
         }
+        
+        console.log('✅ Salvato con ubicazione:', ubicazioneFinale, 'e PN:', partNumberFinale);
         
     } catch (err) {
         console.error('❌ Errore Supabase:', err);
@@ -2027,29 +2033,36 @@ const processSelectedItem = async (found, scanned) => {
             // TUTTI i match sono già inventariati
             playBeep('error');
             
-            // Trova dettagli nello storico
-            const storicoMatch = storico.find(item => 
-                String(item.Seriale_Riscontrato || '').toUpperCase() === scanned
-            );
-            
             setMessage({ 
                 type: 'error', 
-                text: `❌ GIÀ INVENTARIATO - ${matchesInventariati[0].CodSap}` 
+                text: `❌ GIÀ INVENTARIATO - ${matchesInventariati.length} articol${matchesInventariati.length > 1 ? 'i' : 'o'}` 
             });
+            
+            // ✅ MOSTRA TUTTI I DUPLICATI INVENTARIATI
+            const dettagli = matchesInventariati.map((item, idx) => {
+                const storicoMatch = storico.find(s => s.id_riga_giacenza === item.ID_Riga);
+                return (
+                    `\n━━━ ARTICOLO ${idx + 1} di ${matchesInventariati.length} ━━━\n` +
+                    `ID Riga: ${item.ID_Riga}\n` +
+                    `Cod. SAP: ${item.CodSap}\n` +
+                    `Descrizione: ${item.Descrizione}\n` +
+                    `Ubicazione: ${item.Ubicazioni}\n` +
+                    `CDC: ${item.Cdc}\n` +
+                    `WMS Code: ${item.WMSCode || '-'}\n` +
+                    (storicoMatch ? 
+                        `Operatore: ${storicoMatch.Operatore}\n` +
+                        `Data: ${new Date(storicoMatch.Timestamp).toLocaleString('it-IT')}\n`
+                        : '')
+                );
+            }).join('\n');
             
             setTimeout(() => {
                 alert(
-                    `⚠️ ARTICOLO GIÀ INVENTARIATO!\n\n` +
+                    `⚠️ TROVATI ${matchesInventariati.length} ARTICOLI GIÀ INVENTARIATI!\n\n` +
                     `Seriale: ${scanned}\n` +
-                    `Cod. SAP: ${matchesInventariati[0].CodSap}\n` +
-                    `Descrizione: ${matchesInventariati[0].Descrizione}\n` +
-                    `Ubicazione: ${matchesInventariati[0].Ubicazioni}\n` +
-                    `CDC: ${matchesInventariati[0].Cdc}\n` +
-                    (storicoMatch ? 
-                        `Operatore: ${storicoMatch.Operatore}\n` +
-                        `Data: ${new Date(storicoMatch.Timestamp).toLocaleString('it-IT')}\n\n` 
-                        : '\n') +
-                    `Controlla lo STORICO per i dettagli completi.`
+                    dettagli +
+                    `\n━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                    `Controlla lo STORICO per maggiori dettagli.`
                 );
             }, 100);
             
