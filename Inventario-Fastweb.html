@@ -2034,14 +2034,30 @@ const processSelectedItem = async (found, scanned) => {
 
             // ✅ NUOVO - Processa articolo duplicato CON QUANTITÀ
 const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => {
-    const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-    const qtaDisponibile = found['Qtà'] || 0;
+    // ✅ VERIFICA PRIMA che l'articolo abbia ancora quantità
+    const freshItem = giacenza.find(i => i.ID_Riga === found.ID_Riga);
+    
+    if (!freshItem || (freshItem['Qtà'] || 0) === 0) {
+        alert('❌ Articolo già inventariato! Aggiorna la pagina.');
+        setShowDuplicateModal(false);
+        return;
+    }
+    
+    const qtaDisponibile = freshItem['Qtà'] || 0;
+    
+    if (qtaDaInventariare > qtaDisponibile) {
+        alert(`⚠️ Quantità non disponibile!\n\nDisponibile: ${qtaDisponibile}\nRichiesta: ${qtaDaInventariare}`);
+        setShowDuplicateModal(false);
+        return;
+    }
+    
+    const match = String(freshItem.RISCONTROSERIALEF).toUpperCase() === scanned;
     const qtaRimanente = qtaDisponibile - qtaDaInventariare;
     const tuttoInventariato = qtaRimanente === 0;
     
     // Aggiorna giacenza
     const updatedGiacenza = giacenza.map(item => {
-        if (item.ID_Riga !== found.ID_Riga) return item;
+        if (item.ID_Riga !== freshItem.ID_Riga) return item;
         
         if (tuttoInventariato) {
             return { 
@@ -2049,13 +2065,13 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
                 inventariato: true, 
                 Match: match ? 'OK' : 'KO', 
                 'Qtà': 0,
-                Ubicazioni: found.Ubicazioni 
+                Ubicazioni: freshItem.Ubicazioni 
             };
         } else {
             return { 
                 ...item, 
                 'Qtà': qtaRimanente,
-                Ubicazioni: found.Ubicazioni 
+                Ubicazioni: freshItem.Ubicazioni 
             };
         }
     });
@@ -2066,16 +2082,16 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         Operatore: user.nome || user.username, 
         Seriale_Riscontrato: scanned, 
         Match: match ? 'OK' : 'KO',
-        CodSap: found.CodSap,
-        Descrizione: found.Descrizione,
-        Cdc: found.Cdc,
-        Posizione: found.Posizione || '',
-        Stato: found.Stato,
-        Ubicazioni: found.Ubicazioni,
-        RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-        WMSCode: found.WMSCode,
-        PoNr: found.PoNr,
-        PartNumber: found.PartNumber || '',
+        CodSap: freshItem.CodSap,
+        Descrizione: freshItem.Descrizione,
+        Cdc: freshItem.Cdc,
+        Posizione: freshItem.Posizione || '',
+        Stato: freshItem.Stato,
+        Ubicazioni: freshItem.Ubicazioni,
+        RISCONTROSERIALEF: freshItem.RISCONTROSERIALEF,
+        WMSCode: freshItem.WMSCode,
+        PoNr: freshItem.PoNr,
+        PartNumber: freshItem.PartNumber || '',
         'Qtà': qtaDaInventariare,
         QtàRimanente: qtaRimanente
     };
@@ -2084,10 +2100,10 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     
     setGiacenza(updatedGiacenza);
     setStorico(updatedStorico);
-    setCurrentItem(found);
-    setNewUbicazione(found.Ubicazioni);
-    setNewPartNumber(found.PartNumber || '');
-    setNewNote(found.Note || '');
+    setCurrentItem(freshItem);
+    setNewUbicazione(freshItem.Ubicazioni);
+    setNewPartNumber(freshItem.PartNumber || '');
+    setNewNote(freshItem.Note || '');
     
     if (tuttoInventariato) {
         setMessage({ 
@@ -2111,27 +2127,31 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         detail: { giacenza: updatedGiacenza, storico: updatedStorico }
     }));
     
+    // Chiudi modal
+    setShowDuplicateModal(false);
+    setDuplicateMatches([]);
+    
     // Salva su server
     try {
         await api('saveRiscontro', {
             data: {
                 operatore: user.nome || user.username,
-                codSap: found.CodSap,
-                descrizione: found.Descrizione,
-                ubicazione: found.Ubicazioni,
-                serialeAtteso: found.RISCONTROSERIALEF,
+                codSap: freshItem.CodSap,
+                descrizione: freshItem.Descrizione,
+                ubicazione: freshItem.Ubicazioni,
+                serialeAtteso: freshItem.RISCONTROSERIALEF,
                 serialeRiscontrato: scanned,
                 match: match ? 'OK' : 'KO',
                 qta: qtaDaInventariare,
-                wmsCode: found.WMSCode || '',
-                cdc: found.Cdc || '',
-                posizione: found.Posizione || '',
-                poNr: found.PoNr || '',
-                partNumber: found.PartNumber || '',
-                idRigaGiacenza: found.ID_Riga || '',
-                stato: found.Stato || '',
+                wmsCode: freshItem.WMSCode || '',
+                cdc: freshItem.Cdc || '',
+                posizione: freshItem.Posizione || '',
+                poNr: freshItem.PoNr || '',
+                partNumber: freshItem.PartNumber || '',
+                idRigaGiacenza: freshItem.ID_Riga || '',
+                stato: freshItem.Stato || '',
                 note: '',
-                serSN: found['SerS/No'] || 'No'
+                serSN: freshItem['SerS/No'] || 'No'
             }
         });
         
@@ -2140,9 +2160,11 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             .update({ 
                 qta: qtaRimanente,
                 match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
-                ubicazioni: found.Ubicazioni
+                ubicazioni: freshItem.Ubicazioni
             })
-            .eq('id_riga', found.ID_Riga);
+            .eq('id_riga', freshItem.ID_Riga);
+        
+        console.log('✅ Salvato - Qtà rimanente:', qtaRimanente);
         
     } catch (err) {
         console.error('❌ Errore:', err);
