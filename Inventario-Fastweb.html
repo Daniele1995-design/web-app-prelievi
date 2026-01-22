@@ -2255,19 +2255,11 @@ if (qtaDisponibile > 1) {
         return;
     }
 }
-    
-    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-    
-    if (qtaDaInventariare <= 0) {
-        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-        playBeep('error');
-        return;
-    }
-}
-//  SE Qtà = 1 (o 0) → Inventaria diretto
+// ✅ SE Qtà = 1 (o 0) → Inventaria diretto
 else {
     qtaDaInventariare = qtaDisponibile || 1;
 }
+    
 
 const qtaRimanente = qtaDisponibile - qtaDaInventariare;
 const tuttoInventariato = qtaRimanente === 0;
