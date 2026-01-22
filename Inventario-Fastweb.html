@@ -2203,13 +2203,24 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             setShowDuplicateModal(true);
             return;
         }
-//  CASO 3: Match unico - Logica quantità intelligente
+// CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 const qtaDisponibile = found['Qtà'] || 0;
+
+// ✅ BLOCCO 1: Se già tutto inventariato (Qtà = 0)
+if (qtaDisponibile === 0) {
+    setMessage({ 
+        type: 'warning', 
+        text: '⚠️ ARTICOLO GIÀ COMPLETAMENTE INVENTARIATO!' 
+    });
+    playBeep('error');
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    return; // ← STOP! Non permettere scansione
+}
 let qtaDaInventariare;
 
-//  SE Qtà > 1 → CHIEDI con popup
+// SE Qtà > 1 → CHIEDI con popup
 if (qtaDisponibile > 1) {
     const qtaInput = prompt(
         `📦 QUANTITÀ DA INVENTARIARE\n\n` +
@@ -2217,14 +2228,33 @@ if (qtaDisponibile > 1) {
         `Cod. SAP: ${found.CodSap}\n` +
         `Quantità disponibile: ${qtaDisponibile}\n\n` +
         `Quanti ne vuoi inventariare?`,
-        qtaDisponibile // Default = tutto
+        qtaDisponibile
     );
     
-    // Se annulla → STOP
     if (qtaInput === null) {
         setMessage({ type: 'warning', text: '❌ Inventario annullato' });
         return;
     }
+    
+    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+    
+    // ✅ BLOCCO 2: Verifica quantità valida
+    if (qtaDaInventariare <= 0) {
+        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+        playBeep('error');
+        return;
+    }
+    
+    // ✅ BLOCCO 3: Impedisci quantità maggiore del disponibile
+    if (qtaDaInventariare > qtaDisponibile) {
+        setMessage({ 
+            type: 'error', 
+            text: `❌ Disponibili solo ${qtaDisponibile} pezzi!` 
+        });
+        playBeep('error');
+        return;
+    }
+}
     
     qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
     
@@ -3316,11 +3346,27 @@ html = `
             </p>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-                {duplicateMatches
-                    .filter(item => {
-                    // ✅ FIX: Mostra solo articoli con Qtà > 0 (non completamente inventariati)
-                        return (item['Qtà'] || 0) > 0;
-                    })
+              {duplicateMatches.filter(item => (item['Qtà'] || 0) > 0).length === 0 && (
+    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+        <p className="text-yellow-800 font-bold text-lg mb-2">
+            ⚠️ TUTTI GLI ARTICOLI COMPLETAMENTE INVENTARIATI
+        </p>
+        <p className="text-yellow-700">
+            Seriale: <strong>{lastScannedValue}</strong>
+            <br/>
+            Tutti gli articoli con questo seriale hanno quantità = 0.
+        </p>
+        <button 
+            onClick={() => {
+                setShowDuplicateModal(false);
+                setDuplicateMatches([]);
+            }}
+            className="mt-4 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600"
+        >
+            ✓ Ho Capito
+        </button>
+    </div>
+)}
                     .map((item, idx) => {
                         const qtaDisponibile = item['Qtà'] || 0;
                         
