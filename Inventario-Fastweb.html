@@ -2189,42 +2189,49 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         console.log(`📊 Articoli trovati con Qtà > 0: ${allMatches.length}`);
 
         // ✅ CASO 1: Nessun match CON Qtà > 0
-        if (allMatches.length === 0) {
-            // Controlla se esistono articoli ma sono tutti a Qtà = 0
-            const articoliEsauriti = giacenza.filter(item => 
-                String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-            );
-            
-            if (articoliEsauriti.length > 0) {
-                console.log('⚠️ Articoli trovati ma tutti con Qtà = 0');
-                playBeep('error');
-                setMessage({ 
-                    type: 'error', 
-                    text: `❌ ARTICOLO COMPLETAMENTE INVENTARIATO (${articoliEsauriti.length} righe con Qtà = 0)` 
-                });
-                setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-                return;
-            }
-            
-            // Nessun articolo trovato - apri modal aggiunta
-            console.log('❌ Seriale non trovato in giacenza');
-            playBeep('error');
-            setNewItemData({
-                serialeScansionato: scanned,
-                codSap: '',
-                ubicazione: '',
-                cdc: '',
-                posizione: '',
-                stato: '',
-                partNumber: '',
-                poNr: '',
-                serSN: 'No',
-                descrizione: '',
-                qta: 1
-            });
-            setShowAddModal(true);
-            return;
-        }
+if (allMatches.length === 0) {
+    // Controlla se esistono articoli ma sono tutti a Qtà = 0
+    const articoliEsauriti = giacenza.filter(item => 
+        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+    );
+    
+    if (articoliEsauriti.length > 0) {
+        // ✅ NUOVO: Controlla anche se è già marcato OK
+        const tuttiOK = articoliEsauriti.every(i => i.Match === 'OK');
+        
+        console.log('⚠️ Articoli trovati ma tutti con Qtà = 0');
+        playBeep('error');
+        
+        setMessage({ 
+            type: 'error', 
+            text: tuttiOK 
+                ? `✅ GIÀ INVENTARIATO - ${articoliEsauriti.length} righe completate` 
+                : `❌ ARTICOLO ESAURITO - Qtà = 0 (${articoliEsauriti.length} righe)`
+        });
+        
+        setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+        return;
+    }
+    
+    // Nessun articolo trovato - apri modal aggiunta
+    console.log('❌ Seriale non trovato in giacenza');
+    playBeep('error');
+    setNewItemData({
+        serialeScansionato: scanned,
+        codSap: '',
+        ubicazione: '',
+        cdc: '',
+        posizione: '',
+        stato: '',
+        partNumber: '',
+        poNr: '',
+        serSN: 'No',
+        descrizione: '',
+        qta: 1
+    });
+    setShowAddModal(true);
+    return;
+}
 
         // ✅ CASO 2: Più match (DUPLICATI con Qtà > 0)
         if (allMatches.length > 1) {
@@ -3352,105 +3359,122 @@ html = `
                 ⚠️ SERIALE DUPLICATO - Scegli Articolo
             </h3>
             
-            <p className="mb-4 text-gray-700">
-                Trovati <strong>{duplicateMatches.filter(i => (i['Qtà'] || 0) > 0).length}</strong> articoli con seriale:
-                <br/>
-                <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
-            </p>
-            
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-                {duplicateMatches
-                    .filter(item => (item['Qtà'] || 0) > 0) // ✅ FILTRA QTÀ = 0
-                    .map((item, idx) => {
-                        const qtaDisponibile = item['Qtà'] || 0;
-                        
-                        return (
-                            <div 
-                                key={item.ID_Riga}
-                                className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
-                                onClick={async () => {
-                                    let qtaDaInventariare;
-                                    
-                                    if (qtaDisponibile > 1) {
-                                        const qtaInput = prompt(
-                                            `📦 QUANTITÀ DA INVENTARIARE\n\n` +
-                                            `ID Riga: ${item.ID_Riga}\n` +
-                                            `Cod. SAP: ${item.CodSap}\n` +
-                                            `Seriale: ${lastScannedValue}\n` +
-                                            `Quantità disponibile: ${qtaDisponibile}\n\n` +
-                                            `Quanti ne vuoi inventariare?`,
-                                            qtaDisponibile
-                                        );
-                                        
-                                        if (qtaInput === null) {
-                                            setMessage({ type: 'warning', text: '❌ Inventario annullato' });
-                                            return;
-                                        }
-                                        
-                                        qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-                                        
-                                        if (qtaDaInventariare <= 0) {
-                                            setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-                                            playBeep('error');
-                                            return;
-                                        }
-                                    } else {
-                                        qtaDaInventariare = qtaDisponibile;
-                                    }
-                                    
-                                    setShowDuplicateModal(false);
-                                    await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
-                                }}
-                            >
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
-                                        <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
-                                        <p className="text-lg font-bold">{item.CodSap}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">Qtà Disponibile</p>
-                                        <p className="text-2xl font-bold text-orange-600">{qtaDisponibile}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
-                                        <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
-                                        <p className="text-sm">{item.Descrizione || '-'}</p>
-                                    </div>
-                                </div>
-                                
-                                <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
-                                    ✅ Seleziona questo articolo
-                                    {qtaDisponibile > 1 && <span className="ml-2 text-xs">(Ti chiederà la quantità)</span>}
-                                </button>
-                            </div>
-                        );
-                    })}
+            {/* ✅ NUOVO: Calcola articoli disponibili */}
+            {(() => {
+                const disponibili = duplicateMatches.filter(i => (i['Qtà'] || 0) > 0);
+                const esauriti = duplicateMatches.filter(i => (i['Qtà'] || 0) === 0);
                 
-                {/* ✅ MESSAGGIO se tutti gli articoli sono esauriti */}
-                {duplicateMatches.every(item => (item['Qtà'] || 0) === 0) && (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI ESAURITI</p>
-                        <p className="text-yellow-700">Tutti gli articoli con questo seriale hanno quantità = 0.</p>
-                    </div>
-                )}
-            </div>
-            
-            <button 
-                onClick={() => {
-                    setShowDuplicateModal(false);
-                    setDuplicateMatches([]);
-                }}
-                className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
-            >
-                ❌ Annulla
-            </button>
+                return (
+                    <>
+                        <p className="mb-4 text-gray-700">
+                            Trovati <strong>{disponibili.length}</strong> articoli disponibili con seriale:
+                            <br/>
+                            <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
+                            {esauriti.length > 0 && (
+                                <span className="block mt-2 text-sm text-gray-500">
+                                    ({esauriti.length} già inventariati - nascosti)
+                                </span>
+                            )}
+                        </p>
+                        
+                        {/* ✅ Mostra SOLO articoli con Qtà > 0 */}
+                        {disponibili.length === 0 ? (
+                            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                                <p className="text-yellow-800 font-bold text-lg mb-2">
+                                    ✅ TUTTI GLI ARTICOLI GIÀ INVENTARIATI
+                                </p>
+                                <p className="text-yellow-700">
+                                    Tutti gli articoli con questo seriale hanno quantità = 0.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {disponibili.map((item, idx) => {
+                                    const qtaDisponibile = item['Qtà'] || 0;
+                                    
+                                    return (
+                                        <div 
+                                            key={item.ID_Riga}
+                                            className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                                            onClick={async () => {
+                                                let qtaDaInventariare;
+                                                
+                                                if (qtaDisponibile > 1) {
+                                                    const qtaInput = prompt(
+                                                        `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+                                                        `ID Riga: ${item.ID_Riga}\n` +
+                                                        `Cod. SAP: ${item.CodSap}\n` +
+                                                        `Seriale: ${lastScannedValue}\n` +
+                                                        `Quantità disponibile: ${qtaDisponibile}\n\n` +
+                                                        `Quanti ne vuoi inventariare?`,
+                                                        qtaDisponibile
+                                                    );
+                                                    
+                                                    if (qtaInput === null) {
+                                                        setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+                                                        return;
+                                                    }
+                                                    
+                                                    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+                                                    
+                                                    if (qtaDaInventariare <= 0) {
+                                                        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+                                                        playBeep('error');
+                                                        return;
+                                                    }
+                                                } else {
+                                                    qtaDaInventariare = qtaDisponibile;
+                                                }
+                                                
+                                                setShowDuplicateModal(false);
+                                                await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
+                                            }}
+                                        >
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
+                                                    <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
+                                                    <p className="text-lg font-bold">{item.CodSap}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold">Qtà Disponibile</p>
+                                                    <p className="text-2xl font-bold text-orange-600">{qtaDisponibile}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
+                                                    <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
+                                                    <p className="text-sm">{item.Descrizione || '-'}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
+                                                ✅ Seleziona questo articolo
+                                                {qtaDisponibile > 1 && <span className="ml-2 text-xs">(Ti chiederà la quantità)</span>}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        
+                        <button 
+                            onClick={() => {
+                                setShowDuplicateModal(false);
+                                setDuplicateMatches([]);
+                            }}
+                            className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
+                        >
+                            ❌ Annulla
+                        </button>
+                    </>
+                );
+            })()}
         </div>
     </div>
 )}
