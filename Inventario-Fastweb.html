@@ -2648,7 +2648,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
                     }, 500);
                 }
             }
-        } // ← ✅ QUESTA ERA LA PARENTESI MANCANTE!
+        } }// ← ✅ QUESTA ERA LA PARENTESI MANCANTE!
 
         setScanCount(prev => prev + 1);
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
