@@ -1843,7 +1843,6 @@ const excelData = storico.map(item => ({
         function ModeScanner({ user }) {
             const [scanInput, setScanInput] = useState('');
             const [giacenza, setGiacenza] = useState([]);
-            const [recentlyScanned, setRecentlyScanned] = useState(new Set());
             const [storico, setStorico] = useState([]);
             const [currentItem, setCurrentItem] = useState(null);
             const [message, setMessage] = useState({ type: '', text: '' });
@@ -2169,28 +2168,6 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             if (inputRef.current) inputRef.current.focus();
         }, 100);
 
-        // ✅ CHECK 1.5: Blocco temporaneo seriali in elaborazione
-if (recentlyScanned.has(scanned)) {
-    setMessage({ 
-        type: 'warning', 
-        text: '⏳ ELABORAZIONE IN CORSO - Attendi...' 
-    });
-    playBeep('error');
-    setTimeout(() => setMessage({ type: '', text: '' }), 2000);
-    return;
-}
-
-// Aggiungi al set
-setRecentlyScanned(prev => new Set(prev).add(scanned));
-
-// Rimuovi dopo 5 secondi
-setTimeout(() => {
-    setRecentlyScanned(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(scanned);
-        return newSet;
-    });
-}, 5000);
         
         // ✅ CHECK 1: Seriale appena scansionato
         if (scanned === lastScannedSerial) {
