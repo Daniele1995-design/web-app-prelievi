@@ -2417,7 +2417,7 @@ window.dispatchEvent(new CustomEvent('ats-data-updated', {
 // Reset quantità dopo inventario
 setQuantitaDaInventariare(1);
 
-// 2. SALVA SU SERVER CON VERIFICA IMMEDIATA
+// 2. SALVA SU SERVER CON SYNC GARANTITA
 try {
     console.log('💾 Salvataggio su DB:', {
         idRigaGiacenza: found.ID_Riga,
@@ -2449,73 +2449,127 @@ try {
         }
     });
     
-    console.log('✅ Salvato in inventario con ID:', saveResult.id);
-    
-    // ✅ STEP 2: Verifica IMMEDIATA che giacenza sia stata aggiornata
-    const { data: giacenzaVerifica, error: verificaErr } = await supabaseClient
-        .from('giacenza')
-        .select('qta, match')
-        .eq('id_riga', found.ID_Riga)
-        .single();
-    
-    if (verificaErr) {
-        console.error('❌ ERRORE VERIFICA GIACENZA:', verificaErr);
-        throw verificaErr;
+    if (!saveResult || !saveResult.id) {
+        throw new Error('Insert inventario fallito - nessun ID ritornato');
     }
     
-    console.log('🔍 VERIFICA GIACENZA:', giacenzaVerifica);
+    console.log('✅ Salvato in inventario con ID:', saveResult.id);
     
-    // ✅ CONTROLLO: Se quantità NON corrisponde, ROLLBACK
-    if (giacenzaVerifica.qta !== qtaRimanente) {
-        console.error('❌ MISMATCH QUANTITÀ!', {
-            attesa: qtaRimanente,
-            trovata: giacenzaVerifica.qta
-        });
+    // ✅ STEP 2: Aggiorna giacenza con ATTESA ESPLICITA del risultato
+    const { data: giacenzaUpdated, error: giacErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            qta: qtaRimanente,
+            match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
+            stato: found.Stato,
+            ubicazioni: found.Ubicazioni,
+            posizione: found.Posizione || '',
+            part_number: found.PartNumber || '',
+            seriale_riscontrato: tuttoInventariato ? scanned : null,
+            operatore: tuttoInventariato ? (user.nome || user.username) : null,
+            note: found.Note || '',
+            timestamp: tuttoInventariato ? new Date().toISOString() : null
+        })
+        .eq('id_riga', found.ID_Riga)
+        .select();
+    
+    if (giacErr) {
+        console.error('❌ ERRORE UPDATE GIACENZA:', giacErr);
         
-        // ROLLBACK: cancella da inventario
+        // ROLLBACK: elimina da inventario
         await supabaseClient
             .from('inventario')
             .delete()
             .eq('id', saveResult.id);
         
-        // ROLLBACK: ripristina stato locale
-        setGiacenza(giacenza);
-        setStorico(storico);
-        appCache.giacenza = giacenza;
-        appCache.storico = storico;
-        
-        setMessage({ 
-            type: 'error', 
-            text: '❌ ERRORE SYNC - Operazione annullata' 
-        });
-        
-        alert(
-            '⚠️ ERRORE SINCRONIZZAZIONE!\n\n' +
-            `Quantità attesa: ${qtaRimanente}\n` +
-            `Quantità trovata: ${giacenzaVerifica.qta}\n\n` +
-            'Operazione annullata. Riprova tra qualche secondo.'
-        );
-        return;
+        throw new Error('Update giacenza fallito: ' + giacErr.message);
     }
     
-    console.log('✅ SYNC VERIFICATA - Tutto OK');
+    // ✅ STEP 3: VERIFICA che l'update sia andato a buon fine
+    if (!giacenzaUpdated || giacenzaUpdated.length === 0) {
+        console.error('❌ NESSUNA RIGA AGGIORNATA in giacenza!');
+        
+        // ROLLBACK
+        await supabaseClient
+            .from('inventario')
+            .delete()
+            .eq('id', saveResult.id);
+        
+        throw new Error('Giacenza non aggiornata - ID_Riga non trovato: ' + found.ID_Riga);
+    }
+    
+    console.log('✅ Giacenza aggiornata con successo:', giacenzaUpdated[0]);
+    console.log(`📊 Nuova Qtà in DB: ${giacenzaUpdated[0].qta}`);
+    
+    // ✅ STEP 4: DOPPIA VERIFICA post-update (opzionale ma consigliata)
+    const qtaFinale = giacenzaUpdated[0].qta;
+    
+    if (qtaFinale !== qtaRimanente) {
+        console.warn('⚠️ ATTENZIONE: Qtà finale diversa da attesa!', {
+            attesa: qtaRimanente,
+            trovata: qtaFinale
+        });
+        
+        // NON fare rollback qui, ma segnala all'utente
+        setMessage({ 
+            type: 'warning', 
+            text: `⚠️ SALVATO ma Qtà anomala: ${qtaFinale} invece di ${qtaRimanente}` 
+        });
+    }
+    
+    // ✅ AGGIORNA ANCHE LA CACHE LOCALE con valore DB certificato
+    const updatedGiacenzaWithDbValue = giacenza.map(i => {
+        if (i.ID_Riga !== found.ID_Riga) return i;
+        
+        return {
+            ...i,
+            'Qtà': qtaFinale, // ← USA VALORE DAL DB
+            inventariato: qtaFinale === 0,
+            Match: qtaFinale === 0 ? (match ? 'OK' : 'KO') : i.Match,
+            Ubicazioni: found.Ubicazioni
+        };
+    });
+    
+    setGiacenza(updatedGiacenzaWithDbValue);
+    appCache.giacenza = updatedGiacenzaWithDbValue;
     
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
-        detail: { giacenza: giacenza, storico: storico }
+        detail: { giacenza: updatedGiacenzaWithDbValue, storico: storico }
     }));
+    
+    console.log('✅ SYNC COMPLETA - Cache locale aggiornata con dati DB');
     
 } catch (err) {
     console.error('❌ Errore Supabase:', err);
     
-    // ROLLBACK: ripristina stato precedente
-    setGiacenza(giacenza);
-    setStorico(storico);
-    appCache.giacenza = giacenza;
-    appCache.storico = storico;
+    // ROLLBACK COMPLETO: ripristina stato precedente
+    const rollbackGiacenza = giacenza.map(i => {
+        if (i.ID_Riga !== found.ID_Riga) return i;
+        
+        return {
+            ...i,
+            'Qtà': (i['Qtà'] || 0) + qtaDaInventariare, // ← Ripristina quantità
+            inventariato: false,
+            Match: null
+        };
+    });
+    
+    const rollbackStorico = storico.filter(s => s.id !== newEntry.id);
+    
+    setGiacenza(rollbackGiacenza);
+    setStorico(rollbackStorico);
+    appCache.giacenza = rollbackGiacenza;
+    appCache.storico = rollbackStorico;
     
     setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
-    alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
-    return;
+    
+    alert(
+        '⚠️ ERRORE SINCRONIZZAZIONE\n\n' +
+        err.message + '\n\n' +
+        'Operazione annullata. Riprova.'
+    );
+    
+    return; // ← IMPORTANTE: blocca esecuzione successiva
 }
 
     // 3. DOPO IL SALVATAGGIO, GESTISCI UBICAZIONE
