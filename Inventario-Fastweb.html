@@ -2205,8 +2205,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         }
 //  CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
-
-
+const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 const qtaDisponibile = found['Qtà'] || 0;
 let qtaDaInventariare;
 
