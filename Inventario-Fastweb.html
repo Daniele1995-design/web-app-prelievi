@@ -2205,11 +2205,23 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         }
 //  CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
+
+// ✅ CONTROLLO PREVENTIVO: Se quantità = 0 → GIÀ INVENTARIATO
+if ((found['Qtà'] || 0) === 0) {
+    setMessage({ 
+        type: 'error', 
+        text: `❌ ARTICOLO GIÀ INVENTARIATO!\nSeriale: ${scanned}\nQtà rimanente: 0` 
+    });
+    playBeep('error');
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    return;
+}
+
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 const qtaDisponibile = found['Qtà'] || 0;
 let qtaDaInventariare;
 
-//  SE Qtà > 1 → CHIEDI con popup
+//  ✅ SE Qtà > 1 → CHIEDI SEMPRE con popup
 if (qtaDisponibile > 1) {
     const qtaInput = prompt(
         `📦 QUANTITÀ DA INVENTARIARE\n\n` +
@@ -4258,8 +4270,26 @@ const aggiornaMassivoPartNumber = async () => {
 const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
-    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
-    const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
+    // ✅ CONTROLLO PREVENTIVO: Filtra articoli già inventariati (Qtà = 0)
+    const articoliValidi = selected.filter(item => (item['Qtà'] || 0) > 0);
+    const articoliGiaInventariati = selected.filter(item => (item['Qtà'] || 0) === 0);
+    
+    if (articoliGiaInventariati.length > 0) {
+        alert(
+            `⚠️ ATTENZIONE!\n\n` +
+            `${articoliGiaInventariati.length} articoli selezionati hanno quantità = 0 (già inventariati).\n\n` +
+            `Questi verranno ESCLUSI dall'inventario.\n\n` +
+            `Articoli validi da inventariare: ${articoliValidi.length}`
+        );
+    }
+    
+    if (articoliValidi.length === 0) {
+        alert('❌ Tutti gli articoli selezionati sono già inventariati (Qtà = 0)!');
+        return;
+    }
+    
+    const ubicazioneFinale = bulkUbicazione.trim() || articoliValidi[0].Ubicazioni;
+    const partNumberFinale = bulkPartNumber.trim() || articoliValidi[0].PartNumber;
     const qtaDaInventariareInput = bulkQuantita;
     
     // ✅ CASO 1: Quantità fissa specificata → usa quella per tutti
@@ -4267,25 +4297,25 @@ const verificaMassivo = async () => {
         const qtaFissa = parseInt(qtaDaInventariareInput);
         
         const conferma = window.confirm(
-            `Inventariare ${selected.length} articoli con quantità ${qtaFissa}?`
+            `Inventariare ${articoliValidi.length} articoli con quantità ${qtaFissa}?`
         );
         if (!conferma) return;
         
-        await processaInventarioMassivo(selected, ubicazioneFinale, partNumberFinale, qtaFissa);
+        await processaInventarioMassivo(articoliValidi, ubicazioneFinale, partNumberFinale, qtaFissa);
         return;
     }
     
     // ✅ CASO 2: Chiedi quantità PER OGNI RIGA che ha Qtà > 1
     const daProcessare = [];
     
-    for (const item of selected) {
+    for (const item of articoliValidi) {
         const qtaDisponibile = item['Qtà'] || 0;
         let qtaDaInventariare;
         
-        // ✅ SE Qtà > 1 → CHIEDI (anche per singola riga!)
+        // ✅ SE Qtà > 1 → CHIEDI SEMPRE
         if (qtaDisponibile > 1) {
             const qtaInput = prompt(
-                `📦 INVENTARIO ${selected.length > 1 ? 'MULTIPLO' : ''}\n\n` +
+                `📦 INVENTARIO ${articoliValidi.length > 1 ? 'MULTIPLO' : ''}\n\n` +
                 `ID Riga: ${item.ID_Riga}\n` +
                 `Cod. SAP: ${item.CodSap}\n` +
                 `Seriale: ${item.RISCONTROSERIALEF || 'N/A'}\n` +
