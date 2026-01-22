@@ -3451,7 +3451,7 @@ html = `
                                     setShowDuplicateModal(false);
                                     await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
                                 }
-                                }// ✅ NUOVO: Ricarica giacenza aggiornata
+                                }}// ✅ NUOVO: Ricarica giacenza aggiornata
     const { data: freshGiacenza } = await api('getGiacenza');
     setGiacenza(freshGiacenza);
     appCache.giacenza = freshGiacenza;
