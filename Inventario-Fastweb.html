@@ -3361,131 +3361,166 @@ html = `
     // ✅ DEBUG: Verifica cosa c'è in duplicateMatches
     console.log('🔍 MODAL DUPLICATI - Articoli ricevuti:', duplicateMatches.length);
     duplicateMatches.forEach((item, idx) => {
-        console.log(`  ${idx + 1}. ID_Riga=${item.ID_Riga}, Qtà=${item['Qtà']}, Match=${item.Match}`);
+        const qta = item['Qtà'];
+        console.log(`  ${idx + 1}. ID_Riga=${item.ID_Riga}, Qtà=${qta} (tipo: ${typeof qta}), Match=${item.Match}`);
     });
     
+    // ✅ Filtra SOLO articoli con Qtà > 0
     const disponibili = duplicateMatches.filter(i => {
         const qta = i['Qtà'];
-        return qta !== undefined && qta !== null && qta > 0;
+        const isDisponibile = qta !== undefined && qta !== null && qta > 0;
+        console.log(`    Filtro ID_Riga=${i.ID_Riga}: Qtà=${qta}, Disponibile=${isDisponibile}`);
+        return isDisponibile;
     });
     
-    console.log(`✅ Articoli DISPONIBILI da mostrare: ${disponibili.length}`);
+    const esauriti = duplicateMatches.filter(i => {
+        const qta = i['Qtà'];
+        return qta === 0;
+    });
+    
+    console.log(`✅ DISPONIBILI da mostrare: ${disponibili.length}`);
+    console.log(`❌ ESAURITI (nascosti): ${esauriti.length}`);
     
     return (
         <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
-                    <>
-                        <p className="mb-4 text-gray-700">
-                            Trovati <strong>{disponibili.length}</strong> articoli disponibili con seriale:
-                            <br/>
-                            <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
-                            {esauriti.length > 0 && (
-                                <span className="block mt-2 text-sm text-gray-500">
-                                    ({esauriti.length} già inventariati - nascosti)
-                                </span>
-                            )}
+            <div className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-xl font-bold mb-4 text-orange-600">
+                    ⚠️ SERIALE DUPLICATO - Scegli Articolo
+                </h3>
+                
+                <p className="mb-4 text-gray-700">
+                    Trovati <strong className="text-green-600">{disponibili.length}</strong> articoli <strong>disponibili</strong> con seriale:
+                    <br/>
+                    <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
+                    {esauriti.length > 0 && (
+                        <span className="block mt-2 text-sm text-gray-500">
+                            ({esauriti.length} già inventariati - nascosti automaticamente)
+                        </span>
+                    )}
+                </p>
+                
+                {/* ✅ CASO 1: Tutti esauriti */}
+                {disponibili.length === 0 ? (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                        <p className="text-yellow-800 font-bold text-lg mb-2">
+                            ✅ TUTTI GLI ARTICOLI GIÀ INVENTARIATI
                         </p>
-                        
-                        {/* ✅ Mostra SOLO articoli con Qtà > 0 */}
-                        {disponibili.length === 0 ? (
-                            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                                <p className="text-yellow-800 font-bold text-lg mb-2">
-                                    ✅ TUTTI GLI ARTICOLI GIÀ INVENTARIATI
+                        <p className="text-yellow-700 mb-4">
+                            Tutti i {esauriti.length} articoli con questo seriale hanno Qtà = 0.
+                        </p>
+                        <div className="text-xs text-left bg-white p-3 rounded border border-yellow-200">
+                            <p className="font-bold mb-2">Dettaglio articoli esauriti:</p>
+                            {esauriti.map((item, idx) => (
+                                <p key={idx} className="text-gray-600">
+                                    • ID_Riga: {item.ID_Riga} - Qtà: {item['Qtà']} - Match: {item.Match || 'N/A'}
                                 </p>
-                                <p className="text-yellow-700">
-                                    Tutti gli articoli con questo seriale hanno quantità = 0.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {disponibili.map((item, idx) => {
-                                    const qtaDisponibile = item['Qtà'] || 0;
-                                    
-                                    return (
-                                        <div 
-                                            key={item.ID_Riga}
-                                            className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
-                                            onClick={async () => {
-                                                let qtaDaInventariare;
-                                                
-                                                if (qtaDisponibile > 1) {
-                                                    const qtaInput = prompt(
-                                                        `📦 QUANTITÀ DA INVENTARIARE\n\n` +
-                                                        `ID Riga: ${item.ID_Riga}\n` +
-                                                        `Cod. SAP: ${item.CodSap}\n` +
-                                                        `Seriale: ${lastScannedValue}\n` +
-                                                        `Quantità disponibile: ${qtaDisponibile}\n\n` +
-                                                        `Quanti ne vuoi inventariare?`,
-                                                        qtaDisponibile
-                                                    );
-                                                    
-                                                    if (qtaInput === null) {
-                                                        setMessage({ type: 'warning', text: '❌ Inventario annullato' });
-                                                        return;
-                                                    }
-                                                    
-                                                    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-                                                    
-                                                    if (qtaDaInventariare <= 0) {
-                                                        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-                                                        playBeep('error');
-                                                        return;
-                                                    }
-                                                } else {
-                                                    qtaDaInventariare = qtaDisponibile;
-                                                }
-                                                
-                                                setShowDuplicateModal(false);
-                                                await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
-                                            }}
-                                        >
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
-                                                    <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
-                                                    <p className="text-lg font-bold">{item.CodSap}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 font-semibold">Qtà Disponibile</p>
-                                                    <p className="text-2xl font-bold text-orange-600">{qtaDisponibile}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
-                                                    <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
-                                                    <p className="text-sm">{item.Descrizione || '-'}</p>
-                                                </div>
-                                            </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    /* ✅ CASO 2: Mostra articoli disponibili */
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {disponibili.map((item, idx) => {
+                            const qtaDisponibile = item['Qtà'];
+                            
+                            return (
+                                <div 
+                                    key={item.ID_Riga}
+                                    className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
+                                    onClick={async () => {
+                                        console.log('👆 Cliccato articolo:', item.ID_Riga, 'Qtà:', qtaDisponibile);
+                                        
+                                        let qtaDaInventariare;
+                                        
+                                        if (qtaDisponibile > 1) {
+                                            const qtaInput = prompt(
+                                                `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+                                                `ID Riga: ${item.ID_Riga}\n` +
+                                                `Cod. SAP: ${item.CodSap}\n` +
+                                                `Seriale: ${lastScannedValue}\n` +
+                                                `Quantità disponibile: ${qtaDisponibile}\n\n` +
+                                                `Quanti ne vuoi inventariare?`,
+                                                qtaDisponibile
+                                            );
                                             
-                                            <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
-                                                ✅ Seleziona questo articolo
-                                                {qtaDisponibile > 1 && <span className="ml-2 text-xs">(Ti chiederà la quantità)</span>}
-                                            </button>
+                                            if (qtaInput === null) {
+                                                setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+                                                return;
+                                            }
+                                            
+                                            qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+                                            
+                                            if (qtaDaInventariare <= 0) {
+                                                setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+                                                playBeep('error');
+                                                return;
+                                            }
+                                        } else {
+                                            qtaDaInventariare = qtaDisponibile;
+                                        }
+                                        
+                                        console.log(`✅ Confermato: inventario ${qtaDaInventariare} pezzi`);
+                                        
+                                        setShowDuplicateModal(false);
+                                        await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
+                                    }}
+                                >
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-semibold">ID Riga</p>
+                                            <p className="text-lg font-bold text-blue-600">{item.ID_Riga}</p>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        
-                        <button 
-                            onClick={() => {
-                                setShowDuplicateModal(false);
-                                setDuplicateMatches([]);
-                            }}
-                            className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
-                        >
-                            ❌ Annulla
-                        </button>
-                    </>
-                );
-            })()}
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-semibold">Cod. SAP</p>
+                                            <p className="text-lg font-bold">{item.CodSap}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-semibold">Qtà Disponibile</p>
+                                            <p className="text-2xl font-bold text-green-600">{qtaDisponibile}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-semibold">Ubicazione</p>
+                                            <p className="font-mono text-sm">{item.Ubicazioni || '-'}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
+                                            <p className="text-sm">{item.Descrizione || '-'}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-xs text-gray-500 font-semibold">Match Attuale</p>
+                                            <p className="text-sm">
+                                                {item.Match === 'OK' ? '✅ OK' : item.Match === 'KO' ? '❌ KO' : '⚪ Non verificato'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
+                                        ✅ Seleziona questo articolo
+                                        {qtaDisponibile > 1 && <span className="ml-2 text-xs">(Ti chiederà la quantità)</span>}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                
+                <button 
+                    onClick={() => {
+                        console.log('❌ Modal chiuso manualmente');
+                        setShowDuplicateModal(false);
+                        setDuplicateMatches([]);
+                    }}
+                    className="mt-4 w-full bg-gray-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-gray-600"
+                >
+                    ❌ Annulla
+                </button>
+            </div>
+        </div>
+    );
+})()}
         </div>
     </div>
-)}}
+)}
          <div className="bg-white rounded-lg shadow p-6">
     <div className="space-y-3 mb-4">
         {/* Campo Seriale - LARGHEZZA PIENA */}
