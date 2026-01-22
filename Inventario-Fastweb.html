@@ -610,7 +610,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
                 PartNumber: item.part_number || '',
                 inventariato: false,
                 Match: item.match || '',
-                'Qtà': item.qta || 1,
+                'Qtà': item.qta !== undefined && item.qta !== null ? item.qta : 1, // ✅ FIX: non usa || che converte 0 in 1
                 Note: item.note || ''
             }));
         }
@@ -636,7 +636,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
         Note: item.note || '',
         SerSN: item.ser_sn || 'No',
         id_riga_giacenza: item.id_riga_giacenza || '',
-        'Qtà': item.qta || 1
+        'Qtà': item.qta !== undefined && item.qta !== null ? item.qta : 1 // ✅ FIX
     }));
 }
         // Sincronizza giacenza con inventario usando ID_Riga
@@ -2159,7 +2159,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     setScanCount(prev => prev + 1);
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
-           const handleScan = async (e) => {
+          const handleScan = async (e) => {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
         setLastScannedValue(scanned);
@@ -2176,81 +2176,86 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             return;
         }
         
-        // ✅ CHECK 2: Cerca SOLO articoli con Qtà > 0
-        const allMatches = giacenza.filter(item => {
-            const serialeMatch = String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned;
-            const qtaDisponibile = item['Qtà'] || 0;
-            
-            console.log(`🔍 Check item ID_Riga=${item.ID_Riga}, Seriale=${item.RISCONTROSERIALEF}, Qtà=${qtaDisponibile}, Match=${serialeMatch}`);
-            
-            return serialeMatch && qtaDisponibile > 0; // ✅ BLOCCA se Qtà = 0
-        });
+        // ✅ CHECK 2: Cerca articoli con questo seriale
+        const tuttiMatch = giacenza.filter(item => 
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+        );
 
-        console.log(`📊 Articoli trovati con Qtà > 0: ${allMatches.length}`);
-
-        // ✅ CASO 1: Nessun match CON Qtà > 0
-if (allMatches.length === 0) {
-    // Controlla se esistono articoli ma sono tutti a Qtà = 0
-    const articoliEsauriti = giacenza.filter(item => 
-        String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-    );
-    
-    if (articoliEsauriti.length > 0) {
-        // ✅ NUOVO: Controlla anche se è già marcato OK
-        const tuttiOK = articoliEsauriti.every(i => i.Match === 'OK');
+        console.log(`📊 Totale articoli con seriale ${scanned}: ${tuttiMatch.length}`);
         
-        console.log('⚠️ Articoli trovati ma tutti con Qtà = 0');
-        playBeep('error');
-        
-        setMessage({ 
-            type: 'error', 
-            text: tuttiOK 
-                ? `✅ GIÀ INVENTARIATO - ${articoliEsauriti.length} righe completate` 
-                : `❌ ARTICOLO ESAURITO - Qtà = 0 (${articoliEsauriti.length} righe)`
+        // Separa disponibili (Qtà > 0) da esauriti (Qtà = 0)
+        const disponibili = tuttiMatch.filter(item => {
+            const qtaDisponibile = item['Qtà'];
+            const isDisponibile = qtaDisponibile !== undefined && qtaDisponibile !== null && qtaDisponibile > 0;
+            console.log(`🔍 ID_Riga=${item.ID_Riga}, Qtà=${qtaDisponibile}, Disponibile=${isDisponibile}`);
+            return isDisponibile;
         });
         
-        setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-        return;
-    }
-    
-    // Nessun articolo trovato - apri modal aggiunta
-    console.log('❌ Seriale non trovato in giacenza');
-    playBeep('error');
-    setNewItemData({
-        serialeScansionato: scanned,
-        codSap: '',
-        ubicazione: '',
-        cdc: '',
-        posizione: '',
-        stato: '',
-        partNumber: '',
-        poNr: '',
-        serSN: 'No',
-        descrizione: '',
-        qta: 1
-    });
-    setShowAddModal(true);
-    return;
-}
+        const esauriti = tuttiMatch.filter(item => {
+            const qtaDisponibile = item['Qtà'];
+            return qtaDisponibile === 0;
+        });
 
-        // ✅ CASO 2: Più match (DUPLICATI con Qtà > 0)
-        if (allMatches.length > 1) {
-            console.log(`⚠️ Trovati ${allMatches.length} duplicati con Qtà > 0`);
+        console.log(`✅ Disponibili: ${disponibili.length}, ❌ Esauriti: ${esauriti.length}`);
+
+        // ✅ CASO 1: Nessun articolo disponibile
+        if (disponibili.length === 0) {
+            if (esauriti.length > 0) {
+                // Tutti esauriti
+                const tuttiOK = esauriti.every(i => i.Match === 'OK');
+                
+                console.log('⚠️ Tutti gli articoli hanno Qtà = 0');
+                playBeep('error');
+                
+                setMessage({ 
+                    type: 'error', 
+                    text: tuttiOK 
+                        ? `✅ GIÀ INVENTARIATO - ${esauriti.length} righe completate` 
+                        : `❌ TUTTI ESAURITI - ${esauriti.length} righe con Qtà = 0`
+                });
+                
+                setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+                return;
+            }
+            
+            // Nessun articolo trovato - apri modal aggiunta
+            console.log('❌ Seriale non trovato in giacenza');
+            playBeep('error');
+            setNewItemData({
+                serialeScansionato: scanned,
+                codSap: '',
+                ubicazione: '',
+                cdc: '',
+                posizione: '',
+                stato: '',
+                partNumber: '',
+                poNr: '',
+                serSN: 'No',
+                descrizione: '',
+                qta: 1
+            });
+            setShowAddModal(true);
+            return;
+        }
+
+        // ✅ CASO 2: Più articoli disponibili (DUPLICATI)
+        if (disponibili.length > 1) {
+            console.log(`⚠️ Trovati ${disponibili.length} duplicati disponibili`);
             setMessage({ 
                 type: 'warning', 
-                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+                text: `⚠️ TROVATI ${disponibili.length} ARTICOLI DISPONIBILI!` 
             });
             playBeep('error');
             
-            setDuplicateMatches(allMatches); // ✅ Passa solo articoli con Qtà > 0
+            setDuplicateMatches(disponibili); // ← IMPORTANTE: passa SOLO disponibili
             setShowDuplicateModal(true);
             return;
         }
 
-        // ✅ CASO 3: Match unico con Qtà > 0
-        const found = allMatches[0];
+        // ✅ CASO 3: Match unico disponibile
+        const found = disponibili[0];
         const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-        const qtaDisponibile = found['Qtà'] || 0;
+        const qtaDisponibile = found['Qtà'];
         
         console.log(`✅ Match unico: ID_Riga=${found.ID_Riga}, Qtà disponibile=${qtaDisponibile}`);
         
@@ -3352,19 +3357,22 @@ html = `
     </div>
 )}
         {/* ✅ NUOVO - MODAL SCELTA DUPLICATI */}
-{showDuplicateModal && (
-    <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
-        <div className="bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 text-orange-600">
-                ⚠️ SERIALE DUPLICATO - Scegli Articolo
-            </h3>
-            
-            {/* ✅ NUOVO: Calcola articoli disponibili */}
-            {(() => {
-                const disponibili = duplicateMatches.filter(i => (i['Qtà'] || 0) > 0);
-                const esauriti = duplicateMatches.filter(i => (i['Qtà'] || 0) === 0);
-                
-                return (
+{showDuplicateModal && (() => {
+    // ✅ DEBUG: Verifica cosa c'è in duplicateMatches
+    console.log('🔍 MODAL DUPLICATI - Articoli ricevuti:', duplicateMatches.length);
+    duplicateMatches.forEach((item, idx) => {
+        console.log(`  ${idx + 1}. ID_Riga=${item.ID_Riga}, Qtà=${item['Qtà']}, Match=${item.Match}`);
+    });
+    
+    const disponibili = duplicateMatches.filter(i => {
+        const qta = i['Qtà'];
+        return qta !== undefined && qta !== null && qta > 0;
+    });
+    
+    console.log(`✅ Articoli DISPONIBILI da mostrare: ${disponibili.length}`);
+    
+    return (
+        <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
                     <>
                         <p className="mb-4 text-gray-700">
                             Trovati <strong>{disponibili.length}</strong> articoli disponibili con seriale:
