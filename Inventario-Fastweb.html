@@ -2033,6 +2033,7 @@ const processSelectedItem = async (found, scanned) => {
     
     setScanCount(prev => prev + 1);
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    setLastScannedSerial('');
 };
 
             // ✅ NUOVO - Processa articolo duplicato CON QUANTITÀ
@@ -2164,12 +2165,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
                     setTimeout(() => {
                         if (inputRef.current) inputRef.current.focus();
                     }, 100);
-                     if (scanned === lastScannedSerial) {
-            setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
-            playBeep('error');
-            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-            return;
-        }
+
         // NUOVO - Cerca TUTTI gli articoli con questo seriale
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned && (item['Qtà'] > 0)
@@ -2196,17 +2192,36 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
 
         //  CASO 2: Più match (DUPLICATI!)
         if (allMatches.length > 1) {
-            setMessage({ 
-                type: 'warning', 
-                text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
-            });
-            playBeep('error');
-            
-            // Mostra popup di scelta
-            setDuplicateMatches(allMatches);
-            setShowDuplicateModal(true);
-            return;
-        }
+    setMessage({ 
+        type: 'warning', 
+        text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
+    });
+    playBeep('error');
+    
+    // ✅ AGGIORNA: Filtra DUPLICATI con Qtà > 0
+    const duplicatesWithStock = allMatches.filter(item => (item['Qtà'] || 0) > 0);
+    
+    if (duplicatesWithStock.length === 0) {
+        setMessage({ 
+            type: 'error', 
+            text: `❌ TUTTI GLI ARTICOLI CON SERIALE ${scanned} COMPLETAMENTE INVENTARIATI!` 
+        });
+        playBeep('error');
+        setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+        return;
+    }
+    
+    if (duplicatesWithStock.length === 1) {
+        // Solo 1 rimasto con stock, processa direttamente
+        const found = duplicatesWithStock[0];
+        // ... continua con logica normale
+    } else {
+        // Mostra popup di scelta SOLO per quelli con stock
+        setDuplicateMatches(duplicatesWithStock);
+        setShowDuplicateModal(true);
+        return;
+    }
+}
 //  CASO 3: Match unico - Logica quantità intelligente + controllo duplicati
 const found = allMatches[0];
 
@@ -2398,7 +2413,25 @@ try {
             serSN: found['SerS/No'] || 'No'
         }
     });
+    // ✅ AGGIORNA giacenza locale con nuova Qtà
+const finalGiacenza = giacenza.map(item => {
+    if (item.ID_Riga !== found.ID_Riga) return item;
     
+    return {
+        ...item,
+        'Qtà': qtaRimanente,
+        inventariato: qtaRimanente === 0,
+        Match: qtaRimanente === 0 ? (match ? 'OK' : 'KO') : item.Match
+    };
+});
+
+setGiacenza(finalGiacenza);
+appCache.giacenza = finalGiacenza;
+
+window.dispatchEvent(new CustomEvent('ats-data-updated', {
+    detail: { giacenza: finalGiacenza, storico: updatedStorico }
+}));
+
     if (saveResult.id) {
         newEntry.id = saveResult.id;
         
@@ -3417,7 +3450,24 @@ html = `
                                     // Chiudi modal e processa con quantità
                                     setShowDuplicateModal(false);
                                     await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
-                                }}
+                                }
+                                }// ✅ NUOVO: Ricarica giacenza aggiornata
+    const { data: freshGiacenza } = await api('getGiacenza');
+    setGiacenza(freshGiacenza);
+    appCache.giacenza = freshGiacenza;
+    
+    // ✅ NUOVO: Aggiorna duplicateMatches con dati freschi
+    const updatedDuplicates = duplicateMatches
+        .map(dup => freshGiacenza.find(g => g.ID_Riga === dup.ID_Riga))
+        .filter(item => item && (item['Qtà'] || 0) > 0);
+    
+    if (updatedDuplicates.length === 0) {
+        setShowDuplicateModal(false);
+        setMessage({ type: 'success', text: '✅ TUTTI INVENTARIATI!' });
+    } else {
+        setDuplicateMatches(updatedDuplicates);
+    }
+}}
                             >
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
