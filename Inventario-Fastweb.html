@@ -2363,12 +2363,13 @@ setQuantitaDaInventariare(1);
 
 // 2. SALVA SU SERVER IN BACKGROUND
 try {
-     console.log('💾 Salvataggio su DB:', {
+    console.log('💾 Salvataggio su DB:', {
         idRigaGiacenza: found.ID_Riga,
         qtaDaInventariare,
         qtaRimanente,
         tuttoInventariato
     });
+    
     const saveResult = await api('saveRiscontro', {
         data: {
             operatore: user.nome || user.username,
@@ -2378,7 +2379,7 @@ try {
             serialeAtteso: found.RISCONTROSERIALEF,
             serialeRiscontrato: scanned,
             match: match ? 'OK' : 'KO',
-            qta: qtaDaInventariare, //  Quantità effettiva inventariata
+            qta: qtaDaInventariare,
             wmsCode: found.WMSCode || '',
             cdc: found.Cdc || '',
             posizione: found.Posizione || '',
@@ -2390,8 +2391,10 @@ try {
             serSN: found['SerS/No'] || 'No'
         }
     });
+    
     console.log('✅ Salvato in inventario con ID:', saveResult.id);
-     // ✅ AGGIORNA GIACENZA con nuova quantità
+    
+    // Aggiorna giacenza con nuova quantità
     const { data: giacenzaUpdated, error: giacErr } = await supabaseClient
         .from('giacenza')
         .update({ 
@@ -2417,46 +2420,7 @@ try {
     console.log('✅ Giacenza aggiornata:', giacenzaUpdated);
     console.log(`📊 Nuova Qtà in DB: ${qtaRimanente}`);
     
-} catch (err) {
-    console.error('❌ ERRORE SALVATAGGIO:', err);
-    alert('⚠️ ERRORE: ' + err.message);
-    return; // ✅ BLOCCA tutto se errore
-}
-    
-    if (saveResult.id) {
-        newEntry.id = saveResult.id;
-        
-        const updatedStorico = storico.map(i => 
-            i.Timestamp === newEntry.Timestamp && i.Seriale_Riscontrato === newEntry.Seriale_Riscontrato
-                ? { ...i, id: saveResult.id }
-                : i
-        );
-        setStorico(updatedStorico);
-        appCache.storico = updatedStorico;
-        
-        setCurrentItem(prev => ({ ...prev, id: saveResult.id }));
-    }
-    
-    // AGGIORNA GIACENZA con nuova quantità
-    await supabaseClient
-        .from('giacenza')
-        .update({ 
-            qta: qtaRimanente,
-            match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
-            stato: found.Stato,
-            ubicazioni: found.Ubicazioni,
-            posizione: found.Posizione || '',
-            part_number: found.PartNumber || '',
-            seriale_riscontrato: tuttoInventariato ? scanned : null,
-            operatore: tuttoInventariato ? (user.nome || user.username) : null,
-            note: found.Note || '',
-            timestamp: tuttoInventariato ? new Date().toISOString() : null
-        })
-        .eq('id_riga', found.ID_Riga);
-    
-    console.log('✅ Giacenza aggiornata - Qtà rimanente:', qtaRimanente);
-    
-    //  Controllo giacenza aggiornata
+    // Controllo giacenza aggiornata
     if (saveResult.giacenzaUpdated === 0) {
         setMessage({ 
             type: 'warning', 
@@ -2476,14 +2440,14 @@ try {
         console.log('✅ Giacenza OK - Aggiornate', saveResult.giacenzaUpdated, 'righe');
     }
     
-    console.log('✅ Salvato su Supabase con ID:', saveResult.id);
-    
     window.dispatchEvent(new CustomEvent('ats-data-updated', {
         detail: { giacenza: giacenza, storico: storico }
     }));
     
 } catch (err) {
     console.error('❌ Errore Supabase:', err);
+    
+    // Rollback: ripristina stato precedente
     setGiacenza(giacenza);
     setStorico(storico);
     appCache.giacenza = giacenza;
@@ -2491,7 +2455,7 @@ try {
     
     setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
     alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
-    return;
+    return; // Blocca esecuzione successiva
 }
 
     // 3. DOPO IL SALVATAGGIO, GESTISCI UBICAZIONE
