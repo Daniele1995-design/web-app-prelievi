@@ -662,12 +662,15 @@ async function syncGiacenzaWithInventario(giacenzaData) {
         
         // Marca come inventariati gli articoli che hanno ID in inventario
         const result = giacenzaData.map(item => {
-            const isInInventario = inventariatiSet.has(item.ID_Riga);
-            return {
-                ...item,
-                inventariato: item.Match === 'OK' || isInInventario
-            };
-        });
+    const isInInventario = inventariatiSet.has(item.ID_Riga);
+    const qtaRimanente = item['Qtà'] || 0;
+    
+    return {
+        ...item,
+        // ✅ inventariato SOLO se Qtà = 0 O se già marcato in DB
+        inventariato: qtaRimanente === 0 || (item.Match === 'OK' && isInInventario)
+    };
+});
         
         const inventariatiCount = result.filter(i => i.inventariato).length;
         console.log(`✅ Sync completata: ${inventariatiCount} articoli marcati come inventariati`);
@@ -2041,24 +2044,25 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     
     // Aggiorna giacenza
     const updatedGiacenza = giacenza.map(item => {
-        if (item.ID_Riga !== found.ID_Riga) return item;
-        
-        if (tuttoInventariato) {
-            return { 
-                ...item, 
-                inventariato: true, 
-                Match: match ? 'OK' : 'KO', 
-                'Qtà': 0,
-                Ubicazioni: found.Ubicazioni 
-            };
-        } else {
-            return { 
-                ...item, 
-                'Qtà': qtaRimanente,
-                Ubicazioni: found.Ubicazioni 
-            };
-        }
-    });
+    if (item.ID_Riga !== found.ID_Riga) return item;
+    
+    if (tuttoInventariato) {
+        return { 
+            ...item, 
+            inventariato: true,  // ← Marca inventariato solo a Qtà 0
+            Match: match ? 'OK' : 'KO', 
+            'Qtà': 0,
+            Ubicazioni: found.Ubicazioni 
+        };
+    } else {
+        return { 
+            ...item, 
+            inventariato: false,  // ✅ AGGIUNTO: ancora da inventariare!
+            'Qtà': qtaRimanente,
+            Ubicazioni: found.Ubicazioni 
+        };
+    }
+});
     
     const newEntry = { 
         id: Date.now() + Math.random(),
@@ -2294,10 +2298,10 @@ const qtaRimanente = qtaDisponibile - qtaDaInventariare;
 const tuttoInventariato = qtaRimanente === 0;
 
 // 1. SALVA SUBITO CON MATCH e quantità
+// ✅ NUOVO CODICE
 const updatedGiacenza = giacenza.map(item => {
     if (item.ID_Riga !== found.ID_Riga) return item;
     
-    // Se quantità arriva a 0, marca inventariato
     if (tuttoInventariato) {
         return { 
             ...item, 
@@ -2307,9 +2311,9 @@ const updatedGiacenza = giacenza.map(item => {
             Ubicazioni: found.Ubicazioni 
         };
     } else {
-        // Altrimenti riduci solo la quantità
         return { 
             ...item, 
+            inventariato: false,  // ✅ AGGIUNTO
             'Qtà': qtaRimanente,
             Ubicazioni: found.Ubicazioni 
         };
