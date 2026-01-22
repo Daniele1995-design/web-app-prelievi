@@ -1843,6 +1843,7 @@ const excelData = storico.map(item => ({
         function ModeScanner({ user }) {
             const [scanInput, setScanInput] = useState('');
             const [giacenza, setGiacenza] = useState([]);
+            const [recentlyScanned, setRecentlyScanned] = useState(new Set());
             const [storico, setStorico] = useState([]);
             const [currentItem, setCurrentItem] = useState(null);
             const [message, setMessage] = useState({ type: '', text: '' });
@@ -2167,6 +2168,29 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         setTimeout(() => {
             if (inputRef.current) inputRef.current.focus();
         }, 100);
+
+        // ✅ CHECK 1.5: Blocco temporaneo seriali in elaborazione
+if (recentlyScanned.has(scanned)) {
+    setMessage({ 
+        type: 'warning', 
+        text: '⏳ ELABORAZIONE IN CORSO - Attendi...' 
+    });
+    playBeep('error');
+    setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    return;
+}
+
+// Aggiungi al set
+setRecentlyScanned(prev => new Set(prev).add(scanned));
+
+// Rimuovi dopo 5 secondi
+setTimeout(() => {
+    setRecentlyScanned(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(scanned);
+        return newSet;
+    });
+}, 5000);
         
         // ✅ CHECK 1: Seriale appena scansionato
         if (scanned === lastScannedSerial) {
@@ -2177,28 +2201,43 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         }
         
         // ✅ CHECK 2: Cerca articoli con questo seriale
-        const tuttiMatch = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
-        );
+        // ✅ CHECK 2: Cerca articoli con questo seriale IN CACHE LOCALE (già aggiornata)
+const tuttiMatch = giacenza.filter(item => 
+    String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+);
+
+console.log(`📊 Totale articoli con seriale ${scanned}: ${tuttiMatch.length}`);
+
+// ✅ NUOVO: Verifica anche nello storico locale se è appena stato inventariato
+const appenaInventariato = storico.some(s => 
+    String(s.Seriale_Riscontrato || '').toUpperCase() === scanned &&
+    Date.now() - new Date(s.Timestamp).getTime() < 10000 // Ultimi 10 secondi
+);
+
+if (appenaInventariato) {
+    console.log('⚠️ SERIALE APPENA INVENTARIATO (controllo storico locale)');
+    setMessage({ 
+        type: 'warning', 
+        text: '⚠️ APPENA INVENTARIATO - Attendi sync database' 
+    });
+    playBeep('error');
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    return;
+}
 
         console.log(`📊 Totale articoli con seriale ${scanned}: ${tuttiMatch.length}`);
         
-        // ✅ FIX: Separa disponibili CONSIDERANDO anche "inventariato in corso"
+        // Separa disponibili (Qtà > 0) da esauriti (Qtà = 0)
         const disponibili = tuttiMatch.filter(item => {
             const qtaDisponibile = item['Qtà'];
-            const isInventariatoInCorso = item._inventariatoInCorso === true; // ← NUOVO FLAG
-            const isDisponibile = qtaDisponibile !== undefined && 
-                                  qtaDisponibile !== null && 
-                                  qtaDisponibile > 0 && 
-                                  !isInventariatoInCorso; // ← BLOCCA se in corso
-            
-            console.log(`🔍 ID_Riga=${item.ID_Riga}, Qtà=${qtaDisponibile}, InCorso=${isInventariatoInCorso}, Disponibile=${isDisponibile}`);
+            const isDisponibile = qtaDisponibile !== undefined && qtaDisponibile !== null && qtaDisponibile > 0;
+            console.log(`🔍 ID_Riga=${item.ID_Riga}, Qtà=${qtaDisponibile}, Disponibile=${isDisponibile}`);
             return isDisponibile;
         });
         
         const esauriti = tuttiMatch.filter(item => {
             const qtaDisponibile = item['Qtà'];
-            return qtaDisponibile === 0 || item._inventariatoInCorso === true;
+            return qtaDisponibile === 0;
         });
 
         console.log(`✅ Disponibili: ${disponibili.length}, ❌ Esauriti: ${esauriti.length}`);
@@ -2206,9 +2245,10 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         // ✅ CASO 1: Nessun articolo disponibile
         if (disponibili.length === 0) {
             if (esauriti.length > 0) {
-                const tuttiOK = esauriti.every(i => i.Match === 'OK' || i._inventariatoInCorso);
+                // Tutti esauriti
+                const tuttiOK = esauriti.every(i => i.Match === 'OK');
                 
-                console.log('⚠️ Tutti gli articoli hanno Qtà = 0 o sono in corso di inventario');
+                console.log('⚠️ Tutti gli articoli hanno Qtà = 0');
                 playBeep('error');
                 
                 setMessage({ 
@@ -2261,20 +2301,11 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
         const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
         const qtaDisponibile = found['Qtà'];
         
-        // ✅ NUOVO: MARCA SUBITO come "in corso" PRIMA di tutto
-        const giacenzaConFlag = giacenza.map(item =>
-            item.ID_Riga === found.ID_Riga
-                ? { ...item, _inventariatoInCorso: true }
-                : item
-        );
-        setGiacenza(giacenzaConFlag);
-        appCache.giacenza = giacenzaConFlag;
-        
         console.log(`✅ Match unico: ID_Riga=${found.ID_Riga}, Qtà disponibile=${qtaDisponibile}`);
         
         let qtaDaInventariare;
 
-        // Gestione quantità (popup se > 1)
+        // ✅ SE Qtà > 1 → CHIEDI con popup
         if (qtaDisponibile > 1) {
             const qtaInput = prompt(
                 `📦 QUANTITÀ DA INVENTARIARE\n\n` +
@@ -2286,15 +2317,6 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             );
             
             if (qtaInput === null) {
-                // ✅ Se annulla, RIMUOVI il flag
-                const giacenzaSenzaFlag = giacenza.map(item =>
-                    item.ID_Riga === found.ID_Riga
-                        ? { ...item, _inventariatoInCorso: false }
-                        : item
-                );
-                setGiacenza(giacenzaSenzaFlag);
-                appCache.giacenza = giacenzaSenzaFlag;
-                
                 setMessage({ type: 'warning', text: '❌ Inventario annullato' });
                 return;
             }
@@ -2302,20 +2324,12 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
             
             if (qtaDaInventariare <= 0) {
-                // ✅ Se quantità non valida, RIMUOVI il flag
-                const giacenzaSenzaFlag = giacenza.map(item =>
-                    item.ID_Riga === found.ID_Riga
-                        ? { ...item, _inventariatoInCorso: false }
-                        : item
-                );
-                setGiacenza(giacenzaSenzaFlag);
-                appCache.giacenza = giacenzaSenzaFlag;
-                
                 setMessage({ type: 'error', text: '❌ Quantità non valida!' });
                 playBeep('error');
                 return;
             }
         } else {
+            // ✅ SE Qtà = 1 → Inventaria diretto
             qtaDaInventariare = qtaDisponibile;
         }
 
@@ -2324,28 +2338,6 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
 
         console.log(`📦 Inventario: ${qtaDaInventariare} pezzi, rimangono: ${qtaRimanente}`);
 
-        // ✅ AGGIORNA GIACENZA (rimuovi flag e aggiorna dati reali)
-        const updatedGiacenza = giacenza.map(item => {
-            if (item.ID_Riga !== found.ID_Riga) return item;
-            
-            if (tuttoInventariato) {
-                return { 
-                    ...item, 
-                    inventariato: true, 
-                    Match: match ? 'OK' : 'KO', 
-                    'Qtà': 0,
-                    Ubicazioni: found.Ubicazioni,
-                    _inventariatoInCorso: false // ← RIMUOVI FLAG
-                };
-            } else {
-                return { 
-                    ...item, 
-                    'Qtà': qtaRimanente,
-                    Ubicazioni: found.Ubicazioni,
-                    _inventariatoInCorso: false // ← RIMUOVI FLAG
-                };
-            }
-        });
 
 // 1. SALVA SUBITO CON MATCH e quantità
 const updatedGiacenza = giacenza.map(item => {
@@ -2371,138 +2363,161 @@ const updatedGiacenza = giacenza.map(item => {
 });
 
 const newEntry = { 
-            id: Date.now() + Math.random(),
-            Timestamp: new Date().toISOString(), 
-            Operatore: user.nome || user.username, 
-            Seriale_Riscontrato: scanned, 
-            Match: match ? 'OK' : 'KO',
-            CodSap: found.CodSap,
-            Descrizione: found.Descrizione,
-            Cdc: found.Cdc,
-            Posizione: found.Posizione || '',
-            Stato: found.Stato,
-            Ubicazioni: found.Ubicazioni,
-            RISCONTROSERIALEF: found.RISCONTROSERIALEF,
-            WMSCode: found.WMSCode,
-            PoNr: found.PoNr,
-            PartNumber: found.PartNumber || '',
-            'Qtà': qtaDaInventariare,
-            QtàRimanente: qtaRimanente
-        };
+    id: Date.now() + Math.random(),
+    Timestamp: new Date().toISOString(), 
+    Operatore: user.nome || user.username, 
+    Seriale_Riscontrato: scanned, 
+    Match: match ? 'OK' : 'KO',
+    CodSap: found.CodSap,
+    Descrizione: found.Descrizione,
+    Cdc: found.Cdc,
+    Posizione: found.Posizione || '',
+    Stato: found.Stato,
+    Ubicazioni: found.Ubicazioni,
+    RISCONTROSERIALEF: found.RISCONTROSERIALEF,
+    WMSCode: found.WMSCode,
+    PoNr: found.PoNr,
+    PartNumber: found.PartNumber || '',
+    'Qtà': qtaDaInventariare, //  Quantità inventariata
+    QtàRimanente: qtaRimanente //  Info utile
+};
 
-        const updatedStorico = [newEntry, ...storico];
+const updatedStorico = [newEntry, ...storico];
 
-        setGiacenza(updatedGiacenza);
-        setStorico(updatedStorico);
-        setCurrentItem(found);
-        setNewUbicazione(found.Ubicazioni);
-        setNewPartNumber(found.PartNumber || '');
-        setNewNote(found.Note || '');
+setGiacenza(updatedGiacenza);
+setStorico(updatedStorico);
+setCurrentItem(found);
+setNewUbicazione(found.Ubicazioni);
+setNewPartNumber(found.PartNumber || '');
+setNewNote(found.Note || '');
 
-        if (tuttoInventariato) {
-            setMessage({ 
-                type: match ? 'success' : 'error', 
-                text: match ? `✅ TUTTO INVENTARIATO (${qtaDaInventariare})` : `❌ MISMATCH (${qtaDaInventariare})` 
-            });
-        } else {
-            setMessage({ 
-                type: 'success', 
-                text: `✅ INVENTARIATI ${qtaDaInventariare} - RIMANGONO ${qtaRimanente}` 
-            });
+// Messaggio adattato
+if (tuttoInventariato) {
+    setMessage({ 
+        type: match ? 'success' : 'error', 
+        text: match ? `✅ TUTTO INVENTARIATO (${qtaDaInventariare})` : `❌ MISMATCH (${qtaDaInventariare})` 
+    });
+} else {
+    setMessage({ 
+        type: 'success', 
+        text: `✅ INVENTARIATI ${qtaDaInventariare} - RIMANGONO ${qtaRimanente}` 
+    });
+}
+
+playBeep(match ? 'success' : 'error');
+
+appCache.giacenza = updatedGiacenza;
+appCache.storico = updatedStorico;
+setLastScannedSerial(scanned);
+
+window.dispatchEvent(new CustomEvent('ats-data-updated', {
+    detail: { giacenza: updatedGiacenza, storico: updatedStorico }
+}));
+
+// Reset quantità dopo inventario
+setQuantitaDaInventariare(1);
+
+// 2. SALVA SU SERVER CON VERIFICA IMMEDIATA
+try {
+    console.log('💾 Salvataggio su DB:', {
+        idRigaGiacenza: found.ID_Riga,
+        qtaDaInventariare,
+        qtaRimanente,
+        tuttoInventariato
+    });
+    
+    // ✅ STEP 1: Salva in inventario
+    const saveResult = await api('saveRiscontro', {
+        data: {
+            operatore: user.nome || user.username,
+            codSap: found.CodSap,
+            descrizione: found.Descrizione,
+            ubicazione: found.Ubicazioni,
+            serialeAtteso: found.RISCONTROSERIALEF,
+            serialeRiscontrato: scanned,
+            match: match ? 'OK' : 'KO',
+            qta: qtaDaInventariare,
+            wmsCode: found.WMSCode || '',
+            cdc: found.Cdc || '',
+            posizione: found.Posizione || '',
+            poNr: found.PoNr || '',
+            partNumber: found.PartNumber || '',
+            idRigaGiacenza: found.ID_Riga || '',
+            stato: found.Stato || '',
+            note: '',
+            serSN: found['SerS/No'] || 'No'
         }
+    });
+    
+    console.log('✅ Salvato in inventario con ID:', saveResult.id);
+    
+    // ✅ STEP 2: Verifica IMMEDIATA che giacenza sia stata aggiornata
+    const { data: giacenzaVerifica, error: verificaErr } = await supabaseClient
+        .from('giacenza')
+        .select('qta, match')
+        .eq('id_riga', found.ID_Riga)
+        .single();
+    
+    if (verificaErr) {
+        console.error('❌ ERRORE VERIFICA GIACENZA:', verificaErr);
+        throw verificaErr;
+    }
+    
+    console.log('🔍 VERIFICA GIACENZA:', giacenzaVerifica);
+    
+    // ✅ CONTROLLO: Se quantità NON corrisponde, ROLLBACK
+    if (giacenzaVerifica.qta !== qtaRimanente) {
+        console.error('❌ MISMATCH QUANTITÀ!', {
+            attesa: qtaRimanente,
+            trovata: giacenzaVerifica.qta
+        });
+        
+        // ROLLBACK: cancella da inventario
+        await supabaseClient
+            .from('inventario')
+            .delete()
+            .eq('id', saveResult.id);
+        
+        // ROLLBACK: ripristina stato locale
+        setGiacenza(giacenza);
+        setStorico(storico);
+        appCache.giacenza = giacenza;
+        appCache.storico = storico;
+        
+        setMessage({ 
+            type: 'error', 
+            text: '❌ ERRORE SYNC - Operazione annullata' 
+        });
+        
+        alert(
+            '⚠️ ERRORE SINCRONIZZAZIONE!\n\n' +
+            `Quantità attesa: ${qtaRimanente}\n` +
+            `Quantità trovata: ${giacenzaVerifica.qta}\n\n` +
+            'Operazione annullata. Riprova tra qualche secondo.'
+        );
+        return;
+    }
+    
+    console.log('✅ SYNC VERIFICATA - Tutto OK');
+    
+    window.dispatchEvent(new CustomEvent('ats-data-updated', {
+        detail: { giacenza: giacenza, storico: storico }
+    }));
+    
+} catch (err) {
+    console.error('❌ Errore Supabase:', err);
+    
+    // ROLLBACK: ripristina stato precedente
+    setGiacenza(giacenza);
+    setStorico(storico);
+    appCache.giacenza = giacenza;
+    appCache.storico = storico;
+    
+    setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
+    alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
+    return;
+}
 
-        playBeep(match ? 'success' : 'error');
-
-        appCache.giacenza = updatedGiacenza;
-        appCache.storico = updatedStorico;
-        setLastScannedSerial(scanned);
-
-        window.dispatchEvent(new CustomEvent('ats-data-updated', {
-            detail: { giacenza: updatedGiacenza, storico: updatedStorico }
-        }));
-
-        setQuantitaDaInventariare(1);
-
-        // 2. SALVA SU SERVER IN BACKGROUND
-        try {
-            console.log('💾 Salvataggio su DB:', {
-                idRigaGiacenza: found.ID_Riga,
-                qtaDaInventariare,
-                qtaRimanente,
-                tuttoInventariato
-            });
-            
-            const saveResult = await api('saveRiscontro', {
-                data: {
-                    operatore: user.nome || user.username,
-                    codSap: found.CodSap,
-                    descrizione: found.Descrizione,
-                    ubicazione: found.Ubicazioni,
-                    serialeAtteso: found.RISCONTROSERIALEF,
-                    serialeRiscontrato: scanned,
-                    match: match ? 'OK' : 'KO',
-                    qta: qtaDaInventariare,
-                    wmsCode: found.WMSCode || '',
-                    cdc: found.Cdc || '',
-                    posizione: found.Posizione || '',
-                    poNr: found.PoNr || '',
-                    partNumber: found.PartNumber || '',
-                    idRigaGiacenza: found.ID_Riga || '',
-                    stato: found.Stato || '',
-                    note: '',
-                    serSN: found['SerS/No'] || 'No'
-                }
-            });
-            
-            console.log('✅ Salvato in inventario con ID:', saveResult.id);
-            
-            const { data: giacenzaUpdated, error: giacErr } = await supabaseClient
-                .from('giacenza')
-                .update({ 
-                    qta: qtaRimanente,
-                    match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
-                    stato: found.Stato,
-                    ubicazioni: found.Ubicazioni,
-                    posizione: found.Posizione || '',
-                    part_number: found.PartNumber || '',
-                    seriale_riscontrato: tuttoInventariato ? scanned : null,
-                    operatore: tuttoInventariato ? (user.nome || user.username) : null,
-                    note: found.Note || '',
-                    timestamp: tuttoInventariato ? new Date().toISOString() : null
-                })
-                .eq('id_riga', found.ID_Riga)
-                .select();
-            
-            if (giacErr) {
-                console.error('❌ ERRORE UPDATE GIACENZA:', giacErr);
-                throw giacErr;
-            }
-            
-            console.log('✅ Giacenza aggiornata:', giacenzaUpdated);
-            
-            window.dispatchEvent(new CustomEvent('ats-data-updated', {
-                detail: { giacenza: giacenza, storico: storico }
-            }));
-            
-        } catch (err) {
-            console.error('❌ Errore Supabase:', err);
-            
-            // Rollback: ripristina stato precedente (rimuovi flag)
-            const rollbackGiacenza = giacenza.map(item =>
-                item.ID_Riga === found.ID_Riga
-                    ? { ...item, _inventariatoInCorso: false }
-                    : item
-            );
-            
-            setGiacenza(rollbackGiacenza);
-            setStorico(storico);
-            appCache.giacenza = rollbackGiacenza;
-            appCache.storico = storico;
-            
-            setMessage({ type: 'error', text: '❌ ERRORE SERVER: operazione annullata' });
-            alert('⚠️ Errore comunicazione con Supabase.\n\n' + err.message);
-            return;
-        }
     // 3. DOPO IL SALVATAGGIO, GESTISCI UBICAZIONE
     if (match) {
         const ubicazioneAttuale = found.Ubicazioni || '';
