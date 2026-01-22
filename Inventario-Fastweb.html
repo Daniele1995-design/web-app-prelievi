@@ -770,26 +770,13 @@ case 'saveRiscontro':
 case 'registraScansione':
     const sd = payload.data || payload;
     
+    //  CONTROLLO 1: Verifica che ci sia ID_Riga
     if (!sd.idRigaGiacenza) {
         console.error('❌ Manca ID_Riga!', sd);
         throw new Error('ID Riga mancante');
     }
     
-    // Leggi qta attuale
-    const { data: giacenzaRow, error: readErr } = await supabaseClient
-        .from('giacenza')
-        .select('qta')
-        .eq('id_riga', sd.idRigaGiacenza)
-        .single();
-    
-    if (readErr) throw readErr;
-    let currentQta = giacenzaRow?.qta || 1;
-    
-    if (currentQta <= 0) {
-        throw new Error('Qtà già 0 → Seriali già lavorati per questo ID riga');
-    }
-    
-    // Inserisci in inventario
+    //  STEP 1: Inserisci in INVENTARIO
     const { data: insertedData, error: iErr } = await supabaseClient
         .from('inventario')
         .insert([{
@@ -800,7 +787,7 @@ case 'registraScansione':
             seriale_atteso: sd.serialeAtteso,
             seriale_riscontrato: sd.serialeRiscontrato,
             match: sd.match === 'OK' || sd.match === true,
-            qta: 1,
+            qta: sd.qta || 1,
             wms_code: sd.wmsCode,
             cdc: sd.cdc,
             posizione: sd.posizione || '',
@@ -815,44 +802,43 @@ case 'registraScansione':
     
     if (iErr) throw iErr;
     
-    // Decrementa qta
-    currentQta -= 1;
+    // CONTROLLO 2: Verifica che insert sia riuscito
+    if (!insertedData || insertedData.length === 0) {
+        throw new Error('Insert fallito');
+    }
     
-    // Aggiorna giacenza
+    console.log('✅ Salvato in inventario ID:', insertedData[0].id);
+    
+    //  STEP 2: Aggiorna GIACENZA (usa ID_RIGA invece di seriale!)
     const { data: updatedRows, error: uErr } = await supabaseClient
         .from('giacenza')
         .update({ 
             match: sd.match === 'OK' ? 'OK' : 'KO',
-            stato: currentQta > 0 ? sd.stato : 'INVENTARIATO',
+            stato: sd.stato,
             ubicazioni: sd.ubicazione,
             posizione: sd.posizione || '',
             part_number: sd.partNumber,
             seriale_riscontrato: sd.serialeRiscontrato,
             operatore: sd.operatore,
             note: sd.note || '',
-            timestamp: new Date().toISOString(),
-            qta: currentQta
+            timestamp: new Date().toISOString()
         })
-        .eq('id_riga', sd.idRigaGiacenza)
+        .eq('id_riga', sd.idRigaGiacenza) // ← FIX: usa ID univoco
         .select();
     
-    if (uErr) throw uErr;
-    
-    // Aggiorna cache locale
-    if (appCache.giacenza) {
-        appCache.giacenza = appCache.giacenza.map(g => 
-            g.ID_Riga === sd.idRigaGiacenza 
-                ? { ...g, 'Qtà': currentQta, inventariato: currentQta === 0 } 
-                : g
-        );
-        window.dispatchEvent(new CustomEvent('ats-data-updated', { detail: { giacenza: appCache.giacenza } }));
+    //  CONTROLLO 3: Verifica che update sia riuscito
+    if (uErr) {
+        console.error('❌ Errore update giacenza:', uErr);
     }
     
+    const rowsUpdated = updatedRows?.length || 0;
+    console.log('✅ Giacenza aggiornata:', rowsUpdated, 'righe');
+    
+    //  RETURN con dettagli
     return {
         success: true, 
         id: insertedData[0]?.id,
-        giacenzaUpdated: updatedRows?.length || 0,
-        remainingQta: currentQta
+        giacenzaUpdated: rowsUpdated // ← NUOVO: indica se giacenza è ok
     };
 
             // ========== AGGIORNA SOLO INVENTARIO (Scanner + Storico) ==========
@@ -978,9 +964,10 @@ case 'updateInventarioNote':
     console.log('✅ Seriale aggiornato in GIACENZA');
     return { success: true };
 
-           case 'batchSaveRiscontro':
+            case 'batchSaveRiscontro':
     const items = payload.items || [];
     
+    // Insert multipli in inventario (batch)
     const inventarioRecords = items.map(item => ({
         operatore: item.operatore,
         cod_sap: item.codSap,
@@ -998,7 +985,7 @@ case 'updateInventarioNote':
         id_riga_giacenza: item.idRigaGiacenza,
         note: item.note,
         stato: item.stato,
-        ser_sn: item.serSN || 'No'
+        ser_sn: item.serSN || 'No' // ✅ NEW
     }));
     
     const { error: batchInvErr } = await supabaseClient
@@ -1007,52 +994,23 @@ case 'updateInventarioNote':
     
     if (batchInvErr) throw batchInvErr;
     
-    // Decremento qta per ogni riga
+    //  FIX: Update multipli usando ID_Riga invece di seriale
     for (const item of items) {
-        const qtaDaTogliere = item.qta || 1;
-        
-        const { data: row, error: readErr } = await supabaseClient
-            .from('giacenza')
-            .select('qta')
-            .eq('id_riga', item.idRigaGiacenza)
-            .single();
-        
-        if (readErr) throw readErr;
-        
-        let currentQta = row?.qta || 1;
-        
-        if (currentQta < qtaDaTogliere) {
-            throw new Error(`Qtà insufficiente per ID ${item.idRigaGiacenza} (rimane ${currentQta}, servono ${qtaDaTogliere})`);
-        }
-        
-        currentQta -= qtaDaTogliere;
-        
         await supabaseClient
             .from('giacenza')
             .update({
                 match: 'OK',
-                stato: currentQta > 0 ? item.stato : 'INVENTARIATO',
+                stato: item.stato,
                 ubicazioni: item.ubicazione,
                 posizione: item.posizione || '',
                 part_number: item.partNumber,
                 seriale_riscontrato: item.serialeRiscontrato,
                 operatore: item.operatore,
                 note: item.note || '',
-                timestamp: new Date().toISOString(),
-                qta: currentQta
+                timestamp: new Date().toISOString()
             })
-            .eq('id_riga', item.idRigaGiacenza);
-        
-        if (appCache.giacenza) {
-            appCache.giacenza = appCache.giacenza.map(g => 
-                g.ID_Riga === item.idRigaGiacenza 
-                    ? { ...g, 'Qtà': currentQta, inventariato: currentQta === 0 } 
-                    : g
-            );
-        }
+            .eq('id_riga', item.idRigaGiacenza); //  FIX: Match per ID invece di seriale
     }
-    
-    window.dispatchEvent(new CustomEvent('ats-data-updated', { detail: { giacenza: appCache.giacenza } }));
     
     return { success: true };
 
@@ -2245,64 +2203,13 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             setShowDuplicateModal(true);
             return;
         }
-//  CASO 3: Match unico - Logica quantità intelligente + controllo duplicati
+//  CASO 3: Match unico - Logica quantità intelligente
 const found = allMatches[0];
-
-// ✅ CONTROLLO 1: Se quantità in giacenza = 0 → GIÀ INVENTARIATO
-if ((found['Qtà'] || 0) === 0) {
-    setMessage({ 
-        type: 'error', 
-        text: `❌ ARTICOLO GIÀ INVENTARIATO!\nSeriale: ${scanned}\nQtà rimanente: 0` 
-    });
-    playBeep('error');
-    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-    return;
-}
-
-// ✅ CONTROLLO 2: Verifica se ID_Riga è già presente in inventario
-try {
-    const { data: existingInventory, error: checkError } = await supabaseClient
-        .from('inventario')
-        .select('id, qta')
-        .eq('id_riga_giacenza', found.ID_Riga);
-    
-    if (checkError) throw checkError;
-    
-    // Se esiste almeno un record con questo ID_Riga
-    if (existingInventory && existingInventory.length > 0) {
-        // Calcola quantità già inventariata
-        const qtaGiaInventariata = existingInventory.reduce((sum, inv) => sum + (inv.qta || 0), 0);
-        const qtaDisponibile = found['Qtà'] || 0;
-        
-        // Se quantità inventariata >= quantità totale originale
-        if (qtaGiaInventariata >= qtaDisponibile) {
-            setMessage({ 
-                type: 'error', 
-                text: `❌ ARTICOLO GIÀ COMPLETAMENTE INVENTARIATO!\n\n` +
-                      `ID Riga: ${found.ID_Riga}\n` +
-                      `Seriale: ${scanned}\n` +
-                      `Qtà già inventariata: ${qtaGiaInventariata}\n` +
-                      `Qtà rimanente in giacenza: ${qtaDisponibile}` 
-            });
-            playBeep('error');
-            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
-            return;
-        }
-        
-        // Se c'è ancora quantità disponibile, informa l'utente
-        console.log(`⚠️ ID_Riga già parzialmente inventariato: ${qtaGiaInventariata}/${qtaDisponibile}`);
-    }
-} catch (err) {
-    console.error('❌ Errore controllo inventario:', err);
-    alert('⚠️ Errore controllo duplicati: ' + err.message);
-    return;
-}
-
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 const qtaDisponibile = found['Qtà'] || 0;
 let qtaDaInventariare;
 
-//  ✅ SE Qtà > 1 → CHIEDI SEMPRE con popup
+//  SE Qtà > 1 → CHIEDI con popup
 if (qtaDisponibile > 1) {
     const qtaInput = prompt(
         `📦 QUANTITÀ DA INVENTARIARE\n\n` +
@@ -4351,26 +4258,8 @@ const aggiornaMassivoPartNumber = async () => {
 const verificaMassivo = async () => {
     if (selected.length === 0) return alert('Seleziona almeno un articolo');
     
-    // ✅ CONTROLLO PREVENTIVO: Filtra articoli già inventariati (Qtà = 0)
-    const articoliValidi = selected.filter(item => (item['Qtà'] || 0) > 0);
-    const articoliGiaInventariati = selected.filter(item => (item['Qtà'] || 0) === 0);
-    
-    if (articoliGiaInventariati.length > 0) {
-        alert(
-            `⚠️ ATTENZIONE!\n\n` +
-            `${articoliGiaInventariati.length} articoli selezionati hanno quantità = 0 (già inventariati).\n\n` +
-            `Questi verranno ESCLUSI dall'inventario.\n\n` +
-            `Articoli validi da inventariare: ${articoliValidi.length}`
-        );
-    }
-    
-    if (articoliValidi.length === 0) {
-        alert('❌ Tutti gli articoli selezionati sono già inventariati (Qtà = 0)!');
-        return;
-    }
-    
-    const ubicazioneFinale = bulkUbicazione.trim() || articoliValidi[0].Ubicazioni;
-    const partNumberFinale = bulkPartNumber.trim() || articoliValidi[0].PartNumber;
+    const ubicazioneFinale = bulkUbicazione.trim() || selected[0].Ubicazioni;
+    const partNumberFinale = bulkPartNumber.trim() || selected[0].PartNumber;
     const qtaDaInventariareInput = bulkQuantita;
     
     // ✅ CASO 1: Quantità fissa specificata → usa quella per tutti
@@ -4378,25 +4267,25 @@ const verificaMassivo = async () => {
         const qtaFissa = parseInt(qtaDaInventariareInput);
         
         const conferma = window.confirm(
-            `Inventariare ${articoliValidi.length} articoli con quantità ${qtaFissa}?`
+            `Inventariare ${selected.length} articoli con quantità ${qtaFissa}?`
         );
         if (!conferma) return;
         
-        await processaInventarioMassivo(articoliValidi, ubicazioneFinale, partNumberFinale, qtaFissa);
+        await processaInventarioMassivo(selected, ubicazioneFinale, partNumberFinale, qtaFissa);
         return;
     }
     
     // ✅ CASO 2: Chiedi quantità PER OGNI RIGA che ha Qtà > 1
     const daProcessare = [];
     
-    for (const item of articoliValidi) {
+    for (const item of selected) {
         const qtaDisponibile = item['Qtà'] || 0;
         let qtaDaInventariare;
         
-        // ✅ SE Qtà > 1 → CHIEDI SEMPRE
+        // ✅ SE Qtà > 1 → CHIEDI (anche per singola riga!)
         if (qtaDisponibile > 1) {
             const qtaInput = prompt(
-                `📦 INVENTARIO ${articoliValidi.length > 1 ? 'MULTIPLO' : ''}\n\n` +
+                `📦 INVENTARIO ${selected.length > 1 ? 'MULTIPLO' : ''}\n\n` +
                 `ID Riga: ${item.ID_Riga}\n` +
                 `Cod. SAP: ${item.CodSap}\n` +
                 `Seriale: ${item.RISCONTROSERIALEF || 'N/A'}\n` +
