@@ -2417,7 +2417,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             return;
         }
 
-        // 3. GESTIONE UBICAZIONE/PART NUMBER (codice già esistente)
+        // 3. GESTIONE UBICAZIONE/PART NUMBER
         if (match) {
             const ubicazioneAttuale = found.Ubicazioni || '';
             const ubicazioneAttesa = expectedUbicazione.trim().toUpperCase();
@@ -2648,12 +2648,12 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
                     }, 500);
                 }
             }
-        }                     
+        } // ← ✅ QUESTA ERA LA PARENTESI MANCANTE!
 
         setScanCount(prev => prev + 1);
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
-};                
+};          
  else {
     // NON TROVATO - chiedi se vuole aggiungere
     playBeep('error');
