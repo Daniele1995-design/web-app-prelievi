@@ -2153,25 +2153,27 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
             const handleScan = async (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const scanned = scanInput.trim().toUpperCase();
-                    setLastScannedValue(scanned);
-                    setScanInput('');
-                    setTimeout(() => {
-                        if (inputRef.current) inputRef.current.focus();
-                    }, 100);
-                     if (scanned === lastScannedSerial) {
+    if (e.key === 'Enter' && scanInput.trim()) {
+        const scanned = scanInput.trim().toUpperCase();
+        setLastScannedValue(scanned);
+        setScanInput('');
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 100);
+        
+        if (scanned === lastScannedSerial) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
             playBeep('error');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
+        
         // NUOVO - Cerca TUTTI gli articoli con questo seriale
         const allMatches = giacenza.filter(item => 
             String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
         );
 
-        //  CASO 1: Nessun match
+        // CASO 1: Nessun match
         if (allMatches.length === 0) {
             playBeep('error');
             setNewItemData({
@@ -2179,6 +2181,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
                 codSap: '',
                 ubicazione: '',
                 cdc: '',
+                posizione: '',
                 stato: '',
                 partNumber: '',
                 poNr: '',
@@ -2190,7 +2193,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             return;
         }
 
-        //  CASO 2: Più match (DUPLICATI!)
+        // CASO 2: Più match (DUPLICATI!)
         if (allMatches.length > 1) {
             setMessage({ 
                 type: 'warning', 
@@ -2203,68 +2206,71 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             setShowDuplicateModal(true);
             return;
         }
-//  CASO 3: Match unico - Logica quantità intelligente
-const found = allMatches[0];
 
+        // CASO 3: Match unico - Logica quantità intelligente
+        const found = allMatches[0];
+        
+        // ✅ FIX: DEFINISCI match QUI, PRIMA di usarlo
+        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+        
+        const qtaDisponibile = found['Qtà'] || 0;
+        let qtaDaInventariare;
 
-const qtaDisponibile = found['Qtà'] || 0;
-let qtaDaInventariare;
+        // SE Qtà > 1 → CHIEDI con popup
+        if (qtaDisponibile > 1) {
+            const qtaInput = prompt(
+                `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+                `Seriale: ${scanned}\n` +
+                `Cod. SAP: ${found.CodSap}\n` +
+                `Quantità disponibile: ${qtaDisponibile}\n\n` +
+                `Quanti ne vuoi inventariare?`,
+                qtaDisponibile // Default = tutto
+            );
+            
+            // Se annulla → STOP
+            if (qtaInput === null) {
+                setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+                return;
+            }
+            
+            qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+            
+            if (qtaDaInventariare <= 0) {
+                setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+                playBeep('error');
+                return;
+            }
+        }
+        // SE Qtà = 1 (o 0) → Inventaria diretto
+        else {
+            qtaDaInventariare = qtaDisponibile || 1;
+        }
 
-//  SE Qtà > 1 → CHIEDI con popup
-if (qtaDisponibile > 1) {
-    const qtaInput = prompt(
-        `📦 QUANTITÀ DA INVENTARIARE\n\n` +
-        `Seriale: ${scanned}\n` +
-        `Cod. SAP: ${found.CodSap}\n` +
-        `Quantità disponibile: ${qtaDisponibile}\n\n` +
-        `Quanti ne vuoi inventariare?`,
-        qtaDisponibile // Default = tutto
-    );
-    
-    // Se annulla → STOP
-    if (qtaInput === null) {
-        setMessage({ type: 'warning', text: '❌ Inventario annullato' });
-        return;
-    }
-    
-    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-    
-    if (qtaDaInventariare <= 0) {
-        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-        playBeep('error');
-        return;
-    }
-}
-//  SE Qtà = 1 (o 0) → Inventaria diretto
-else {
-    qtaDaInventariare = qtaDisponibile || 1;
-}
+        const qtaRimanente = qtaDisponibile - qtaDaInventariare;
+        const tuttoInventariato = qtaRimanente === 0;
 
-const qtaRimanente = qtaDisponibile - qtaDaInventariare;
-const tuttoInventariato = qtaRimanente === 0;
-
-// 1. SALVA SUBITO CON MATCH e quantità
-const updatedGiacenza = giacenza.map(item => {
-    if (item.ID_Riga !== found.ID_Riga) return item;
-    
-    // Se quantità arriva a 0, marca inventariato
-    if (tuttoInventariato) {
-        return { 
-            ...item, 
-            inventariato: true, 
-            Match: match ? 'OK' : 'KO', 
-            'Qtà': 0,
-            Ubicazioni: found.Ubicazioni 
-        };
-    } else {
-        // Altrimenti riduci solo la quantità
-        return { 
-            ...item, 
-            'Qtà': qtaRimanente,
-            Ubicazioni: found.Ubicazioni 
-        };
-    }
-});
+        // 1. SALVA SUBITO CON MATCH e quantità
+        const updatedGiacenza = giacenza.map(item => {
+            if (item.ID_Riga !== found.ID_Riga) return item;
+            
+            // Se quantità arriva a 0, marca inventariato
+            if (tuttoInventariato) {
+                return { 
+                    ...item, 
+                    inventariato: true, 
+                    Match: match ? 'OK' : 'KO', 
+                    'Qtà': 0,
+                    Ubicazioni: found.Ubicazioni 
+                };
+            } else {
+                // Altrimenti riduci solo la quantità
+                return { 
+                    ...item, 
+                    'Qtà': qtaRimanente,
+                    Ubicazioni: found.Ubicazioni 
+                };
+            }
+        });
 
 const newEntry = { 
     id: Date.now() + Math.random(),
@@ -3319,9 +3325,8 @@ html = `
             <div className="space-y-3 max-h-96 overflow-y-auto">
                 {duplicateMatches
                     .filter(item => {
-                        // ✅ FILTRA: mostra solo articoli NON ancora in storico
-                        const giàInventariato = storico.some(s => s.id_riga_giacenza === item.ID_Riga);
-                        return !giàInventariato;
+                        // ✅ FIX: Mostra solo articoli con Qtà > 0 (non completamente inventariati)
+                        return (item['Qtà'] || 0) > 0;
                     })
                     .map((item, idx) => {
                         const qtaDisponibile = item['Qtà'] || 0;
@@ -3405,11 +3410,11 @@ html = `
                         );
                     })}
                 
-                {/* ✅ MESSAGGIO se tutti gli articoli sono già inventariati */}
-                {duplicateMatches.every(item => storico.some(s => s.id_riga_giacenza === item.ID_Riga)) && (
+                {/* ✅ MESSAGGIO se tutti gli articoli sono completamente inventariati */}
+                {duplicateMatches.every(item => (item['Qtà'] || 0) === 0) && (
                     <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI GIÀ INVENTARIATI</p>
-                        <p className="text-yellow-700">Tutti gli articoli con questo seriale sono già stati scansionati.</p>
+                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI COMPLETAMENTE INVENTARIATI</p>
+                        <p className="text-yellow-700">Tutti gli articoli con questo seriale hanno quantità = 0.</p>
                     </div>
                 )}
             </div>
