@@ -2203,10 +2203,10 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             setShowDuplicateModal(true);
             return;
         }
-//  CASO 3: Match unico - Logica quantità intelligente
+//  CASO 3: Match unico - Logica quantità intelligente + controllo duplicati
 const found = allMatches[0];
 
-// ✅ CONTROLLO PREVENTIVO: Se quantità = 0 → GIÀ INVENTARIATO
+// ✅ CONTROLLO 1: Se quantità in giacenza = 0 → GIÀ INVENTARIATO
 if ((found['Qtà'] || 0) === 0) {
     setMessage({ 
         type: 'error', 
@@ -2214,6 +2214,45 @@ if ((found['Qtà'] || 0) === 0) {
     });
     playBeep('error');
     setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    return;
+}
+
+// ✅ CONTROLLO 2: Verifica se ID_Riga è già presente in inventario
+try {
+    const { data: existingInventory, error: checkError } = await supabaseClient
+        .from('inventario')
+        .select('id, qta')
+        .eq('id_riga_giacenza', found.ID_Riga);
+    
+    if (checkError) throw checkError;
+    
+    // Se esiste almeno un record con questo ID_Riga
+    if (existingInventory && existingInventory.length > 0) {
+        // Calcola quantità già inventariata
+        const qtaGiaInventariata = existingInventory.reduce((sum, inv) => sum + (inv.qta || 0), 0);
+        const qtaDisponibile = found['Qtà'] || 0;
+        
+        // Se quantità inventariata >= quantità totale originale
+        if (qtaGiaInventariata >= qtaDisponibile) {
+            setMessage({ 
+                type: 'error', 
+                text: `❌ ARTICOLO GIÀ COMPLETAMENTE INVENTARIATO!\n\n` +
+                      `ID Riga: ${found.ID_Riga}\n` +
+                      `Seriale: ${scanned}\n` +
+                      `Qtà già inventariata: ${qtaGiaInventariata}\n` +
+                      `Qtà rimanente in giacenza: ${qtaDisponibile}` 
+            });
+            playBeep('error');
+            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+            return;
+        }
+        
+        // Se c'è ancora quantità disponibile, informa l'utente
+        console.log(`⚠️ ID_Riga già parzialmente inventariato: ${qtaGiaInventariata}/${qtaDisponibile}`);
+    }
+} catch (err) {
+    console.error('❌ Errore controllo inventario:', err);
+    alert('⚠️ Errore controllo duplicati: ' + err.message);
     return;
 }
 
