@@ -644,7 +644,6 @@ async function syncGiacenzaWithInventario(giacenzaData) {
     try {
         console.log('🔄 Inizio sync giacenza-inventario...');
         
-        // Ottieni tutti gli ID_Riga già inventariati
         const { data: inventariati, error } = await supabaseClient
             .from('inventario')
             .select('id_riga_giacenza');
@@ -653,32 +652,41 @@ async function syncGiacenzaWithInventario(giacenzaData) {
         
         console.log(`📊 Trovati ${inventariati.length} record in inventario`);
         
-        // Crea Set per lookup veloce
         const inventariatiSet = new Set(
             inventariati.map(i => i.id_riga_giacenza).filter(Boolean)
         );
         
         console.log(`🎯 ID univoci inventariati: ${inventariatiSet.size}`);
         
-        // Marca come inventariati gli articoli che hanno ID in inventario
+        // ✅ CORRETTO: Marca come inventariati SOLO se Qtà = 0 O se ID in inventario
         const result = giacenzaData.map(item => {
+            const qtaDisponibile = item['Qtà'] || 0;
             const isInInventario = inventariatiSet.has(item.ID_Riga);
+            const inventariato = qtaDisponibile === 0 || (item.Match === 'OK' && isInInventario);
+            
+            if (inventariato && qtaDisponibile > 0) {
+                console.warn(`⚠️ ATTENZIONE: ID_Riga=${item.ID_Riga} marcato inventariato ma ha Qtà=${qtaDisponibile}`);
+            }
+            
             return {
                 ...item,
-                inventariato: item.Match === 'OK' || isInInventario
+                inventariato
             };
         });
         
         const inventariatiCount = result.filter(i => i.inventariato).length;
-        console.log(`✅ Sync completata: ${inventariatiCount} articoli marcati come inventariati`);
+        const qtaZeroCount = result.filter(i => (i['Qtà'] || 0) === 0).length;
+        
+        console.log(`✅ Sync completata:`);
+        console.log(`   - ${inventariatiCount} articoli marcati come inventariati`);
+        console.log(`   - ${qtaZeroCount} articoli con Qtà = 0`);
         
         return result;
     } catch (err) {
         console.error('❌ Errore sync giacenza-inventario:', err);
-        // Fallback: usa solo il campo match
         return giacenzaData;
     }
-} 
+}
         // ============================================
         // API BRIDGE - TUTTE LE OPERAZIONI SUPABASE
         // ============================================
@@ -2151,7 +2159,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     setScanCount(prev => prev + 1);
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
-            const handleScan = async (e) => {
+           const handleScan = async (e) => {
     if (e.key === 'Enter' && scanInput.trim()) {
         const scanned = scanInput.trim().toUpperCase();
         setLastScannedValue(scanned);
@@ -2160,6 +2168,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             if (inputRef.current) inputRef.current.focus();
         }, 100);
         
+        // ✅ CHECK 1: Seriale appena scansionato
         if (scanned === lastScannedSerial) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
             playBeep('error');
@@ -2167,36 +2176,45 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             return;
         }
         
-        // ✅ NUOVO: Filtra articoli con Qtà > 0
-        const allMatches = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
-            (item['Qtà'] || 0) > 0 // ✅ BLOCCA se Qtà = 0
-        );
-
-        // ✅ CASO 1: Nessun match (o tutti esauriti)
-        if (allMatches.length === 0) {
-            playBeep('error');
+        // ✅ CHECK 2: Cerca SOLO articoli con Qtà > 0
+        const allMatches = giacenza.filter(item => {
+            const serialeMatch = String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned;
+            const qtaDisponibile = item['Qtà'] || 0;
             
-            // ✅ Controlla se esistono articoli ma sono tutti a Qtà = 0
+            console.log(`🔍 Check item ID_Riga=${item.ID_Riga}, Seriale=${item.RISCONTROSERIALEF}, Qtà=${qtaDisponibile}, Match=${serialeMatch}`);
+            
+            return serialeMatch && qtaDisponibile > 0; // ✅ BLOCCA se Qtà = 0
+        });
+
+        console.log(`📊 Articoli trovati con Qtà > 0: ${allMatches.length}`);
+
+        // ✅ CASO 1: Nessun match CON Qtà > 0
+        if (allMatches.length === 0) {
+            // Controlla se esistono articoli ma sono tutti a Qtà = 0
             const articoliEsauriti = giacenza.filter(item => 
                 String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
             );
             
             if (articoliEsauriti.length > 0) {
+                console.log('⚠️ Articoli trovati ma tutti con Qtà = 0');
+                playBeep('error');
                 setMessage({ 
-                    type: 'warning', 
-                    text: `⚠️ ARTICOLO GIÀ COMPLETAMENTE INVENTARIATO (Qtà = 0)` 
+                    type: 'error', 
+                    text: `❌ ARTICOLO COMPLETAMENTE INVENTARIATO (${articoliEsauriti.length} righe con Qtà = 0)` 
                 });
-                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                setTimeout(() => setMessage({ type: '', text: '' }), 4000);
                 return;
             }
             
-            // Altrimenti apri modal per aggiungere nuovo
+            // Nessun articolo trovato - apri modal aggiunta
+            console.log('❌ Seriale non trovato in giacenza');
+            playBeep('error');
             setNewItemData({
                 serialeScansionato: scanned,
                 codSap: '',
                 ubicazione: '',
                 cdc: '',
+                posizione: '',
                 stato: '',
                 partNumber: '',
                 poNr: '',
@@ -2210,55 +2228,60 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
 
         // ✅ CASO 2: Più match (DUPLICATI con Qtà > 0)
         if (allMatches.length > 1) {
+            console.log(`⚠️ Trovati ${allMatches.length} duplicati con Qtà > 0`);
             setMessage({ 
                 type: 'warning', 
                 text: `⚠️ TROVATI ${allMatches.length} ARTICOLI CON STESSO SERIALE!` 
             });
             playBeep('error');
             
-            setDuplicateMatches(allMatches);
+            setDuplicateMatches(allMatches); // ✅ Passa solo articoli con Qtà > 0
             setShowDuplicateModal(true);
             return;
         }
 
         // ✅ CASO 3: Match unico con Qtà > 0
         const found = allMatches[0];
-const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
-const qtaDisponibile = found['Qtà'] || 0;
-let qtaDaInventariare;
+        const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
+        const qtaDisponibile = found['Qtà'] || 0;
+        
+        console.log(`✅ Match unico: ID_Riga=${found.ID_Riga}, Qtà disponibile=${qtaDisponibile}`);
+        
+        let qtaDaInventariare;
 
-//  SE Qtà > 1 → CHIEDI con popup
-if (qtaDisponibile > 1) {
-    const qtaInput = prompt(
-        `📦 QUANTITÀ DA INVENTARIARE\n\n` +
-        `Seriale: ${scanned}\n` +
-        `Cod. SAP: ${found.CodSap}\n` +
-        `Quantità disponibile: ${qtaDisponibile}\n\n` +
-        `Quanti ne vuoi inventariare?`,
-        qtaDisponibile // Default = tutto
-    );
-    
-    // Se annulla → STOP
-    if (qtaInput === null) {
-        setMessage({ type: 'warning', text: '❌ Inventario annullato' });
-        return;
-    }
-    
-    qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
-    
-    if (qtaDaInventariare <= 0) {
-        setMessage({ type: 'error', text: '❌ Quantità non valida!' });
-        playBeep('error');
-        return;
-    }
-}
-//  SE Qtà = 1 (o 0) → Inventaria diretto
-else {
-    qtaDaInventariare = qtaDisponibile || 1;
-}
+        // ✅ SE Qtà > 1 → CHIEDI con popup
+        if (qtaDisponibile > 1) {
+            const qtaInput = prompt(
+                `📦 QUANTITÀ DA INVENTARIARE\n\n` +
+                `Seriale: ${scanned}\n` +
+                `Cod. SAP: ${found.CodSap}\n` +
+                `Quantità disponibile: ${qtaDisponibile}\n\n` +
+                `Quanti ne vuoi inventariare?`,
+                qtaDisponibile
+            );
+            
+            if (qtaInput === null) {
+                setMessage({ type: 'warning', text: '❌ Inventario annullato' });
+                return;
+            }
+            
+            qtaDaInventariare = Math.min(parseInt(qtaInput) || 0, qtaDisponibile);
+            
+            if (qtaDaInventariare <= 0) {
+                setMessage({ type: 'error', text: '❌ Quantità non valida!' });
+                playBeep('error');
+                return;
+            }
+        } else {
+            // ✅ SE Qtà = 1 → Inventaria diretto
+            qtaDaInventariare = qtaDisponibile;
+        }
 
-const qtaRimanente = qtaDisponibile - qtaDaInventariare;
-const tuttoInventariato = qtaRimanente === 0;
+        const qtaRimanente = qtaDisponibile - qtaDaInventariare;
+        const tuttoInventariato = qtaRimanente === 0;
+
+        console.log(`📦 Inventario: ${qtaDaInventariare} pezzi, rimangono: ${qtaRimanente}`);
+
 
 // 1. SALVA SUBITO CON MATCH e quantità
 const updatedGiacenza = giacenza.map(item => {
@@ -2340,6 +2363,12 @@ setQuantitaDaInventariare(1);
 
 // 2. SALVA SU SERVER IN BACKGROUND
 try {
+     console.log('💾 Salvataggio su DB:', {
+        idRigaGiacenza: found.ID_Riga,
+        qtaDaInventariare,
+        qtaRimanente,
+        tuttoInventariato
+    });
     const saveResult = await api('saveRiscontro', {
         data: {
             operatore: user.nome || user.username,
@@ -2361,6 +2390,38 @@ try {
             serSN: found['SerS/No'] || 'No'
         }
     });
+    console.log('✅ Salvato in inventario con ID:', saveResult.id);
+     // ✅ AGGIORNA GIACENZA con nuova quantità
+    const { data: giacenzaUpdated, error: giacErr } = await supabaseClient
+        .from('giacenza')
+        .update({ 
+            qta: qtaRimanente,
+            match: tuttoInventariato ? (match ? 'OK' : 'KO') : null,
+            stato: found.Stato,
+            ubicazioni: found.Ubicazioni,
+            posizione: found.Posizione || '',
+            part_number: found.PartNumber || '',
+            seriale_riscontrato: tuttoInventariato ? scanned : null,
+            operatore: tuttoInventariato ? (user.nome || user.username) : null,
+            note: found.Note || '',
+            timestamp: tuttoInventariato ? new Date().toISOString() : null
+        })
+        .eq('id_riga', found.ID_Riga)
+        .select();
+    
+    if (giacErr) {
+        console.error('❌ ERRORE UPDATE GIACENZA:', giacErr);
+        throw giacErr;
+    }
+    
+    console.log('✅ Giacenza aggiornata:', giacenzaUpdated);
+    console.log(`📊 Nuova Qtà in DB: ${qtaRimanente}`);
+    
+} catch (err) {
+    console.error('❌ ERRORE SALVATAGGIO:', err);
+    alert('⚠️ ERRORE: ' + err.message);
+    return; // ✅ BLOCCA tutto se errore
+}
     
     if (saveResult.id) {
         newEntry.id = saveResult.id;
