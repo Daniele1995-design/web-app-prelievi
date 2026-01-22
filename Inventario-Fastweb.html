@@ -579,7 +579,7 @@ body { margin: 0px; background: #f0f0f0; font-family: Arial, sans-serif; }
     <div id="print-area" style="display:none;"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
         // ============================================
         // CONFIGURAZIONE SUPABASE
         // ============================================
@@ -1490,55 +1490,48 @@ operations: groups[action]
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
-    async function load() {
+    async function loadData() {
+        // ✅ OTTIMIZZATO: Usa cache se disponibile
+        if (appCache.giacenza && appCache.giacenza.length > 0) {
+            setGiacenza(appCache.giacenza);
+            setStorico(appCache.storico || []);
+            setLoading(false);
+            if (inputRef.current) inputRef.current.focus();
+            return;
+        }
+        
         try {
-            await dbCache.init();
+            setLoadingProgress('Caricamento dati...');
+            const [resGiac, resStor] = await Promise.all([
+                api('getGiacenza'),
+                api('getStorico')
+            ]);
             
-            const res = await api('getGiacenza');
-            const giacenzaData = res.data;
-            
-            //  NUOVO: Somma le QUANTITÀ invece di contare righe
-            const totaleQuantitaGiacenza = giacenzaData.reduce((sum, i) => sum + (i['Qtà'] || 0), 0);
-            
-            //  Carica STORICO per contare pezzi inventariati
-            const resStor = await api('getStorico');
-            const storicoData = resStor.data;
-            
-            //  Somma le quantità inventariate dallo storico
-            const totaleInventariato = storicoData.reduce((sum, i) => sum + (i['Qtà'] || 1), 0);
-            
-            const daInventariare = totaleQuantitaGiacenza; // ← Quantità RIMANENTE in giacenza
-            const matchOk = giacenzaData.filter(i => i.Match === 'OK').length;
-            const percentuale = (totaleQuantitaGiacenza + totaleInventariato) > 0 
-                ? Math.round((totaleInventariato / (totaleQuantitaGiacenza + totaleInventariato)) * 100) 
-                : 0;
-
-            const newStats = {
-                totaleGiacenza: totaleQuantitaGiacenza + totaleInventariato, // ← Totale ORIGINALE
-                totaleInventariato: totaleInventariato, // ← Pezzi inventariati
-                daInventariare: totaleQuantitaGiacenza, // ← Pezzi rimanenti
-                matchOk,
-                percentualeCompletamento: percentuale
-            };
-
-            setStats(newStats);
-            appCache.stats = newStats;
-            appCache.giacenza = giacenzaData;
-            setLoading(false);
+            setGiacenza(resGiac.data);
+            setStorico(resStor.data);
+            appCache.giacenza = resGiac.data;
+            appCache.storico = resStor.data;
         } catch (err) {
-            console.error('Errore caricamento stats:', err);
+            console.error(err);
+            alert('Errore caricamento: ' + err.message);
+        } finally {
             setLoading(false);
+            setLoadingProgress('');
+            if (inputRef.current) inputRef.current.focus();
         }
     }
     
-    load();
+    loadData();
     
-    const interval = setInterval(() => {
-        load();
-    }, 30000);
+    // ✅ OTTIMIZZATO: Listener solo per aggiornamenti esterni
+    const handleUpdate = (event) => {
+        if (event.detail?.giacenza) setGiacenza(event.detail.giacenza);
+        if (event.detail?.storico) setStorico(event.detail.storico);
+    };
     
-    return () => clearInterval(interval);
-}, []);
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, []); // ✅ IMPORTANTE: Array vuoto = esegui solo una volta
 
     useEffect(() => {
     const handleUpdate = async () => {
@@ -2153,27 +2146,46 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
 };
             const handleScan = async (e) => {
-                if (e.key === 'Enter' && scanInput.trim()) {
-                    const scanned = scanInput.trim().toUpperCase();
-                    setLastScannedValue(scanned);
-                    setScanInput('');
-                    setTimeout(() => {
-                        if (inputRef.current) inputRef.current.focus();
-                    }, 100);
-                     if (scanned === lastScannedSerial) {
+    if (e.key === 'Enter' && scanInput.trim()) {
+        const scanned = scanInput.trim().toUpperCase();
+        setLastScannedValue(scanned);
+        setScanInput('');
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 100);
+        
+        if (scanned === lastScannedSerial) {
             setMessage({ type: 'warning', text: '⚠️ SERIALE APPENA SCANSIONATO - Scansiona un altro' });
             playBeep('error');
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             return;
         }
-        // NUOVO - Cerca TUTTI gli articoli con questo seriale
+        
+        // ✅ NUOVO: Filtra articoli con Qtà > 0
         const allMatches = giacenza.filter(item => 
-            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+            String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned &&
+            (item['Qtà'] || 0) > 0 // ✅ BLOCCA se Qtà = 0
         );
 
-        //  CASO 1: Nessun match
+        // ✅ CASO 1: Nessun match (o tutti esauriti)
         if (allMatches.length === 0) {
             playBeep('error');
+            
+            // ✅ Controlla se esistono articoli ma sono tutti a Qtà = 0
+            const articoliEsauriti = giacenza.filter(item => 
+                String(item.RISCONTROSERIALEF || '').toUpperCase() === scanned
+            );
+            
+            if (articoliEsauriti.length > 0) {
+                setMessage({ 
+                    type: 'warning', 
+                    text: `⚠️ ARTICOLO GIÀ COMPLETAMENTE INVENTARIATO (Qtà = 0)` 
+                });
+                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+                return;
+            }
+            
+            // Altrimenti apri modal per aggiungere nuovo
             setNewItemData({
                 serialeScansionato: scanned,
                 codSap: '',
@@ -2190,7 +2202,7 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             return;
         }
 
-        //  CASO 2: Più match (DUPLICATI!)
+        // ✅ CASO 2: Più match (DUPLICATI con Qtà > 0)
         if (allMatches.length > 1) {
             setMessage({ 
                 type: 'warning', 
@@ -2198,13 +2210,13 @@ const processSelectedItemWithQty = async (found, scanned, qtaDaInventariare) => 
             });
             playBeep('error');
             
-            // Mostra popup di scelta
             setDuplicateMatches(allMatches);
             setShowDuplicateModal(true);
             return;
         }
-// CASO 3: Match unico - Logica quantità intelligente
-const found = allMatches[0];
+
+        // ✅ CASO 3: Match unico con Qtà > 0
+        const found = allMatches[0];
 const match = String(found.RISCONTROSERIALEF).toUpperCase() === scanned;
 const qtaDisponibile = found['Qtà'] || 0;
 
@@ -3332,38 +3344,14 @@ html = `
             </h3>
             
             <p className="mb-4 text-gray-700">
-                Trovati <strong>{duplicateMatches.length} articoli</strong> con seriale:
+                Trovati <strong>{duplicateMatches.filter(i => (i['Qtà'] || 0) > 0).length}</strong> articoli con seriale:
                 <br/>
                 <span className="text-blue-600 font-bold text-lg">{lastScannedValue}</span>
             </p>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-                {/* ✅ PRIMA: Messaggio se tutti inventariati */}
-                {duplicateMatches.filter(item => (item['Qtà'] || 0) > 0).length === 0 && (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                        <p className="text-yellow-800 font-bold text-lg mb-2">
-                            ⚠️ TUTTI GLI ARTICOLI COMPLETAMENTE INVENTARIATI
-                        </p>
-                        <p className="text-yellow-700">
-                            Seriale: <strong>{lastScannedValue}</strong>
-                            <br/>
-                            Tutti gli articoli con questo seriale hanno quantità = 0.
-                        </p>
-                        <button 
-                            onClick={() => {
-                                setShowDuplicateModal(false);
-                                setDuplicateMatches([]);
-                            }}
-                            className="mt-4 bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600"
-                        >
-                            ✓ Ho Capito
-                        </button>
-                    </div>
-                )}
-                
-                {/* ✅ POI: Lista articoli disponibili */}
                 {duplicateMatches
-                    .filter(item => (item['Qtà'] || 0) > 0)
+                    .filter(item => (item['Qtà'] || 0) > 0) // ✅ FILTRA QTÀ = 0
                     .map((item, idx) => {
                         const qtaDisponibile = item['Qtà'] || 0;
                         
@@ -3372,7 +3360,6 @@ html = `
                                 key={item.ID_Riga}
                                 className="border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition"
                                 onClick={async () => {
-                                    // ✅ GESTIONE QUANTITÀ come nello scanner principale
                                     let qtaDaInventariare;
                                     
                                     if (qtaDisponibile > 1) {
@@ -3399,10 +3386,9 @@ html = `
                                             return;
                                         }
                                     } else {
-                                        qtaDaInventariare = qtaDisponibile || 1;
+                                        qtaDaInventariare = qtaDisponibile;
                                     }
                                     
-                                    // Chiudi modal e processa con quantità
                                     setShowDuplicateModal(false);
                                     await processSelectedItemWithQty(item, lastScannedValue, qtaDaInventariare);
                                 }}
@@ -3428,14 +3414,6 @@ html = `
                                         <p className="text-xs text-gray-500 font-semibold">Descrizione</p>
                                         <p className="text-sm">{item.Descrizione || '-'}</p>
                                     </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">CDC</p>
-                                        <p className="text-sm">{item.Cdc || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-semibold">Stato</p>
-                                        <p className="text-sm">{item.Stato || '-'}</p>
-                                    </div>
                                 </div>
                                 
                                 <button className="mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600">
@@ -3444,8 +3422,15 @@ html = `
                                 </button>
                             </div>
                         );
-                    })
-                }
+                    })}
+                
+                {/* ✅ MESSAGGIO se tutti gli articoli sono esauriti */}
+                {duplicateMatches.every(item => (item['Qtà'] || 0) === 0) && (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                        <p className="text-yellow-800 font-bold text-lg mb-2">⚠️ TUTTI GLI ARTICOLI ESAURITI</p>
+                        <p className="text-yellow-700">Tutti gli articoli con questo seriale hanno quantità = 0.</p>
+                    </div>
+                )}
             </div>
             
             <button 
@@ -3810,10 +3795,10 @@ html = `
         // ============================================
         function ModeLista({ user }) {
             const [giacenza, setGiacenza] = useState([]);
-            const [filteredData, setFilteredData] = useState([]);
             const [loading, setLoading] = useState(true);
             const [loadingProgress, setLoadingProgress] = useState('');
             const [showFilters, setShowFilters] = useState(false);
+            const { useState, useEffect, useRef, useMemo } = React;
             // ✅ Carica filtri salvati all'avvio
 const [filters, setFilters] = useState(() => {
     const saved = sessionStorage.getItem('ats_lista_filters');
@@ -3831,25 +3816,22 @@ const [filters, setFilters] = useState(() => {
             const [hasMore, setHasMore] = useState(true);
             const [showColumnSelector, setShowColumnSelector] = useState(false);
             const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-     const applyFilters = () => {
-    const filtered = giacenza.reduce((acc, i) => {
-        if (i.inventariato) return acc;
-        if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.serSN && !(i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        if (filters.seriale && !(i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
+             const filteredData = useMemo(() => {
+        let result = giacenza.filter(i => !i.inventariato && (i['Qtà'] || 0) > 0);
         
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50);
-    setHasMore(filtered.length > 50);
+        if (filters.posizione) result = result.filter(i => (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase()));
+        if (filters.cdc) result = result.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.codSap) result = result.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) result = result.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.serSN) result = result.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
+        if (filters.stato) result = result.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.ubicazione) result = result.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        if (filters.seriale) result = result.filter(i => (i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase()));
+        
+        return result;
+    }, [giacenza, filters]);
+     const applyFilters = () => {
+
     setShowFilters(false);
 };
 
@@ -3898,31 +3880,18 @@ const [filters, setFilters] = useState(() => {
     }
     load();
 }, []);
-            
             useEffect(() => {
-                const handleUpdate = async (event) => {
-                    if (event.detail && event.detail.giacenza) {
-                        const updatedGiacenza = event.detail.giacenza;
-                        setGiacenza(updatedGiacenza);
-                        appCache.giacenza = updatedGiacenza;
-                        
-                        let filtered = updatedGiacenza.filter(i => !i.inventariato);
-                        if (filters.posizione) filtered = filtered.filter(i => (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase()));
-                        if (filters.cdc) filtered = filtered.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
-                        if (filters.codSap) filtered = filtered.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
-                        if (filters.poNr) filtered = filtered.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
-                        if (filters.serSN) filtered = filtered.filter(i => (i['SerS/No'] || '').toUpperCase().includes(filters.serSN.toUpperCase()));
-                        if (filters.stato) filtered = filtered.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
-                        if (filters.ubicazione) filtered = filtered.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
-                        if (filters.seriale) filtered = filtered.filter(i => (i.RISCONTROSERIALEF || '').toUpperCase().includes(filters.seriale.toUpperCase())); // ✅ NUOVO
-                        setFilteredData(filtered);
-                        setHasMore(filtered.length > displayCount);
-                    }
-                };
+    const handleUpdate = (event) => {
+        if (event.detail?.giacenza) {
+            setGiacenza(event.detail.giacenza);
+            appCache.giacenza = event.detail.giacenza;
+            // ✅ filteredData si aggiorna automaticamente!
+        }
+    };
 
-                window.addEventListener('ats-data-updated', handleUpdate);
-                return () => window.removeEventListener('ats-data-updated', handleUpdate);
-            }, [filters, displayCount]);
+    window.addEventListener('ats-data-updated', handleUpdate);
+    return () => window.removeEventListener('ats-data-updated', handleUpdate);
+}, []); // ✅ Array vuoto = esegui solo al mount
 
             //  Salva filtri ogni volta che cambiano
 useEffect(() => {
@@ -5069,7 +5038,27 @@ html += `
     // ============================================
     function Storico({ user }) {
         const [storico, setStorico] = useState([]);
-        const [filteredData, setFilteredData] = useState([]);
+const filteredData = useMemo(() => {
+        let result = [...storico];
+        
+        if (filters.operatore) result = result.filter(i => (i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase()));
+        if (filters.ubicazione) result = result.filter(i => (i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase()));
+        if (filters.posizione) result = result.filter(i => (i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase()));
+        if (filters.cdc) result = result.filter(i => (i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase()));
+        if (filters.stato) result = result.filter(i => (i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase()));
+        if (filters.match) result = result.filter(i => i.Match === filters.match);
+        if (filters.codSap) result = result.filter(i => (i.CodSap || '').toUpperCase() === filters.codSap.toUpperCase());
+        if (filters.poNr) result = result.filter(i => (i.PoNr || '').toUpperCase() === filters.poNr.toUpperCase());
+        if (filters.seriale) result = result.filter(i => (i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase()));
+        if (filters.dataOra) {
+            result = result.filter(i => {
+                const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
+                return itemDate.includes(filters.dataOra);
+            });
+        }
+        
+        return result;
+    }, [storico, filters]);
         // ✅ Carica filtri salvati all'avvio
 const [filters, setFilters] = useState(() => {
     const saved = sessionStorage.getItem('ats_storico_filters');
@@ -5109,29 +5098,7 @@ const [filters, setFilters] = useState(() => {
         const [hasMore, setHasMore] = useState(true);
         // ✅ FUNZIONE APPLICAZIONE FILTRI (PRIMA DEL RENDER)
 const applyFilters = () => {
-    const filtered = storico.reduce((acc, i) => {
-        if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
-        if (filters.operatore && !(i.Operatore || '').toLowerCase().includes(filters.operatore.toLowerCase())) return acc;
-        if (filters.ubicazione && !(i.Ubicazioni || '').toUpperCase().includes(filters.ubicazione.toUpperCase())) return acc;
-        if (filters.posizione && !(i.Posizione || '').toUpperCase().includes(filters.posizione.toUpperCase())) return acc;
-        if (filters.cdc && !(i.Cdc || '').toUpperCase().includes(filters.cdc.toUpperCase())) return acc;
-        if (filters.stato && !(i.Stato || '').toUpperCase().includes(filters.stato.toUpperCase())) return acc;
-        if (filters.match && i.Match !== filters.match) return acc;
-        if (filters.codSap && (i.CodSap || '').toUpperCase() !== filters.codSap.toUpperCase()) return acc;
-        if (filters.poNr && (i.PoNr || '').toUpperCase() !== filters.poNr.toUpperCase()) return acc;
-        if (filters.seriale && !(i.Seriale_Riscontrato || '').toUpperCase().includes(filters.seriale.toUpperCase())) return acc; // ✅ NUOVO
-        if (filters.dataOra) {
-            const itemDate = new Date(i.Timestamp).toLocaleDateString('it-IT');
-            if (!itemDate.includes(filters.dataOra)) return acc;
-        }
-        
-        acc.push(i);
-        return acc;
-    }, []);
-    
-    setFilteredData(filtered);
-    setDisplayCount(50);
-    setHasMore(filtered.length > 50);
+
     setShowFilters(false);
 };
 
